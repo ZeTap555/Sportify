@@ -1,0 +1,21 @@
+<h1>Grilla de Actividades</h1>
+<table border="1">
+    <thead>
+        <tr>
+            <th>Actividad</th>
+            <th>Día</th>
+            <th>Hora</th>
+            <th>Profesor</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for clase in clases %}
+        <tr>
+            <td>{{ clase.actividad.nombre }}</td>
+            <td>{{ clase.get_dia_display }}</td>
+            <td>{{ clase.hora }}</td>
+            <td>{{ clase.profesor|default:"Sin asignar" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
