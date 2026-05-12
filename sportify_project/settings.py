@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -52,10 +53,14 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'sportify_project.urls'
 
+# Reemplaza el bloque actual por este completo:
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        # LA LÍNEA CRÍTICA CORREGIDA:
+        'DIRS': [os.path.join(BASE_DIR, 'templates')], 
+        # (Esto le dice a Django: Busca plantillas en la carpeta 'templates' de la raíz)
+        
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -116,3 +121,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+# Static files (CSS, Images, JavaScript)
+
+
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
