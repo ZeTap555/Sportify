@@ -16,7 +16,13 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from django.shortcuts import render
+
+# Vista mínima para renderizar la plantilla login.html
+def minimal_login_view(request):
+    return render(request, 'login.html')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('', minimal_login_view, name='login'), # Esta ruta servirá el login en la raíz
 ]

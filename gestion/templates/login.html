@@ -1,0 +1,84 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Sportify</title>
+
+    <!-- FUENTE -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+
+</head>
+
+<body>
+
+    <!-- OVERLAY -->
+    <div class="overlay"></div>
+
+    <!-- LOGIN -->
+    <div class="login-container">
+
+        <!-- LOGO -->
+        <img
+            src="{% static 'img/logo_Sportify.png' %}"
+            class="logo"
+        >
+
+
+        <!-- SUBTITULO -->
+        <p class="subtitulo">
+            Iniciar sesión
+        </p>
+
+        <!-- FORM -->
+        <form>
+
+            <input
+                type="text"
+                placeholder="DNI"
+            >
+
+            <input
+                type="password"
+                placeholder="Contraseña"
+            >
+
+            <a href="#" class="forgot">
+                ¿Olvidaste tu contraseña?
+            </a>
+
+            <button type="submit">
+                INICIAR SESIÓN
+            </button>
+
+        </form>
+
+        <!-- REGISTRO -->
+        <div class="register">
+
+            ¿No tienes una cuenta?
+
+            <span>
+                Regístrate
+            </span>
+
+        </div>
+
+    </div>
+
+</body>
+
+</html>
