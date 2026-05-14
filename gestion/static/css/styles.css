@@ -9,15 +9,13 @@
 
 body{
 
-    height: 100vh;
+    min-height: 100vh;
 
     display: flex;
 
     justify-content: center;
 
     align-items: center;
-
-    overflow: hidden;
 
     font-family: 'Poppins', sans-serif;
 
@@ -30,6 +28,7 @@ body{
     background-repeat: no-repeat;
 
     position: relative;
+    padding: 40px 0;
 }
 
 
@@ -61,7 +60,7 @@ body{
 
     border-radius: 28px;
 
-    padding:240px 40px 40px;
+    padding: 240px 40px 40px;
 
     position: relative;
 
@@ -73,6 +72,14 @@ body{
         0px 0px 35px rgba(0,0,0,0.9);
 
     z-index: 2;
+}
+
+
+/* CONTENEDOR REGISTRO */
+
+.registro-container{
+
+    padding-top: 230px;
 }
 
 
@@ -89,27 +96,8 @@ body{
     left: 50%;
 
     transform: translateX(-50%);
+
     z-index: 10;
-
-   
-}
-
-
-/* TITULO */
-
-.titulo{
-
-    font-size: 78px;
-
-    font-weight: 800;
-
-    color: #d9ff00;
-
-    margin-bottom: 10px;
-
-    line-height: 1;
-
-   
 }
 
 
@@ -153,18 +141,38 @@ input{
 }
 
 
+/* COLOR NUEVO AL SELECCIONAR */
+
 input:focus{
 
-    border-color: #d9ff00;
+    border-color: #1db954;
 
     box-shadow:
-        0px 0px 10px rgba(217,255,0,0.3);
+        0px 0px 10px rgba(29,185,84,0.5);
 }
 
 
 input::placeholder{
 
     color: rgba(255,255,255,0.65);
+}
+
+
+/* INPUT DATE */
+
+input[type="date"]{
+
+    color: rgba(255,255,255,0.7);
+}
+
+
+/* INPUT FILE */
+
+input[type="file"]{
+
+    padding: 14px;
+
+    color: rgba(255,255,255,0.7);
 }
 
 
@@ -215,13 +223,13 @@ button:hover{
     transform: scale(1.03);
 
     box-shadow:
-        0px 0px 20px rgba(217,255,0,0.7);
+        0px 0px 20px rgba(29,185,84,0.7);
 }
 
 
-/* REGISTRO */
+/* TEXTO REGISTRO */
 
-.register{
+.registro-texto{
 
     margin-top: 30px;
 
@@ -231,11 +239,49 @@ button:hover{
 }
 
 
-.register span{
+.registro-texto a{
 
     color: #1db954;
 
-    font-weight: 700;
+    text-decoration: none;
 
-    cursor: pointer;
+    font-weight: 700;
+}
+
+
+/* INPUT GROUP */
+
+.input-group{
+
+    text-align: left;
+
+    margin-bottom: 18px;
+}
+
+
+/* LABELS */
+
+.input-group label{
+
+    display: block;
+
+    color: white;
+
+    font-size: 15px;
+
+    margin-bottom: 8px;
+
+    font-weight: 600;
+}
+
+
+/* INPUTS DENTRO DEL GRUPO */
+
+.input-group input{
+
+    margin-bottom: 0;
+}
+
+html{
+    overflow-y: auto;
 }

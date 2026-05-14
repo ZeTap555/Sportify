@@ -1,0 +1,161 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Registro - Sportify</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+
+</head>
+
+<body>
+
+    <div class="overlay"></div>
+
+    <div class="login-container registro-container">
+
+        <!-- LOGO -->
+        <img
+            src="{% static 'img/logo_Sportify.png' %}"
+            class="logo"
+        >
+
+        <!-- SUBTITULO -->
+        <p class="subtitulo">
+            Crear cuenta
+        </p>
+
+        <!-- FORM -->
+        <form>
+
+            <div class="input-group">
+
+                <label>
+                    Nombre y apellido
+                </label>
+
+                <input
+                    type="text"
+                    placeholder="Ingrese su nombre y apellido"
+                >
+
+            </div>
+
+
+            <div class="input-group">
+
+                <label>
+                    DNI
+                </label>
+
+                <input
+                    type="text"
+                    placeholder="Ingrese su DNI"
+                >
+
+            </div>
+
+
+            <div class="input-group">
+
+                <label>
+                    Fecha de nacimiento(DD/MM/YY)
+                </label>
+
+                <input
+                    type="text" 
+                    PLACEHOLDER="(DD/MM/YY)"
+                >
+
+            </div>
+
+
+            <div class="input-group">
+
+                <label>
+                    Teléfono
+                </label>
+
+                <input
+                    type="text"
+                    placeholder="Ingrese su teléfono"
+                >
+
+            </div>
+
+
+            <div class="input-group">
+
+                <label>
+                    Correo electrónico
+                </label>
+
+                <input
+                    type="email"
+                    placeholder="Ingrese su correo"
+                >
+
+            </div>
+
+
+            <div class="input-group">
+
+                <label>
+                   Archivo del apto físico
+                </label>
+
+                <input
+                    type="file"
+                >
+
+            </div>
+
+
+            <div class="input-group">
+
+                <label>
+                    Contraseña
+                </label>
+
+                <input
+                    type="password"
+                    placeholder="Ingrese su contraseña"
+                >
+
+            </div>
+
+            <button type="submit">
+                REGISTRARSE
+            </button>
+
+        </form>
+
+        <!-- LOGIN -->
+        <div class="registro-texto">
+
+            ¿Ya tienes una cuenta?
+
+            <a href="/">
+                Iniciar sesión
+            </a>
+
+        </div>
+
+    </div>
+
+</body>
+
+</html>
