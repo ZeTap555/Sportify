@@ -19,6 +19,13 @@
 
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
 
+    <!-- FLATPICKR -->
+
+    <link
+        rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"
+    >
+
 </head>
 
 <body>
@@ -28,17 +35,20 @@
     <div class="login-container registro-container">
 
         <!-- LOGO -->
+
         <img
             src="{% static 'img/logo_Sportify.png' %}"
             class="logo"
         >
 
         <!-- SUBTITULO -->
+
         <p class="subtitulo">
             Crear cuenta
         </p>
 
         <!-- FORM -->
+
         <form>
 
             <div class="input-group">
@@ -72,12 +82,13 @@
             <div class="input-group">
 
                 <label>
-                    Fecha de nacimiento(DD/MM/YY)
+                    Fecha de nacimiento
                 </label>
 
                 <input
-                    type="text" 
-                    PLACEHOLDER="(DD/MM/YY)"
+                    type="text"
+                    id="fechaNacimiento"
+                    placeholder="DD/MM/AAAA"
                 >
 
             </div>
@@ -114,7 +125,7 @@
             <div class="input-group">
 
                 <label>
-                   Archivo del apto físico
+                    Apta médica
                 </label>
 
                 <input
@@ -130,10 +141,22 @@
                     Contraseña
                 </label>
 
-                <input
-                    type="password"
-                    placeholder="Ingrese su contraseña"
-                >
+                <div class="password-container">
+
+                    <input
+                        type="password"
+                        placeholder="Ingrese su contraseña"
+                        id="register-password"
+                    >
+
+                    <span
+                        class="toggle-password"
+                        onclick="toggleRegisterPassword()"
+                    >
+                        👁
+                    </span>
+
+                </div>
 
             </div>
 
@@ -144,6 +167,7 @@
         </form>
 
         <!-- LOGIN -->
+
         <div class="registro-texto">
 
             ¿Ya tienes una cuenta?
@@ -155,6 +179,53 @@
         </div>
 
     </div>
+
+
+    <!-- FLATPICKR -->
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+
+
+    <!-- FECHA -->
+
+    <script>
+
+        flatpickr("#fechaNacimiento", {
+
+            locale: "es",
+
+            dateFormat: "d/m/Y",
+
+            maxDate: "today",
+
+            allowInput: true
+
+        });
+
+    </script>
+
+
+    <!-- PASSWORD -->
+
+    <script>
+
+        function toggleRegisterPassword(){
+
+            const passwordInput = document.getElementById("register-password");
+
+            if(passwordInput.type === "password"){
+
+                passwordInput.type = "text";
+
+            }else{
+
+                passwordInput.type = "password";
+            }
+        }
+
+    </script>
 
 </body>
 

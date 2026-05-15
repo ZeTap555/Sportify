@@ -61,10 +61,22 @@
                     Contraseña
                 </label>
 
-                <input
-                    type="password"
-                    placeholder="Ingrese su contraseña"
-                >
+                <div class="password-container">
+
+                    <input
+                        type="password"
+                        placeholder="Ingrese su contraseña"
+                        id="login-password"
+                    >
+
+                    <span
+                        class="toggle-password"
+                        onclick="toggleLoginPassword()"
+                    >
+                        👁
+                    </span>
+
+                </div>
 
             </div>
 
@@ -90,6 +102,25 @@
         </div>
 
     </div>
+
+
+    <script>
+
+        function toggleLoginPassword(){
+
+            const passwordInput = document.getElementById("login-password");
+
+            if(passwordInput.type === "password"){
+
+                passwordInput.type = "text";
+
+            }else{
+
+                passwordInput.type = "password";
+            }
+        }
+
+    </script>
 
 </body>
 

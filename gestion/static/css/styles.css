@@ -28,7 +28,14 @@ body{
     background-repeat: no-repeat;
 
     position: relative;
+
     padding: 40px 0;
+}
+
+
+html{
+
+    overflow-y: auto;
 }
 
 
@@ -115,6 +122,32 @@ body{
 }
 
 
+/* INPUT GROUP */
+
+.input-group{
+
+    text-align: left;
+
+    margin-bottom: 18px;
+}
+
+
+/* LABELS */
+
+.input-group label{
+
+    display: block;
+
+    color: white;
+
+    font-size: 15px;
+
+    margin-bottom: 8px;
+
+    font-weight: 600;
+}
+
+
 /* INPUTS */
 
 input{
@@ -122,8 +155,6 @@ input{
     width: 100%;
 
     padding: 18px;
-
-    margin-bottom: 18px;
 
     border-radius: 14px;
 
@@ -141,7 +172,7 @@ input{
 }
 
 
-/* COLOR NUEVO AL SELECCIONAR */
+/* COLOR AL SELECCIONAR */
 
 input:focus{
 
@@ -173,6 +204,40 @@ input[type="file"]{
     padding: 14px;
 
     color: rgba(255,255,255,0.7);
+}
+
+
+/* PASSWORD */
+
+.password-container{
+
+    position: relative;
+}
+
+
+.password-container input{
+
+    padding-right: 55px;
+}
+
+
+.toggle-password{
+
+    position: absolute;
+
+    right: 18px;
+
+    top: 50%;
+
+    transform: translateY(-50%);
+
+    color: white;
+
+    cursor: pointer;
+
+    font-size: 20px;
+
+    user-select: none;
 }
 
 
@@ -246,42 +311,4 @@ button:hover{
     text-decoration: none;
 
     font-weight: 700;
-}
-
-
-/* INPUT GROUP */
-
-.input-group{
-
-    text-align: left;
-
-    margin-bottom: 18px;
-}
-
-
-/* LABELS */
-
-.input-group label{
-
-    display: block;
-
-    color: white;
-
-    font-size: 15px;
-
-    margin-bottom: 8px;
-
-    font-weight: 600;
-}
-
-
-/* INPUTS DENTRO DEL GRUPO */
-
-.input-group input{
-
-    margin-bottom: 0;
-}
-
-html{
-    overflow-y: auto;
 }
