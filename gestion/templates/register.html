@@ -1,0 +1,232 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Registro - Sportify</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+
+    <!-- FLATPICKR -->
+
+    <link
+        rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"
+    >
+
+</head>
+
+<body>
+
+    <div class="overlay"></div>
+
+    <div class="login-container registro-container">
+
+        <!-- LOGO -->
+
+        <img
+            src="{% static 'img/logo_Sportify.png' %}"
+            class="logo"
+        >
+
+        <!-- SUBTITULO -->
+
+        <p class="subtitulo">
+            Crear cuenta
+        </p>
+
+        <!-- FORM -->
+
+        <form>
+
+            <div class="input-group">
+
+                <label>
+                    Nombre y apellido
+                </label>
+
+                <input
+                    type="text"
+                    placeholder="Ingrese su nombre y apellido"
+                >
+
+            </div>
+
+
+            <div class="input-group">
+
+                <label>
+                    DNI
+                </label>
+
+                <input
+                    type="text"
+                    placeholder="Ingrese su DNI"
+                >
+
+            </div>
+
+
+            <div class="input-group">
+
+                <label>
+                    Fecha de nacimiento
+                </label>
+
+                <input
+                    type="text"
+                    id="fechaNacimiento"
+                    placeholder="DD/MM/AAAA"
+                >
+
+            </div>
+
+
+            <div class="input-group">
+
+                <label>
+                    Teléfono
+                </label>
+
+                <input
+                    type="text"
+                    placeholder="Ingrese su teléfono"
+                >
+
+            </div>
+
+
+            <div class="input-group">
+
+                <label>
+                    Correo electrónico
+                </label>
+
+                <input
+                    type="email"
+                    placeholder="Ingrese su correo"
+                >
+
+            </div>
+
+
+            <div class="input-group">
+
+                <label>
+                    Apta médica
+                </label>
+
+                <input
+                    type="file"
+                >
+
+            </div>
+
+
+            <div class="input-group">
+
+                <label>
+                    Contraseña
+                </label>
+
+                <div class="password-container">
+
+                    <input
+                        type="password"
+                        placeholder="Ingrese su contraseña"
+                        id="register-password"
+                    >
+
+                    <span
+                        class="toggle-password"
+                        onclick="toggleRegisterPassword()"
+                    >
+                        👁
+                    </span>
+
+                </div>
+
+            </div>
+
+            <button type="submit">
+                REGISTRARSE
+            </button>
+
+        </form>
+
+        <!-- LOGIN -->
+
+        <div class="registro-texto">
+
+            ¿Ya tienes una cuenta?
+
+            <a href="/">
+                Iniciar sesión
+            </a>
+
+        </div>
+
+    </div>
+
+
+    <!-- FLATPICKR -->
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+
+
+    <!-- FECHA -->
+
+    <script>
+
+        flatpickr("#fechaNacimiento", {
+
+            locale: "es",
+
+            dateFormat: "d/m/Y",
+
+            maxDate: "today",
+
+            allowInput: true
+
+        });
+
+    </script>
+
+
+    <!-- PASSWORD -->
+
+    <script>
+
+        function toggleRegisterPassword(){
+
+            const passwordInput = document.getElementById("register-password");
+
+            if(passwordInput.type === "password"){
+
+                passwordInput.type = "text";
+
+            }else{
+
+                passwordInput.type = "password";
+            }
+        }
+
+    </script>
+
+</body>
+
+</html>
