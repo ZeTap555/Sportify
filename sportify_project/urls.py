@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
 from django.shortcuts import render
 
 
@@ -13,10 +13,7 @@ def register_view(request):
 
 urlpatterns = [
 
-    path('admin/', admin.site.urls),
-
-    path('', minimal_login_view, name='login'),
-
-    path('register/', register_view, name='register'),
-
+   path('admin/', admin.site.urls),
+   # path('gestion/', include('gestion.urls')), # Tus vistas de actividades siguen en /gestion/
+    path('', include('usuarios.urls')),
 ]
