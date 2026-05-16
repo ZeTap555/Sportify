@@ -1,0 +1,56 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Sportify - Crear Clase</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/styles_app.css' %}">
+</head>
+<body>
+    <div class="login-container">
+        <p class="subtitulo">Nueva Clase</p>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div style="color: {% if message.tags == 'error' %}#ff3333{% else %}#00ff88{% endif %}; margin-bottom: 15px;">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <form method="POST">
+            {% csrf_token %}
+            
+            <div class="input-group">
+                <label>Seleccionar Actividad</label>
+                <select name="actividad" required style="width: 100%; padding: 10px; background: #222; color: #fff; border: 1px solid #444; border-radius: 5px;">
+                    <option value="">-- Elija una actividad del sistema --</option>
+                    {% for act in actividades %}
+                        <option value="{{ act.id }}">{{ act.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>Día de la semana</label>
+                <select name="dia_semana" required style="width: 100%; padding: 10px; background: #222; color: #fff; border: 1px solid #444; border-radius: 5px;">
+                    {% for dia in dias %}
+                        <option value="{{ dia }}">{{ dia }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>Horario de inicio</label>
+                <input type="time" name="horario" required>
+                <span style="font-size: 0.8em; color: #aaa;">* Debe comenzar en punto (Ej: 19:00)</span>
+            </div>
+
+            <button type="submit">CREAR CLASE</button>
+        </form>
+        <br>
+        <a href="{% url 'crear_actividad' %}" style="color: #00ff88; text-decoration: none;">← Volver a crear actividad</a>
+    </div>
+</body>
+</html>
