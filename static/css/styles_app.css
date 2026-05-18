@@ -1,45 +1,121 @@
 /* static/css/styles_app.css */
 
 /* Fondo negro absoluto para la grilla y la sección de gestión */
+
 body {
+
     background-color: #000000;
+
     color: #ffffff;
+
     font-family: 'Poppins', sans-serif;
+
     margin: 0;
+
     padding: 40px;
 }
 
+
 /* El contenedor gris oscuro para que resalte sobre el fondo negro */
+
 .login-container {
+
     background-color: #161616 !important;
+
     border: 1px solid #262626 !important;
+
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+
     margin: 50px auto;
+
     padding: 30px;
+
     border-radius: 8px;
+
     max-width: 400px;
 }
 
+
 /* Inputs adaptados al gris oscuro */
-.input-group input, .input-group select {
+
+.input-group input,
+.input-group select {
+
     background-color: #222222 !important;
+
     color: #ffffff !important;
+
     border: 1px solid #333333 !important;
+
     width: 100%;
+
     padding: 10px;
+
     border-radius: 5px;
+
     box-sizing: border-box;
 }
 
+
 /* Botón deportivo verde */
+
 button[type="submit"] {
+
     background-color: #00ff88;
+
     color: #000;
+
     font-weight: bold;
+
     border: none;
+
     padding: 12px;
+
     width: 100%;
+
     border-radius: 5px;
+
     cursor: pointer;
+
     margin-top: 15px;
+}
+
+
+/* PERFIL */
+
+.perfil-btn {
+
+    width: 42px;
+
+    height: 42px;
+
+    border-radius: 50%;
+
+    background-color: #161616;
+
+    border: 1px solid #333;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    text-decoration: none;
+
+    color: #00ff88;
+
+    font-size: 18px;
+
+    transition: all 0.2s ease;
+}
+
+
+.perfil-btn:hover {
+
+    background-color: #222;
+
+    border-color: #00ff88;
+
+    transform: scale(1.05);
 }
