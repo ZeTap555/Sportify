@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from .models import Usuario
 from datetime import date
 
@@ -93,3 +94,11 @@ def login_view(request):
 def logout_view(request):
     logout(request)
     return redirect('login')
+
+@login_required
+def perfil_view(request):
+
+    return render(
+        request,
+        'perfil.html'
+    )
