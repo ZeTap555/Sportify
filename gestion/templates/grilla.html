@@ -4,174 +4,299 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sportify - Cronograma de Actividades</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>Sportify - Panel de Control</title>
     
-    <link rel="stylesheet" href="{% static 'css/styles_app.css' %}">
-
     <style>
-        .container-grilla {
-            max-width: 1000px;
-            margin: 40px auto;
-            padding: 0 20px;
+        /* Base de diseño iOS Dark Mode / macOS */
+        body {
+            background-color: #000000;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
-        .header-grilla {
+
+        /* ------------------------------------------------------------------
+           BARRA LATERAL DE NAVEGACIÓN (SIDEBAR)
+        ------------------------------------------------------------------ */
+        .sidebar {
+            width: 250px;
+            background-color: #1c1c1e; /* Apple System Gray 6 */
+            border-right: 1px solid #2c2c2e;
+            padding: 35px 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: fixed;
+            height: 100vh;
+            box-sizing: border-box;
+            z-index: 100;
+        }
+
+        .sidebar-brand {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: #00ff88;
+            letter-spacing: -0.5px;
+            margin-bottom: 35px;
+            padding-left: 10px;
+            text-transform: uppercase;
+        }
+
+        .sidebar-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex-grow: 1;
+        }
+
+        /* Items de menú limpios, basados en tipografía y sutiles indicadores */
+        .menu-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            color: #8e8e93; /* Apple Gray */
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+            border-radius: 10px;
+            transition: all 0.15s ease;
+            letter-spacing: -0.1px;
+        }
+
+        /* Estado activo: Fondo integrado y texto resaltado */
+        .menu-item.active {
+            background-color: #2c2c2e; /* Apple System Gray 5 */
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .menu-item:hover:not(.active) {
+            background-color: rgba(255, 255, 255, 0.04);
+            color: #ffffff;
+        }
+
+        .sidebar-footer {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            border-top: 1px solid #2c2c2e;
+            padding-top: 20px;
+        }
+
+        .user-tag {
+            font-size: 0.8rem;
+            color: #8e8e93;
+            padding-left: 10px;
+            letter-spacing: -0.1px;
+        }
+
+        /* ------------------------------------------------------------------
+           CONTENIDO PRINCIPAL
+        ------------------------------------------------------------------ */
+        .main-content {
+            margin-left: 250px;
+            flex-grow: 1;
+            padding: 50px 60px;
+            max-width: 900px;
+            box-sizing: border-box;
+        }
+
+        .header-section {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 2px solid #262626;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
+            margin-bottom: 35px;
         }
-        .header-grilla h1 {
+
+        .header-section h1 {
             margin: 0;
             font-weight: 700;
-            color: #00ff88;
             font-size: 2rem;
+            letter-spacing: -0.5px;
+            color: #ffffff;
         }
+
         .btn-group {
             display: flex;
-            gap: 12px;
-            align-items: center;
+            gap: 10px;
         }
-        .btn-nav {
-            padding: 10px 18px;
+
+        /* Botones sofisticados sin estridencias */
+        .btn {
+            padding: 9px 18px;
             text-decoration: none;
-            border-radius: 5px;
-            font-weight: 600;
-            font-size: 0.9rem;
-            transition: all 0.2s ease;
-        }
-        .btn-admin {
-            background-color: #161616;
-            color: #00ff88;
-            border: 1px solid #262626;
-        }
-        .btn-admin:hover {
-            background-color: #222;
-            border-color: #00ff88;
-        }
-        .btn-login {
-            background-color: #00ff88;
-            color: #000;
-        }
-        .btn-login:hover {
-            background-color: #00cc6e;
-        }
-        .btn-logout {
-            background-color: #ff3333;
-            color: #fff;
-        }
-        .btn-logout:hover {
-            background-color: #cc0000;
-        }
-        
-        /* Estilos de la Tabla */
-        .tabla-container {
-            background-color: #161616;
-            border: 1px solid #262626;
             border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
-        }
-        th, td {
-            padding: 18px;
-        }
-        th {
-            background-color: #1e1e1e;
-            color: #00ff88;
             font-weight: 600;
-            border-bottom: 2px solid #262626;
-            text-transform: uppercase;
             font-size: 0.85rem;
-            letter-spacing: 1px;
+            transition: all 0.15s ease;
+            box-sizing: border-box;
         }
-        tr {
-            border-bottom: 1px solid #222;
-            transition: background-color 0.2s ease;
+
+        .btn-secondary {
+            background-color: #1c1c1e;
+            color: #00ff88;
+            border: 1px solid #2c2c2e;
         }
-        tr:last-child {
-            border-bottom: none;
+
+        .btn-secondary:hover {
+            background-color: #2c2c2e;
+            border-color: #3a3a3c;
         }
-        tr:hover {
-            background-color: #1c1c1c;
+
+        .btn-primary {
+            background-color: #00ff88;
+            color: #000000;
+            border: none;
         }
-        .actividad-nombre {
+
+        .btn-primary:hover {
+            background-color: #12ff93;
+        }
+
+        .btn-danger {
+            background-color: transparent;
+            color: #ff453a; /* iOS Red */
+            border: 1px solid rgba(255, 69, 58, 0.2);
+            text-align: center;
+        }
+
+        .btn-danger:hover {
+            background-color: rgba(255, 69, 58, 0.08);
+            border-color: #ff453a;
+        }
+
+        /* ------------------------------------------------------------------
+           LISTADO DE CLASES (BENTO LAYOUT)
+        ------------------------------------------------------------------ */
+        .cards-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .item-card {
+            background-color: #1c1c1e;
+            border: 1px solid #2c2c2e;
+            border-radius: 14px;
+            padding: 20px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: border-color 0.15s ease, background-color 0.15s ease;
+        }
+
+        .item-card:hover {
+            border-color: #3a3a3c;
+            background-color: #222226;
+        }
+
+        .card-details {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .activity-title {
             color: #ffffff;
             font-weight: 600;
-            font-size: 1.1rem;
+            font-size: 1.15rem;
+            letter-spacing: -0.2px;
         }
-        .badge-dia {
-            background-color: #222;
-            color: #aaa;
-            padding: 6px 12px;
-            border-radius: 4px;
-            font-size: 0.85rem;
-            border: 1px solid #333;
-        }
-        .horario-texto {
-            color: #00ff88;
+
+        /* Etiqueta compacta institucional */
+        .day-tag {
+            background-color: #2c2c2e;
+            color: #aeaeb2;
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 0.7rem;
             font-weight: 600;
+            align-self: flex-start;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
-        .no-data {
+
+        .time-box {
+            text-align: right;
+        }
+
+        .time-value {
+            color: #00ff88;
+            font-weight: 700;
+            font-size: 1.35rem;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .empty-state {
+            background-color: #1c1c1e;
+            border: 1px dashed #2c2c2e;
+            border-radius: 14px;
+            padding: 45px;
             text-align: center;
-            padding: 40px;
-            color: #777;
-            font-size: 1rem;
+            color: #8e8e93;
+            font-size: 0.9rem;
         }
     </style>
 </head>
 <body>
 
-    <div class="container-grilla">
+    <div class="sidebar">
+        <div>
+            <div class="sidebar-brand">Sportify</div>
+            <div class="sidebar-menu">
+                <a href="{% url 'grilla_actividades' %}" class="menu-item active">Cronograma</a>
+                <a href="#" class="menu-item">Mi Perfil</a>
+                <a href="#" class="menu-item">Mis Reservas</a>
+                <a href="#" class="menu-item">Mis Pagos</a>
+                <a href="#" class="menu-item">Novedades</a>
+            </div>
+        </div>
+
+        <div class="sidebar-footer">
+            {% if request.user.is_authenticated %}
+                <div class="user-tag">Usuario: {{ request.user.first_name }}</div>
+                <a href="{% url 'logout' %}" class="btn btn-danger">Cerrar Sesión</a>
+            {% else %}
+                <a href="{% url 'login' %}" class="btn btn-primary" style="text-align: center;">Iniciar Sesión</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="main-content">
         
-        <div class="header-grilla">
-            <h1>Sportify</h1>
+        <div class="header-section">
+            <h1>Cronograma</h1>
             
             <div class="btn-group">
                 {% if request.user.is_authenticated and request.user.rol == 'admin' %}
-                    <a href="{% url 'crear_actividad' %}" class="btn-nav btn-admin">+ Nueva Actividad</a>
-                    <a href="{% url 'crear_clase' %}" class="btn-nav btn-admin">+ Nueva Clase</a>
-                {% endif %}
-
-                {% if request.user.is_authenticated %}
-                    <a href="{% url 'logout' %}" class="btn-nav btn-logout">Cerrar Sesión ({{ request.user.first_name }})</a>
-                {% else %}
-                    <a href="{% url 'login' %}" class="btn-nav btn-login">Iniciar Sesión</a>
+                    <a href="{% url 'crear_actividad' %}" class="btn btn-secondary">+ Actividad</a>
+                    <a href="{% url 'crear_clase' %}" class="btn btn-secondary">+ Clase</a>
                 {% endif %}
             </div>
         </div>
 
-        <div class="tabla-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Actividad</th>
-                        <th>Día</th>
-                        <th>Horario de Inicio</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for clase in clases %}
-                    <tr>
-                        <td><span class="actividad-nombre">{{ clase.actividad.nombre }}</span></td>
-                        <td><span class="badge-dia">{{ clase.dia_semana }}</span></td>
-                        <td><span class="horario-texto">{{ clase.horario|time:"H:i" }} hs</span></td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="3" class="no-data">
-                            No hay clases asignadas en el cronograma todavía.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="cards-list">
+            {% for clase in clases %}
+                <div class="item-card">
+                    <div class="card-details">
+                        <span class="activity-title">{{ clase.actividad.nombre }}</span>
+                        <span class="day-tag">{{ clase.dia_semana }}</span>
+                    </div>
+                    
+                    <div class="time-box">
+                        <div class="time-value">{{ clase.horario|time:"H:i" }} hs</div>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="empty-state">
+                    <p style="margin: 0;">No se registran clases planificadas en el sistema.</p>
+                </div>
+            {% endfor %}
         </div>
 
     </div>
