@@ -3,310 +3,242 @@
 <html lang="es">
 
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Mi Perfil - Sportify</title>
-
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-
-    <link rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="{% static 'css/styles_app.css' %}">
 
     <style>
-
         body {
-
             background-color: #000;
-
             font-family: 'Poppins', sans-serif;
-
             color: white;
-
             margin: 0;
-
             padding: 40px;
         }
 
+        /* --- ESTILOS DEL MENSAJE FLOTANTE --- */
+        .messages-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            width: auto;
+            min-width: 300px;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        .alert {
+            padding: 16px 30px;
+            border-radius: 8px;
+            font-weight: 700;
+            text-align: center;
+            border: 1px solid #00ff88;
+            background-color: #161616;
+            color: #00ff88;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.8);
+            transition: opacity 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translate(-50%, -20px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+
+        .fade-out { opacity: 0; }
+
+        /* --- TU DISEÑO ORIGINAL (SIN TOCAR) --- */
         .perfil-container {
-
             max-width: 1100px;
-
             margin: auto;
         }
 
         .perfil-header {
-
             display: flex;
-
             justify-content: space-between;
-
             align-items: center;
-
             margin-bottom: 40px;
-
             border-bottom: 2px solid #1f1f1f;
-
             padding-bottom: 20px;
         }
 
         .logo {
-
             color: #00ff88;
-
             font-size: 2rem;
-
             font-weight: 700;
         }
 
         .btn-editar-header {
-
             text-decoration: none;
-
             background-color: #00ff88;
-
             color: black;
-
             padding: 12px 22px;
-
             border-radius: 8px;
-
             font-weight: 700;
-
             transition: 0.2s;
         }
 
         .btn-editar-header:hover {
-
             background-color: #00cc6e;
         }
 
         .perfil-content {
-
             display: flex;
-
             gap: 30px;
-
             align-items: stretch;
         }
 
         .card {
-
             background-color: #161616;
-
             border: 1px solid #262626;
-
             border-radius: 14px;
-
             padding: 35px;
-
             box-shadow: 0 8px 24px rgba(0,0,0,0.5);
         }
 
         .perfil-izquierda {
-
             width: 35%;
-
             text-align: center;
         }
 
         .perfil-derecha {
-
             flex: 1;
         }
 
         .avatar {
-
             width: 150px;
-
             height: 150px;
-
             border-radius: 50%;
-
             border: 4px solid #00ff88;
-
             margin: auto;
-
             margin-bottom: 25px;
-
             display: flex;
-
             align-items: center;
-
             justify-content: center;
-
             font-size: 4rem;
-
             color: #00ff88;
-
             background-color: #111;
         }
 
         .nombre-usuario {
-
             font-size: 2rem;
-
             font-weight: 700;
-
             margin-bottom: 15px;
         }
 
         .badge-rol {
-
             display: inline-block;
-
             background-color: #00ff88;
-
             color: black;
-
             padding: 8px 18px;
-
             border-radius: 30px;
-
             font-weight: 700;
-
             font-size: 0.9rem;
         }
 
         .titulo-info {
-
             color: #00ff88;
-
             font-size: 1.5rem;
-
             margin-bottom: 30px;
-
             font-weight: 700;
         }
 
         .info-item {
-
             margin-bottom: 22px;
-
             border-bottom: 1px solid #222;
-
             padding-bottom: 15px;
         }
 
         .info-label {
-
             color: #999;
-
             font-size: 0.9rem;
-
             margin-bottom: 6px;
         }
 
         .info-value {
-
             font-size: 1.1rem;
-
             font-weight: 600;
-
             color: white;
         }
-
     </style>
-
 </head>
 
 <body>
 
+    {% if messages %}
+    <div class="messages-container" id="alert-box">
+        {% for message in messages %}
+            <div class="alert">
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <div class="perfil-container">
 
         <div class="perfil-header">
-
-            <div class="logo">
-                Sportify
-            </div>
-
-            <a href="#" class="btn-editar-header">
+            <div class="logo">Sportify</div>
+            <a href="{% url 'editar_perfil' %}" class="btn-editar-header">
                 Modificar Perfil
             </a>
-
         </div>
 
         <div class="perfil-content">
 
             <div class="card perfil-izquierda">
-
                 <div class="avatar">
                     <i class="fa-solid fa-user"></i>
                 </div>
-
                 <div class="nombre-usuario">
                     {{ request.user.first_name }}
                 </div>
-
                 <div class="badge-rol">
                     {{ request.user.rol }}
                 </div>
-
             </div>
 
             <div class="card perfil-derecha">
-
                 <div class="titulo-info">
                     Información Personal
                 </div>
 
                 <div class="info-item">
-
-                    <div class="info-label">
-                        DNI
-                    </div>
-
-                    <div class="info-value">
-                        {{ request.user.dni }}
-                    </div>
-
+                    <div class="info-label">DNI</div>
+                    <div class="info-value">{{ request.user.dni }}</div>
                 </div>
 
                 <div class="info-item">
-
-                    <div class="info-label">
-                        Email
-                    </div>
-
-                    <div class="info-value">
-                        {{ request.user.email }}
-                    </div>
-
+                    <div class="info-label">Email</div>
+                    <div class="info-value">{{ request.user.email }}</div>
                 </div>
 
                 <div class="info-item">
-
-                    <div class="info-label">
-                        Teléfono
-                    </div>
-
-                    <div class="info-value">
-                        {{ request.user.telefono }}
-                    </div>
-
+                    <div class="info-label">Teléfono</div>
+                    <div class="info-value">{{ request.user.telefono }}</div>
                 </div>
 
                 <div class="info-item">
-
-                    <div class="info-label">
-                        Fecha de Nacimiento
-                    </div>
-
-                    <div class="info-value">
-                        {{ request.user.fecha_nacimiento|date:"d/m/Y" }}
-                    </div>
-
+                    <div class="info-label">Fecha de Nacimiento</div>
+                    <div class="info-value">{{ request.user.fecha_nacimiento|date:"d/m/Y" }}</div>
                 </div>
-
             </div>
-
         </div>
-
     </div>
+
+    <script>
+        // Script para que el mensaje desaparezca solo después de 3 segundos
+        setTimeout(function() {
+            const alertBox = document.getElementById('alert-box');
+            if (alertBox) {
+                alertBox.classList.add('fade-out');
+                setTimeout(() => alertBox.remove(), 500);
+            }
+        }, 3000);
+    </script>
 
 </body>
 </html>
