@@ -1,0 +1,438 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sportify - Panel de Administración</title>
+    
+    <style>
+        /* Tipografía e Identidad de Sistema Apple */
+        body {
+            background-color: #000000;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ------------------------------------------------------------------
+           BARRA LATERAL DE NAVEGACIÓN (Se mantiene idéntica para consistencia)
+        ------------------------------------------------------------------ */
+        .sidebar {
+            width: 250px;
+            background-color: #1c1c1e;
+            border-right: 1px solid #2c2c2e;
+            padding: 35px 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: fixed;
+            height: 100vh;
+            box-sizing: border-box;
+            z-index: 100;
+        }
+
+        .sidebar-brand {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: #00ff88;
+            letter-spacing: -0.5px;
+            margin-bottom: 35px;
+            padding-left: 10px;
+            text-transform: uppercase;
+        }
+
+        .sidebar-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            color: #8e8e93;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+            border-radius: 10px;
+            transition: all 0.15s ease;
+        }
+
+        .menu-item.active {
+            background-color: #2c2c2e;
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .menu-item:hover:not(.active) {
+            background-color: rgba(255, 255, 255, 0.04);
+            color: #ffffff;
+        }
+
+        /* ------------------------------------------------------------------
+           CONTENIDO PRINCIPAL MÓDULO ADMIN
+        ------------------------------------------------------------------ */
+        .main-content {
+            margin-left: 250px;
+            flex-grow: 1;
+            padding: 50px 60px;
+            max-width: 1000px;
+            box-sizing: border-box;
+        }
+
+        .admin-header {
+            margin-bottom: 30px;
+        }
+
+        .admin-header h1 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .admin-header h1 span {
+            color: #00ff88;
+        }
+
+        .admin-subtitle {
+            font-size: 0.9rem;
+            color: #8e8e93;
+            margin: 4px 0 0 0;
+        }
+
+        /* SEGMENTED CONTROL (Selector de pestañas estilo iOS) */
+        .segmented-control {
+            background-color: #1c1c1e;
+            padding: 3px;
+            border-radius: 10px;
+            display: inline-flex;
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 40px;
+            border: 1px solid #2c2c2e;
+        }
+
+        .tab-button {
+            flex: 1;
+            background: none;
+            border: none;
+            color: #8e8e93;
+            padding: 8px 0;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.12s ease;
+        }
+
+        .tab-button.active {
+            background-color: #2c2c2e;
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        }
+
+        /* PANELES DE CONTENIDO */
+        .tab-panel {
+            display: none; /* Se maneja con JS abajo */
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        /* ESTRUCTURA DE TARJETAS (BENTO LAYOUT) */
+        .admin-card {
+            background-color: #1c1c1e;
+            border: 1px solid #2c2c2e;
+            border-radius: 14px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .card-title {
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin: 0 0 20px 0;
+            letter-spacing: -0.2px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* FORMULARIOS DE PRECIOS Y PAGOS */
+        .prices-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+        }
+
+        .input-box {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .input-box label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #8e8e93;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-row input, .select-ios {
+            background-color: #2c2c2e;
+            border: 1px solid #3a3a3c;
+            color: #ffffff;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            flex-grow: 1;
+            font-variant-numeric: tabular-nums;
+            outline: none;
+            transition: border-color 0.15s ease;
+        }
+
+        .input-row input:focus {
+            border-color: #00ff88;
+        }
+
+        .current-price {
+            font-size: 0.75rem;
+            color: #636366;
+            margin-top: 4px;
+        }
+
+        /* BOTONES PREMIUM (Píldoras iOS) */
+        .btn-action {
+            background-color: #00ff88;
+            color: #000000;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+        }
+
+        .btn-action:hover {
+            background-color: #12ff93;
+        }
+
+        .btn-capsule {
+            background-color: #00ff88;
+            color: #000000;
+            padding: 8px 16px;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        /* GESTIÓN DE HORARIOS POR DÍA */
+        .day-section {
+            margin-top: 20px;
+        }
+
+        .day-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #00ff88;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .class-row {
+            background-color: #2c2c2e;
+            border-radius: 10px;
+            padding: 14px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .class-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            background-color: #00ff88;
+            border-radius: 50%;
+        }
+
+        .class-name {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .class-meta {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            color: #aeaeb2;
+            font-size: 0.9rem;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .btn-delete {
+            background: none;
+            border: none;
+            color: #ff453a;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: background-color 0.15s ease;
+        }
+
+        .btn-delete:hover {
+            background-color: rgba(255, 69, 58, 0.1);
+        }
+
+        .text-placeholder {
+            color: #636366;
+            text-align: center;
+            padding: 30px 0;
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="sidebar-menu">
+            <div class="sidebar-brand">Sportify</div>
+            <a href="{% url 'grilla_actividades' %}" class="menu-item">Cronograma</a>
+            <a href="#" class="menu-item">Mi Perfil</a>
+            <a href="#" class="menu-item active">Panel Admin</a>
+        </div>
+    </div>
+
+    <div class="main-content">
+        
+        <div class="admin-header">
+            <h1>Panel <span>Admin</span></h1>
+            <p class="admin-subtitle">Bienvenido, {{ request.user.first_name|default:"Luciano Musicarelli" }}</p>
+        </div>
+
+        <div class="segmented-control">
+            <button class="tab-button active" onclick="switchTab('clases')">Clases</button>
+            <button class="tab-button" onclick="switchTab('pagos')">Pagos</button>
+            <button class="tab-button" onclick="switchTab('profesores')">Profesores</button>
+        </div>
+
+        <div id="panel-clases" class="tab-panel active">
+            <div class="admin-card">
+                <div class="card-title">
+                    <span>Gestión de Clases</span>
+                    <a href="{% url 'crear_clase' %}" class="btn-capsule">+ Nuevo Horario</a>
+                </div>
+
+                <div class="day-section">
+                    <div class="day-title">Domingo</div>
+                    
+                    <div class="class-row">
+                        <div class="class-info">
+                            <div class="status-dot"></div>
+                            <span class="class-name">Yoga</span>
+                        </div>
+                        <div class="class-meta">
+                            <span>22:22 - 22:55</span>
+                            <span>Capacidad: 10</span>
+                            <button class="btn-delete">Eliminar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="panel-pagos" class="tab-panel">
+            <div class="admin-card">
+                <div class="card-title">Precio por clase</div>
+                
+                <form method="POST" action="" class="prices-grid">
+                    {% csrf_token %}
+                    <div class="input-box">
+                        <label>Funcional</label>
+                        <div class="input-row">
+                            <input type="number" name="precio_funcional" value="10">
+                            <button type="submit" class="btn-action">Guardar</button>
+                        </div>
+                        <span class="current-price">Actual: $10 / clase</span>
+                    </div>
+
+                    <div class="input-box">
+                        <label>Pilates</label>
+                        <div class="input-row">
+                            <input type="number" name="precio_pilates" value="10">
+                            <button type="submit" class="btn-action">Guardar</button>
+                        </div>
+                        <span class="current-price">Actual: $10 / clase</span>
+                    </div>
+
+                    <div class="input-box">
+                        <label>Yoga</label>
+                        <div class="input-row">
+                            <input type="number" name="precio_yoga" value="10">
+                            <button type="submit" class="btn-action">Guardar</button>
+                        </div>
+                        <span class="current-price">Actual: $10 / clase</span>
+                    </div>
+                </form>
+            </div>
+
+            <div class="admin-card">
+                <div class="card-title">Pagos del mes</div>
+                <div class="input-box" style="max-width: 200px;">
+                    <select class="select-ios">
+                        <option value="5">Mayo 2026</option>
+                        <option value="4">Abril 2026</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div id="panel-profesores" class="tab-panel">
+            <div class="admin-card">
+                <div class="card-title">Gestión de Profesores</div>
+                <div class="text-placeholder">
+                    Gestión de profesores — próximamente desde el módulo central.
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        function switchTab(tabName) {
+            // Desactivar todos los botones y paneles
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+
+            // Activar la pestaña seleccionada
+            event.currentTarget.classList.add('active');
+            document.getElementById('panel-' + tabName).classList.add('active');
+        }
+    </script>
+</body>
+</html>

@@ -1,4 +1,5 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect 
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .models import Actividad, Clase
 
@@ -64,3 +65,10 @@ def crear_clase(request):
             return redirect('grilla_actividades') # Te manda directo a la grilla para ver el cambio
 
     return render(request, 'crear_clase.html', {'actividades': actividades, 'dias': dias})
+@login_required
+def panel_admin_view(request):
+    # CUIDADO: Si no es admin, lo mandamos derecho al home (grilla)
+    if request.user.rol != 'admin':
+        return redirect('grilla_actividades')
+        
+    return render(request, 'panel_admin.html')

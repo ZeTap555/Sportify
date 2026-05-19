@@ -7,4 +7,5 @@ urlpatterns = [
     path('', views.grilla_actividades, name='grilla_actividades'), # <-- ¡AHORA ES EL HOME! (vacío)
     path('actividad/nueva/', views.crear_actividad, name='crear_actividad'),
     path('clase/nueva/', views.crear_clase, name='crear_clase'),
+    path('panel-admin/', views.panel_admin_view, name='panel_admin'),
 ]
