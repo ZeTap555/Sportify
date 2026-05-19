@@ -251,6 +251,9 @@
             <div class="sidebar-menu">
                 <a href="{% url 'grilla_actividades' %}" class="menu-item active">Cronograma</a>
                 <a href="{% url 'perfil' %}" class="menu-item">Mi Perfil</a>
+                {% if request.user.is_authenticated and request.user.rol == 'admin' %}
+                    <a href="{% url 'panel_admin' %}" class="menu-item">Panel Admin</a>
+                {% endif %}
                 <a href="#" class="menu-item">Mis Reservas</a>
                 <a href="#" class="menu-item">Mis Pagos</a>
                 <a href="#" class="menu-item">Novedades</a>
