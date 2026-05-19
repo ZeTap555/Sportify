@@ -1,51 +1,78 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
-from .models import Usuario  # Importamos tu modelo personalizado
 from django.contrib.auth.decorators import login_required
+from .models import Usuario
+from datetime import date
 
 def register_view(request):
+    errores = {}
+
     if request.method == 'POST':
-        # 1. Capturamos los datos del HTML
-        nombre = request.POST.get('nombre_apellido')
-        dni = request.POST.get('dni')
-        fecha_nac = request.POST.get('fecha_nacimiento')
-        tel = request.POST.get('telefono')
-        email = request.POST.get('email')
-        passw = request.POST.get('password')
+        nombre = request.POST.get('nombre_apellido', '').strip()
+        dni = request.POST.get('dni', '').strip()
+        fecha_nac_str = request.POST.get('fecha_nacimiento', '').strip()
+        tel = request.POST.get('telefono', '').strip()
+        email = request.POST.get('email', '').strip()
+        passw = request.POST.get('password', '')
         apta = request.FILES.get('apta_medica')
 
-        # 2. Validación básica (CORREGIDO: quitamos el 'usuarios/')
-        if Usuario.objects.filter(dni=dni).exists():
-            messages.error(request, "Ya existe un usuario con ese DNI.")
-            return render(request, 'register.html')
+        # Validación: campos requeridos completos
+        if not nombre or not dni or not fecha_nac_str or not email or not passw:
+            messages.error(request, "Se deben ingresar todos los datos.")
+            return render(request, 'register.html', {'errores': errores})
 
-        # 3. Creamos el usuario
+        # Validación: DNI único
+        if Usuario.objects.filter(dni=dni).exists():
+            errores['dni'] = "Ya existe Usuario con este DNI."
+
+        # Validación: email único
+        if Usuario.objects.filter(email=email).exists():
+            errores['email'] = "Ya existe usuario con ese email."
+
+        # Validación: mayor de 16 años
         try:
-            # Le pasamos username=dni para solucionar el conflicto de AbstractUser
+            dia, mes, anio = fecha_nac_str.split('/')
+            fecha_nac = date(int(anio), int(mes), int(dia))
+            hoy = date.today()
+            edad = hoy.year - fecha_nac.year - ((hoy.month, hoy.day) < (fecha_nac.month, fecha_nac.day))
+            if edad < 16:
+                errores['fecha_nacimiento'] = "Debe ser mayor de 16 años para registrarse."
+        except (ValueError, IndexError):
+            errores['fecha_nacimiento'] = "Fecha de nacimiento inválida."
+
+        # Validación: apta médica adjunta
+        if not apta:
+            errores['apta_medica'] = "Debe adjuntar el apta médica para continuar con el registro."
+
+        # Si hay errores, mostrar mensaje general y devolver
+        if errores:
+            messages.error(request, "Error en el registro. Verifique los datos ingresados.")
+            return render(request, 'register.html', {'errores': errores})
+
+        # Creamos el usuario
+        try:
             user = Usuario.objects.create_user(
-                username=dni, # <-- El salvavidas de Django
+                username=dni,
                 dni=dni,
                 email=email,
                 password=passw,
                 first_name=nombre
             )
-            
-            # 4. Guardamos los campos extra que no son de AbstractUser
-            # user.telefono = tel
-            # user.fecha_nacimiento = fecha_nac
-            # user.apta_medica = apta
-            # user.save()
 
-            messages.success(request, "Registro exitoso. ¡Iniciá sesión!")
+            user.telefono = tel
+            user.fecha_nacimiento = fecha_nac
+            user.apta_medica = apta
+            user.save()
+
+            messages.success(request, "Registro exitoso. Ahora puedes iniciar sesión.")
             return redirect('login')
-            
+
         except Exception as e:
-            # Si algo falla acá adentro, ahora lo vas a ver en la terminal negra
             print(f"\n❌ ERROR CRÍTICO EN REGISTRO: {e}\n")
             messages.error(request, f"Error al registrar: {e}")
 
-    return render(request, 'register.html')
+    return render(request, 'register.html', {'errores': errores})
 
 def login_view(request):
     if request.method == 'POST':
@@ -67,3 +94,153 @@ def login_view(request):
 def logout_view(request):
     logout(request)
     return redirect('login')
+
+@login_required
+def perfil_view(request):
+
+    return render(
+        request,
+        'perfil.html'
+    )
+
+@login_required
+def editar_perfil_view(request):
+
+    user = request.user
+
+    errores = {}
+
+    if request.method == 'POST':
+
+        email = request.POST.get('email', '').strip()
+
+        telefono = request.POST.get('telefono', '').strip()
+
+        fecha_nacimiento_str = request.POST.get(
+            'fecha_nacimiento',
+            ''
+        ).strip()
+
+        password_actual = request.POST.get(
+            'password_actual',
+            ''
+        )
+
+        password_nueva = request.POST.get(
+            'password_nueva',
+            ''
+        )
+
+        # =========================
+        # VALIDAR EMAIL DUPLICADO
+        # =========================
+
+        if Usuario.objects.filter(email=email).exclude(id=user.id).exists():
+
+            errores['email'] = (
+                'Modificación sin éxito - '
+                'Email ya asociado a otra cuenta'
+            )
+
+        # =========================
+        # VALIDAR MAYOR DE 16
+        # =========================
+
+        try:
+
+            dia, mes, anio = fecha_nacimiento_str.split('/')
+
+            fecha_nacimiento = date(
+                int(anio),
+                int(mes),
+                int(dia)
+            )
+
+            hoy = date.today()
+
+            edad = (
+                hoy.year - fecha_nacimiento.year
+                -
+                (
+                    (hoy.month, hoy.day)
+                    <
+                    (
+                        fecha_nacimiento.month,
+                        fecha_nacimiento.day
+                    )
+                )
+            )
+
+            if edad < 16:
+
+                errores['fecha_nacimiento'] = (
+                    'Modificación fallida - '
+                    'El usuario debe ser mayor a 16 años'
+                )
+
+        except ValueError:
+
+            errores['fecha_nacimiento'] = (
+                'Fecha inválida'
+            )
+
+        # =========================
+        # VALIDAR PASSWORD
+        # =========================
+
+        if password_nueva:
+
+            if not user.check_password(password_actual):
+
+                errores['password'] = (
+                    'Contraseña incorrecta - '
+                    'Volver a intentar'
+                )
+
+        # =========================
+        # SI HAY ERRORES
+        # =========================
+
+        if errores:
+
+            return render(
+                request,
+                'editar_perfil.html',
+                {
+                    'errores': errores
+                }
+            )
+
+        # =========================
+        # GUARDAR CAMBIOS
+        # =========================
+
+        user.email = email
+
+        user.telefono = telefono
+
+        user.fecha_nacimiento = fecha_nacimiento
+
+        if password_nueva:
+
+            user.set_password(password_nueva)
+
+        user.save()
+
+        messages.success(
+            request,
+            'Modificación exitosa'
+        )
+
+        # IMPORTANTE:
+        # vuelve a loguear al usuario
+        # despues de cambiar password
+
+        login(request, user)
+
+        return redirect('perfil')
+
+    return render(
+        request,
+        'editar_perfil.html'
+    )

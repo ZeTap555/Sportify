@@ -122,6 +122,15 @@ html{
 }
 
 
+/* ERROR CAMPO */
+.error-campo {
+    display: block;
+    color: #ff3333;
+    font-size: 0.8em;
+    margin-top: 5px;
+    text-align: left;
+}
+
 /* INPUT GROUP */
 
 .input-group{

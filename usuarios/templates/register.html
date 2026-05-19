@@ -20,7 +20,8 @@
         <p class="subtitulo">Crear cuenta</p>
 
         <form method="POST" enctype="multipart/form-data">
-            {% csrf_token %} <div class="input-group">
+            {% csrf_token %}
+            <div class="input-group">
                 <label>Nombre y apellido</label>
                 <input type="text" name="nombre_apellido" placeholder="Ingrese su nombre y apellido" required>
             </div>
@@ -28,11 +29,13 @@
             <div class="input-group">
                 <label>DNI</label>
                 <input type="text" name="dni" placeholder="Ingrese su DNI" required>
+                {% if errores.dni %}<span class="error-campo">{{ errores.dni }}</span>{% endif %}
             </div>
 
             <div class="input-group">
                 <label>Fecha de nacimiento</label>
                 <input type="text" name="fecha_nacimiento" id="fechaNacimiento" placeholder="DD/MM/AAAA" required>
+                {% if errores.fecha_nacimiento %}<span class="error-campo">{{ errores.fecha_nacimiento }}</span>{% endif %}
             </div>
 
             <div class="input-group">
@@ -43,11 +46,13 @@
             <div class="input-group">
                 <label>Correo electrónico</label>
                 <input type="email" name="email" placeholder="Ingrese su correo" required>
+                {% if errores.email %}<span class="error-campo">{{ errores.email }}</span>{% endif %}
             </div>
 
             <div class="input-group">
                 <label>Apta médica</label>
                 <input type="file" name="apta_medica" accept=".pdf,image/*">
+                {% if errores.apta_medica %}<span class="error-campo">{{ errores.apta_medica }}</span>{% endif %}
             </div>
 
             <div class="input-group">
