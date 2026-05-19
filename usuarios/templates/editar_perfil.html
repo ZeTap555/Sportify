@@ -1,0 +1,389 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Modificar Perfil</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
+    <link rel="stylesheet" href="{% static 'css/styles_app.css' %}">
+
+<style>
+
+    * {
+        box-sizing: border-box !important;
+    }
+
+    body {
+        background-color: #000;
+        color: white;
+        font-family: 'Poppins', sans-serif;
+        margin: 0;
+        padding: 40px;
+    }
+
+    .container {
+        max-width: 700px;
+        margin: auto;
+    }
+
+    .card {
+        background-color: #161616;
+        border: 1px solid #262626;
+        border-radius: 14px;
+        padding: 40px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+
+    h1 {
+        color: #00ff88;
+        margin-bottom: 30px;
+    }
+
+    .input-group {
+        margin-bottom: 22px;
+    }
+
+    .input-group label {
+        display: block;
+        margin-bottom: 8px;
+        color: #aaa;
+    }
+
+    .input-group input {
+        width: 100%;
+        padding: 14px;
+        background-color: #222;
+        border: 1px solid #333;
+        border-radius: 8px;
+        color: white;
+        font-size: 1rem;
+        font-family: 'Poppins', sans-serif;
+    }
+
+    .input-group input:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        background-color: #1b1b1b;
+    }
+
+    .error {
+        color: #ff5555;
+        margin-top: 6px;
+        font-size: 0.9rem;
+    }
+
+    .password-container {
+        position: relative;
+    }
+
+    .password-container input {
+        width: 100%;
+        padding-right: 50px;
+    }
+
+    .toggle-password {
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        cursor: pointer;
+        color: #aaa;
+        font-size: 1.1rem;
+        user-select: none;
+    }
+
+    .btns {
+        display: flex;
+        gap: 15px;
+        margin-top: 35px;
+        align-items: center;
+    }
+
+    .btn-guardar,
+    .btn-cancelar {
+
+        flex: 1;
+
+        height: 52px !important;
+
+        border-radius: 8px;
+
+        font-weight: 700;
+
+        font-size: 1rem;
+
+        font-family: 'Poppins', sans-serif;
+
+        display: flex;
+
+        align-items: center;
+
+        justify-content: center;
+
+        box-sizing: border-box !important;
+
+        margin-top: 0 !important;
+
+        padding: 0 !important;
+
+        line-height: normal;
+
+        cursor: pointer;
+
+        transition: background 0.2s;
+    }
+
+    .btn-guardar {
+        background-color: #00ff88;
+        color: black;
+        border: 1px solid transparent;
+    }
+
+    .btn-guardar:hover {
+        background-color: #00cc6e;
+    }
+
+    .btn-cancelar {
+        background-color: #222;
+        color: white;
+        border: 1px solid #333;
+    }
+
+    .btn-cancelar:hover {
+        background-color: #2a2a2a;
+    }
+
+</style>
+
+</head>
+
+<body>
+
+    <div class="container">
+
+        <div class="card">
+
+            <h1>
+                Modificar Perfil
+            </h1>
+
+            <form method="POST">
+
+                {% csrf_token %}
+
+                <!-- NOMBRE -->
+
+                <div class="input-group">
+
+                    <label>Nombre</label>
+
+                    <input
+                        type="text"
+                        value="{{ request.user.first_name }}"
+                        disabled
+                    >
+
+                </div>
+
+                <!-- DNI -->
+
+                <div class="input-group">
+
+                    <label>DNI</label>
+
+                    <input
+                        type="text"
+                        value="{{ request.user.dni }}"
+                        disabled
+                    >
+
+                </div>
+
+                <!-- EMAIL -->
+
+                <div class="input-group">
+
+                    <label>Email</label>
+
+                    <input
+                        type="email"
+                        name="email"
+                        value="{{ request.user.email }}"
+                        required
+                    >
+
+                    {% if errores.email %}
+                        <div class="error">
+                            {{ errores.email }}
+                        </div>
+                    {% endif %}
+
+                </div>
+
+                <!-- TELEFONO -->
+
+                <div class="input-group">
+
+                    <label>Teléfono</label>
+
+                    <input
+                        type="text"
+                        name="telefono"
+                        value="{{ request.user.telefono }}"
+                    >
+
+                </div>
+
+                <!-- FECHA -->
+
+                <div class="input-group">
+
+                    <label>Fecha de Nacimiento</label>
+
+                    <input
+                        type="text"
+                        id="fecha_nacimiento"
+                        name="fecha_nacimiento"
+                        value="{{ request.user.fecha_nacimiento|date:'d/m/Y' }}"
+                        placeholder="dd/mm/aaaa"
+                        required
+                    >
+
+                    {% if errores.fecha_nacimiento %}
+                        <div class="error">
+                            {{ errores.fecha_nacimiento }}
+                        </div>
+                    {% endif %}
+
+                </div>
+
+                <hr style="margin:30px 0;border-color:#222;">
+
+                <!-- PASSWORD ACTUAL -->
+
+                <div class="input-group">
+
+                    <label>Contraseña Actual</label>
+
+                    <div class="password-container">
+
+                        <input
+                            type="password"
+                            name="password_actual"
+                            id="password_actual"
+                        >
+
+                        <span
+                            class="toggle-password"
+                            onclick="togglePassword('password_actual')"
+                        >
+                            👁
+                        </span>
+
+                    </div>
+
+                </div>
+
+                <!-- PASSWORD NUEVA -->
+
+                <div class="input-group">
+
+                    <label>Nueva Contraseña</label>
+
+                    <div class="password-container">
+
+                        <input
+                            type="password"
+                            name="password_nueva"
+                            id="password_nueva"
+                        >
+
+                        <span
+                            class="toggle-password"
+                            onclick="togglePassword('password_nueva')"
+                        >
+                            👁
+                        </span>
+
+                    </div>
+
+                    {% if errores.password %}
+                        <div class="error">
+                            {{ errores.password }}
+                        </div>
+                    {% endif %}
+
+                </div>
+
+                <!-- BOTONES -->
+
+                <div class="btns">
+
+                    <button
+                        type="submit"
+                        class="btn-guardar"
+                    >
+                        Modificar Perfil
+                    </button>
+
+                    <button
+                        type="button"
+                        class="btn-cancelar"
+                        onclick="window.location.href='{% url 'perfil' %}'"
+                    >
+                        Cancelar Modificación
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+
+    <script>
+
+        flatpickr("#fecha_nacimiento", {
+
+            locale: "es",
+
+            dateFormat: "d/m/Y",
+
+            allowInput: true,
+
+            maxDate: "today"
+        });
+
+        function togglePassword(inputId){
+
+            const passwordInput = document.getElementById(inputId);
+
+            if(passwordInput.type === "password"){
+
+                passwordInput.type = "text";
+
+            }else{
+
+                passwordInput.type = "password";
+            }
+        }
+
+    </script>
+
+</body>
+</html>

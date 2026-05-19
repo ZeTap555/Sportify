@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from .models import Usuario
 from datetime import date
 
@@ -93,3 +94,153 @@ def login_view(request):
 def logout_view(request):
     logout(request)
     return redirect('login')
+
+@login_required
+def perfil_view(request):
+
+    return render(
+        request,
+        'perfil.html'
+    )
+
+@login_required
+def editar_perfil_view(request):
+
+    user = request.user
+
+    errores = {}
+
+    if request.method == 'POST':
+
+        email = request.POST.get('email', '').strip()
+
+        telefono = request.POST.get('telefono', '').strip()
+
+        fecha_nacimiento_str = request.POST.get(
+            'fecha_nacimiento',
+            ''
+        ).strip()
+
+        password_actual = request.POST.get(
+            'password_actual',
+            ''
+        )
+
+        password_nueva = request.POST.get(
+            'password_nueva',
+            ''
+        )
+
+        # =========================
+        # VALIDAR EMAIL DUPLICADO
+        # =========================
+
+        if Usuario.objects.filter(email=email).exclude(id=user.id).exists():
+
+            errores['email'] = (
+                'Modificación sin éxito - '
+                'Email ya asociado a otra cuenta'
+            )
+
+        # =========================
+        # VALIDAR MAYOR DE 16
+        # =========================
+
+        try:
+
+            dia, mes, anio = fecha_nacimiento_str.split('/')
+
+            fecha_nacimiento = date(
+                int(anio),
+                int(mes),
+                int(dia)
+            )
+
+            hoy = date.today()
+
+            edad = (
+                hoy.year - fecha_nacimiento.year
+                -
+                (
+                    (hoy.month, hoy.day)
+                    <
+                    (
+                        fecha_nacimiento.month,
+                        fecha_nacimiento.day
+                    )
+                )
+            )
+
+            if edad < 16:
+
+                errores['fecha_nacimiento'] = (
+                    'Modificación fallida - '
+                    'El usuario debe ser mayor a 16 años'
+                )
+
+        except ValueError:
+
+            errores['fecha_nacimiento'] = (
+                'Fecha inválida'
+            )
+
+        # =========================
+        # VALIDAR PASSWORD
+        # =========================
+
+        if password_nueva:
+
+            if not user.check_password(password_actual):
+
+                errores['password'] = (
+                    'Contraseña incorrecta - '
+                    'Volver a intentar'
+                )
+
+        # =========================
+        # SI HAY ERRORES
+        # =========================
+
+        if errores:
+
+            return render(
+                request,
+                'editar_perfil.html',
+                {
+                    'errores': errores
+                }
+            )
+
+        # =========================
+        # GUARDAR CAMBIOS
+        # =========================
+
+        user.email = email
+
+        user.telefono = telefono
+
+        user.fecha_nacimiento = fecha_nacimiento
+
+        if password_nueva:
+
+            user.set_password(password_nueva)
+
+        user.save()
+
+        messages.success(
+            request,
+            'Modificación exitosa'
+        )
+
+        # IMPORTANTE:
+        # vuelve a loguear al usuario
+        # despues de cambiar password
+
+        login(request, user)
+
+        return redirect('perfil')
+
+    return render(
+        request,
+        'editar_perfil.html'
+    )
