@@ -4,243 +4,138 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sportify - Panel de Control</title>
+    <title>Sportify - Grilla de Actividades</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
-        /* Base de diseño iOS Dark Mode / macOS */
+        /* Base e Interfaz estilo macOS Split View */
         body {
             background-color: #000000;
             color: #ffffff;
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             margin: 0;
-            padding: 0;
             display: flex;
-            min-height: 100vh;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
+            height: 100vh;
+            overflow: hidden; /* Evita scrolls dobles raros a nivel global */
         }
 
-        /* ------------------------------------------------------------------
-           BARRA LATERAL DE NAVEGACIÓN (SIDEBAR)
-        ------------------------------------------------------------------ */
+        /* 🍏 COLUMNA 1: SIDEBAR IZQUIERDA */
         .sidebar {
-            width: 250px;
-            background-color: #1c1c1e; /* Apple System Gray 6 */
+            width: 240px;
+            background-color: #1c1c1e;
             border-right: 1px solid #2c2c2e;
-            padding: 35px 20px;
+            padding: 30px 20px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            position: fixed;
             height: 100vh;
             box-sizing: border-box;
-            z-index: 100;
+            flex-shrink: 0;
         }
-
-        .sidebar-brand {
-            font-size: 1.35rem;
-            font-weight: 700;
-            color: #00ff88;
-            letter-spacing: -0.5px;
-            margin-bottom: 35px;
-            padding-left: 10px;
-            text-transform: uppercase;
+        .sidebar-brand { font-size: 1.3rem; font-weight: 700; color: #00ff88; margin-bottom: 30px; text-transform: uppercase;}
+        .menu-item { display: block; padding: 12px 16px; color: #8e8e93; text-decoration: none; font-weight: 500; border-radius: 8px; margin-bottom: 5px; transition: all 0.15s; }
+        .menu-item.active { background-color: #2c2c2e; color: #ffffff; font-weight: 600; }
+        .menu-item:hover:not(.active) { background-color: rgba(255, 255, 255, 0.04); color: #ffffff; }
+        
+        .sidebar-footer { border-top: 1px solid #2c2c2e; padding-top: 20px; }
+        .user-tag { font-size: 0.8rem; color: #8e8e93; margin-bottom: 10px; padding-left: 10px; }
+        
+        /* Botón de Cerrar Sesión Fino estilo Apple */
+        .btn-danger {
+            display: block; text-align: center; text-decoration: none; padding: 9px 18px; border-radius: 8px; font-size: 0.85rem; font-weight: 600;
+            background-color: transparent; color: #ff453a; border: 1px solid rgba(255, 69, 58, 0.2); transition: all 0.15s;
         }
+        .btn-danger:hover { background-color: rgba(255, 69, 58, 0.08); border-color: #ff453a; }
 
-        .sidebar-menu {
+        /* CONTENEDOR DERECHO QUE AGRUPA EL MARCO SUPERIOR Y EL CONTENIDO */
+        .right-area {
             display: flex;
             flex-direction: column;
-            gap: 6px;
             flex-grow: 1;
+            height: 100vh;
         }
 
-        /* Items de menú limpios, basados en tipografía y sutiles indicadores */
-        .menu-item {
-            display: flex;
-            align-items: center;
-            padding: 12px 16px;
-            color: #8e8e93; /* Apple Gray */
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 0.9rem;
-            border-radius: 10px;
-            transition: all 0.15s ease;
-            letter-spacing: -0.1px;
-        }
-
-        /* Estado activo: Fondo integrado y texto resaltado */
-        .menu-item.active {
-            background-color: #2c2c2e; /* Apple System Gray 5 */
-            color: #ffffff;
-            font-weight: 600;
-        }
-
-        .menu-item:hover:not(.active) {
-            background-color: rgba(255, 255, 255, 0.04);
-            color: #ffffff;
-        }
-
-        .sidebar-footer {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            border-top: 1px solid #2c2c2e;
-            padding-top: 20px;
-        }
-
-        .user-tag {
-            font-size: 0.8rem;
-            color: #8e8e93;
-            padding-left: 10px;
-            letter-spacing: -0.1px;
-        }
-
-        /* ------------------------------------------------------------------
-           CONTENIDO PRINCIPAL
-        ------------------------------------------------------------------ */
-        .main-content {
-            margin-left: 250px;
-            flex-grow: 1;
-            padding: 50px 60px;
-            max-width: 900px;
-            box-sizing: border-box;
-        }
-
-        .header-section {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 35px;
-        }
-
-        .header-section h1 {
-            margin: 0;
-            font-weight: 700;
-            font-size: 2rem;
-            letter-spacing: -0.5px;
-            color: #ffffff;
-        }
-
-        .btn-group {
-            display: flex;
-            gap: 10px;
-        }
-
-        /* Botones sofisticados sin estridencias */
-        .btn {
-            padding: 9px 18px;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 0.85rem;
-            transition: all 0.15s ease;
-            box-sizing: border-box;
-        }
-
-        .btn-secondary {
+        /* 🍏 MARCO SUPERIOR (HEADER GLOBAL) */
+        .top-header {
+            height: 65px;
             background-color: #1c1c1e;
-            color: #00ff88;
-            border: 1px solid #2c2c2e;
+            border-bottom: 1px solid #2c2c2e;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end; /* Tira el botón de login todo a la derecha */
+            padding: 0 40px;
+            box-sizing: border-box;
+            flex-shrink: 0;
         }
 
-        .btn-secondary:hover {
-            background-color: #2c2c2e;
-            border-color: #3a3a3c;
-        }
-
-        .btn-primary {
+        /* Botón de Login/Acceso en el Header Superior */
+        .btn-header-login {
             background-color: #00ff88;
             color: #000000;
-            border: none;
+            text-decoration: none;
+            padding: 8px 18px;
+            border-radius: 50px; /* Estilo píldora nativa de Apple */
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.15s ease;
+            box-shadow: 0 2px 8px rgba(0, 255, 136, 0.1);
         }
-
-        .btn-primary:hover {
+        .btn-header-login:hover {
             background-color: #12ff93;
+            transform: translateY(-1px);
         }
 
-        .btn-danger {
-            background-color: transparent;
-            color: #ff453a; /* iOS Red */
-            border: 1px solid rgba(255, 69, 58, 0.2);
-            text-align: center;
+        /* WORKSPACE DE DOS COLUMNAS (Calendario + Detalles) */
+        .app-container {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            height: calc(100vh - 65px); /* Resta el espacio exacto del header */
+            width: 100%;
         }
 
-        .btn-danger:hover {
-            background-color: rgba(255, 69, 58, 0.08);
-            border-color: #ff453a;
+        /* COLUMNA 2: CALENDARIO CENTRAL */
+        .calendar-section {
+            padding: 40px;
+            overflow-y: auto;
+            border-right: 1px solid #2c2c2e;
         }
+        .calendar-header h1 { margin: 0; font-size: 1.8rem; font-weight: 700; letter-spacing: -0.5px; }
+        
+        .calendar-grid {
+            display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px;
+            background-color: #2c2c2e; border: 1px solid #2c2c2e; border-radius: 12px; overflow: hidden; margin-top: 25px;
+        }
+        .weekday-label { background-color: #1c1c1e; padding: 12px; text-align: center; font-size: 0.8rem; font-weight: 600; color: #8e8e93; text-transform: uppercase; }
+        .calendar-day { background-color: #1c1c1e; min-height: 110px; padding: 8px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; transition: background-color 0.15s; }
+        .calendar-day:hover { background-color: #252528; }
+        .calendar-day.empty { background-color: #0b0b0c; cursor: default; }
+        .calendar-day.selected { background-color: #2c2c2e; border: 1px solid #00ff88; box-sizing: border-box; }
+        .day-number { font-weight: 600; font-size: 0.95rem; color: #aeaea3; }
+        .calendar-day.is-hoy .day-number { color: #00ff88; }
 
-        /* ------------------------------------------------------------------
-           LISTADO DE CLASES (BENTO LAYOUT)
-        ------------------------------------------------------------------ */
-        .cards-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
+        /* Píldoras del calendario */
+        .class-pill { font-size: 0.72rem; font-weight: 600; padding: 3px 6px; border-radius: 4px; margin-bottom: 3px; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pill-funcional { background-color: #ff9f0a; }
+        .pill-yoga { background-color: #bf5af2; }
+        .pill-spinning { background-color: #30d158; }
+        .pill-default { background-color: #0a84ff; }
 
-        .item-card {
-            background-color: #1c1c1e;
-            border: 1px solid #2c2c2e;
-            border-radius: 14px;
-            padding: 20px 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: border-color 0.15s ease, background-color 0.15s ease;
-        }
+        /* COLUMNA 3: PANEL LATERAL DERECHO */
+        .details-section { background-color: #1c1c1e; padding: 40px 25px; display: flex; flex-direction: column; gap: 30px; overflow-y: auto; }
+        .months-selector { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .month-btn { background-color: #2c2c2e; border: 1px solid #3a3a3c; color: #8e8e93; padding: 10px 5px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; text-align: center; text-decoration: none; transition: all 0.15s; }
+        .month-btn:hover { color: #fff; background-color: #3a3a3c; }
+        .month-btn.active { background-color: rgba(255, 255, 255, 0.1); color: #ffffff; border-color: #8e8e93; }
 
-        .item-card:hover {
-            border-color: #3a3a3c;
-            background-color: #222226;
-        }
-
-        .card-details {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .activity-title {
-            color: #ffffff;
-            font-weight: 600;
-            font-size: 1.15rem;
-            letter-spacing: -0.2px;
-        }
-
-        /* Etiqueta compacta institucional */
-        .day-tag {
-            background-color: #2c2c2e;
-            color: #aeaeb2;
-            padding: 3px 10px;
-            border-radius: 6px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            align-self: flex-start;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .time-box {
-            text-align: right;
-        }
-
-        .time-value {
-            color: #00ff88;
-            font-weight: 700;
-            font-size: 1.35rem;
-            font-variant-numeric: tabular-nums;
-        }
-
-        .empty-state {
-            background-color: #1c1c1e;
-            border: 1px dashed #2c2c2e;
-            border-radius: 14px;
-            padding: 45px;
-            text-align: center;
-            color: #8e8e93;
-            font-size: 0.9rem;
-        }
+        .day-detail-box h2 { margin: 0 0 5px 0; font-size: 1.3rem; font-weight: 700; }
+        .day-detail-subtitle { color: #8e8e93; font-size: 0.85rem; margin-bottom: 20px; }
+        .detail-card { background-color: #2c2c2e; border-radius: 10px; padding: 15px; margin-bottom: 12px; border-left: 4px solid #0a84ff; }
+        .detail-card-header { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 5px; }
+        .detail-profesor { font-size: 0.82rem; color: #aeaeae; margin-bottom: 10px; }
+        .detail-footer { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; }
+        .cupos-badge { color: #00ff88; font-weight: 600; }
+        .btn-ver-detalle { background-color: rgba(255, 255, 255, 0.05); color: #ffffff; border: 1px solid #3a3a3c; padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 0.75rem; }
+        .no-classes { color: #636366; font-size: 0.9rem; font-style: italic; text-align: center; margin-top: 30px; }
     </style>
 </head>
 <body>
@@ -250,58 +145,127 @@
             <div class="sidebar-brand">Sportify</div>
             <div class="sidebar-menu">
                 <a href="{% url 'grilla_actividades' %}" class="menu-item active">Cronograma</a>
-                <a href="{% url 'perfil' %}" class="menu-item">Mi Perfil</a>
+                
+                <a href="{% if request.user.is_authenticated %}{% url 'perfil' %}{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mi Perfil</a>
+                
                 {% if request.user.is_authenticated and request.user.rol == 'admin' %}
                     <a href="{% url 'panel_admin' %}" class="menu-item">Panel Admin</a>
                 {% endif %}
-                <a href="#" class="menu-item">Mis Reservas</a>
-                <a href="#" class="menu-item">Mis Pagos</a>
-                <a href="#" class="menu-item">Novedades</a>
+                
+                <a href="{% if request.user.is_authenticated %}#{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Reservas</a>
+                <a href="{% if request.user.is_authenticated %}#{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Pagos</a>
+                <a href="{% if request.user.is_authenticated %}#{% else %}{% url 'login' %}{% endif %}" class="menu-item">Novedades</a>
             </div>
         </div>
 
         <div class="sidebar-footer">
             {% if request.user.is_authenticated %}
                 <div class="user-tag">Usuario: {{ request.user.first_name }}</div>
-                <a href="{% url 'logout' %}" class="btn btn-danger">Cerrar Sesión</a>
-            {% else %}
-                <a href="{% url 'login' %}" class="btn btn-primary" style="text-align: center;">Iniciar Sesión</a>
+                <a href="{% url 'logout' %}" class="btn-danger">Cerrar Sesión</a>
             {% endif %}
         </div>
     </div>
 
-    <div class="main-content">
+    <div class="right-area">
         
-        <div class="header-section">
-            <h1>Cronograma</h1>
+        <div class="top-header">
+            {% if not request.user.is_authenticated %}
+                <a href="{% url 'login' %}" class="btn-header-login">Iniciar Sesión</a>
+            {% else %}
+                <span style="font-size: 0.85rem; color: #8e8e93; font-weight: 500;">Hola, {{ request.user.first_name }} 👋</span>
+            {% endif %}
+        </div>
+
+        <div class="app-container">
             
-            <div class="btn-group">
-                {% if request.user.is_authenticated and request.user.rol == 'admin' %}
-                    <a href="{% url 'crear_actividad' %}" class="btn btn-secondary">+ Actividad</a>
-                    <a href="{% url 'crear_clase' %}" class="btn btn-secondary">+ Clase</a>
-                {% endif %}
+            <div class="calendar-section">
+                <div class="calendar-header">
+                    <h1>{{ mes_nombre }} {{ anio_actual }}</h1>
+                </div>
+
+                <div class="calendar-grid">
+                    <div class="weekday-label">Lun</div>
+                    <div class="weekday-label">Mar</div>
+                    <div class="weekday-label">Mié</div>
+                    <div class="weekday-label">Jue</div>
+                    <div class="weekday-label">Vie</div>
+                    <div class="weekday-label">Sáb</div>
+                    <div class="weekday-label">Dom</div>
+
+                    {% for semana in semanas_matriz %}
+                        {% for dia in semana %}
+                            {% if dia == 0 %}
+                                <div class="calendar-day empty"></div>
+                            {% else %}
+                                <div class="calendar-day 
+                                    {% if fecha_seleccionada.day == dia %}selected{% endif %}
+                                    {% if hoy.day == dia and hoy.month == mes_actual and hoy.year == anio_actual %}is-hoy{% endif %}"
+                                    onclick="location.href='?anio={{ anio_actual }}&mes={{ mes_actual }}&dia_sel={{ dia }}'">
+                                    
+                                    <div class="day-number">{{ dia }}</div>
+                                    
+                                    <div class="day-classes-container">
+                                        {% for key, clases in clases_por_dia.items %}
+                                            {% if key == dia %}
+                                                {% for c in clases %}
+                                                    <div class="class-pill 
+                                                        {% if 'Funcional' in c.actividad.nombre %}pill-funcional
+                                                        {% elif 'Yoga' in c.actividad.nombre %}pill-yoga
+                                                        {% elif 'Spinning' in c.actividad.nombre %}pill-spinning
+                                                        {% else %}pill-default{% endif %}">
+                                                        {{ c.horario|time:"H:i" }} {{ c.actividad.nombre }}
+                                                    </div>
+                                                {% endfor %}
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                </div>
             </div>
-        </div>
 
-        <div class="cards-list">
-            {% for clase in clases %}
-                <div class="item-card">
-                    <div class="card-details">
-                        <span class="activity-title">{{ clase.actividad.nombre }}</span>
-                        <span class="day-tag">{{ clase.dia_semana }}</span>
-                    </div>
-                    
-                    <div class="time-box">
-                        <div class="time-value">{{ clase.horario|time:"H:i" }} hs</div>
+            <div class="details-section">
+                <div>
+                    <p style="font-size: 0.78rem; font-weight: 600; color: #8e8e93; text-transform: uppercase; margin-bottom: 10px;">Próximos Meses</p>
+                    <div class="months-selector">
+                        {% for m in proximos_meses %}
+                            <a href="?anio={{ m.anio }}&mes={{ m.mes }}&dia_sel=1" class="month-btn {% if m.activo %}active{% endif %}">
+                                {{ m.nombre }}
+                            </a>
+                        {% endfor %}
                     </div>
                 </div>
-            {% empty %}
-                <div class="empty-state">
-                    <p style="margin: 0;">No se registran clases planificadas en el sistema.</p>
-                </div>
-            {% endfor %}
-        </div>
 
+                <div class="day-detail-box">
+                    <h2>Detalles del Día</h2>
+                    <div class="day-detail-subtitle">{{ fecha_seleccionada|date:"l d \d\e F" }}</div>
+
+                    {% if clases_detalle_dia %}
+                        {% for clase in clases_detalle_dia %}
+                            <div class="detail-card" style="border-left-color: {% if 'Funcional' in clase.actividad.nombre %}#ff9f0a{% elif 'Yoga' in clase.actividad.nombre %}#bf5af2{% else %}#0a84ff{% endif %};">
+                                <div class="detail-card-header">
+                                    <span>{{ clase.actividad.nombre }}</span>
+                                    <span style="color: #fff;">{{ clase.horario|time:"H:i" }} hs</span>
+                                </div>
+                                <div class="detail-profesor">
+                                    Prof: {% if clase.profesor %}{{ clase.profesor.nombre }} {{ clase.profesor.apellido }}{% else %}<span style="color:#636366; font-style:italic;">Sin asignar</span>{% endif %}
+                                </div>
+                                <div class="detail-footer">
+                                    <span class="cupos-badge">Cupos disp: {{ clase.cupos_disponibles }}</span>
+                                    <a href="#" class="btn-ver-detalle">Ver detalle</a>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="no-classes">No hay clases programadas (o ya finalizaron) para este día.</div>
+                    {% endif %}
+                </div>
+
+            </div>
+
+        </div>
     </div>
 
 </body>

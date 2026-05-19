@@ -3,54 +3,265 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sportify - Crear Clase</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/styles_app.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Base de diseño iOS Dark Mode / Split Layout */
+        body {
+            background-color: #000000;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Poppins, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* --- BARRA LATERAL (CONSERVA COHERENCIA VISUAL) --- */
+        .sidebar {
+            width: 250px;
+            background-color: #1c1c1e;
+            border-right: 1px solid #2c2c2e;
+            padding: 35px 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: fixed;
+            height: 100vh;
+            box-sizing: border-box;
+            z-index: 100;
+        }
+
+        .sidebar-brand {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: #00ff88;
+            letter-spacing: -0.5px;
+            margin-bottom: 35px;
+            padding-left: 10px;
+            text-transform: uppercase;
+        }
+
+        .sidebar-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            color: #8e8e93;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+            border-radius: 10px;
+            transition: all 0.15s ease;
+        }
+
+        .menu-item.active {
+            background-color: #2c2c2e;
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .menu-item:hover:not(.active) {
+            background-color: rgba(255, 255, 255, 0.04);
+            color: #ffffff;
+        }
+
+        /* --- ESPACIO DE TRABAJO PRINCIPAL --- */
+        .main-content {
+            margin-left: 250px;
+            flex-grow: 1;
+            padding: 50px 60px;
+            max-width: 700px; /* Contenedor de formulario más centrado y prolijo */
+            box-sizing: border-box;
+        }
+
+        .header-section {
+            margin-bottom: 35px;
+        }
+
+        .header-section h1 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        /* --- TARJETA DE FORMULARIO ESTILO APPLE --- */
+        .form-card {
+            background-color: #1c1c1e;
+            border: 1px solid #2c2c2e;
+            border-radius: 14px;
+            padding: 30px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .input-group label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #8e8e93;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Inputs, Selects y Time Pickers Unificados */
+        .input-field, .select-field {
+            background-color: #2c2c2e;
+            border: 1px solid #3a3a3c;
+            color: #ffffff;
+            padding: 12px 14px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            outline: none;
+            font-family: inherit;
+            transition: border-color 0.15s ease;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .input-field:focus, .select-field:focus {
+            border-color: #00ff88;
+        }
+
+        .input-help {
+            font-size: 0.75rem;
+            color: #636366;
+            margin-top: 4px;
+        }
+
+        /* Botón de envío ejecutivo */
+        .btn-submit {
+            background-color: #00ff88;
+            color: #000000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .btn-submit:hover {
+            background-color: #12ff93;
+        }
+
+        /* Mensajes de feedback del sistema */
+        .alert-message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+            border: 1px solid;
+        }
+    </style>
 </head>
 <body>
-    <div class="login-container">
-        <p class="subtitulo">Nueva Clase</p>
+
+    <div class="sidebar">
+        <div>
+            <div class="sidebar-brand">Sportify</div>
+            <div class="sidebar-menu">
+                <a href="{% url 'grilla_actividades' %}" class="menu-item active">Cronograma</a>
+                <a href="{% url 'perfil' %}" class="menu-item">Mi Perfil</a>
+                {% if request.user.is_authenticated and request.user.rol == 'admin' %}
+                    <a href="{% url 'panel_admin' %}" class="menu-item">Panel Admin</a>
+                {% endif %}
+                <a href="#" class="menu-item">Mis Reservas</a>
+                <a href="#" class="menu-item">Mis Pagos</a>
+                <a href="#" class="menu-item">Novedades</a>
+            </div>
+        </div>
+
+        <div class="sidebar-footer">
+            {% if request.user.is_authenticated %}
+                <div class="user-tag">Usuario: {{ request.user.first_name }}</div>
+                <a href="{% url 'logout' %}" class="btn btn-danger">Cerrar Sesión</a>
+            {% else %}
+                <a href="{% url 'login' %}" class="btn btn-primary" style="text-align: center;">Iniciar Sesión</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="main-content">
+        
+        <div class="header-section">
+            <h1>Nueva Clase</h1>
+        </div>
 
         {% if messages %}
             {% for message in messages %}
-                <div style="color: {% if message.tags == 'error' %}#ff3333{% else %}#00ff88{% endif %}; margin-bottom: 15px;">
+                <div class="alert-message" style="
+                    background-color: {% if message.tags == 'error' %}rgba(255, 69, 58, 0.1){% else %}rgba(0, 255, 136, 0.1){% endif %};
+                    color: {% if message.tags == 'error' %}#ff453a{% else %}#00ff88{% endif %};
+                    border-color: {% if message.tags == 'error' %}rgba(255, 69, 58, 0.2){% else %}rgba(0, 255, 136, 0.2){% endif %};
+                ">
                     {{ message }}
                 </div>
             {% endfor %}
         {% endif %}
 
-        <form method="POST">
-            {% csrf_token %}
-            
-            <div class="input-group">
-                <label>Seleccionar Actividad</label>
-                <select name="actividad" required style="width: 100%; padding: 10px; background: #222; color: #fff; border: 1px solid #444; border-radius: 5px;">
-                    <option value="">-- Elija una actividad del sistema --</option>
-                    {% for act in actividades %}
-                        <option value="{{ act.id }}">{{ act.nombre }}</option>
-                    {% endfor %}
-                </select>
-            </div>
+        <div class="form-card">
+            <form method="POST">
+                {% csrf_token %}
+                
+                <div class="input-group">
+                    <label for="actividad">Seleccionar Actividad</label>
+                    <select name="actividad" id="actividad" class="select-field" required>
+                        <option value="">-- Seleccione una actividad --</option>
+                        {% for act in actividades %}
+                            <option value="{{ act.id }}" {% if valores.actividad == act.id|stringformat:"s" %}selected{% endif %}>
+                                {{ act.nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
 
-            <div class="input-group">
-                <label>Día de la semana</label>
-                <select name="dia_semana" required style="width: 100%; padding: 10px; background: #222; color: #fff; border: 1px solid #444; border-radius: 5px;">
-                    {% for dia in dias %}
-                        <option value="{{ dia }}">{{ dia }}</option>
-                    {% endfor %}
-                </select>
-            </div>
+                <div class="input-group">
+                    <label for="profesor">Asignar Profesor</label>
+                    <select name="profesor" id="profesor" class="select-field">
+                        <option value="">-- Sin asignar (se puede elegir después) --</option>
+                        {% for prof in profesores %}
+                            <option value="{{ prof.id }}" {% if valores.profesor == prof.id|stringformat:"s" %}selected{% endif %}>
+                                {{ prof.apellido }}, {{ prof.nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
 
-            <div class="input-group">
-                <label>Horario de inicio</label>
-                <input type="time" name="horario" required>
-                <span style="font-size: 0.8em; color: #aaa;">* Debe comenzar en punto (Ej: 19:00)</span>
-            </div>
+                <div class="input-group">
+                    <label for="fecha">Fecha de la Clase</label>
+                    <input type="date" id="fecha" name="fecha" class="input-field" value="{{ valores.fecha }}" required>
+                    <span class="input-help">* Selección de calendario real de días y semanas.</span>
+                </div>
 
-            <button type="submit">CREAR CLASE</button>
-        </form>
-        <br>
-        <a href="{% url 'crear_actividad' %}" style="color: #00ff88; text-decoration: none;">← Volver a crear actividad</a>
+                <div class="input-group">
+                    <label for="horario">Horario de Inicio</label>
+                    <input type="time" id="horario" name="horario" class="input-field" value="{{ valores.horario }}" required>
+                    <span class="input-help">* Debe comenzar estrictamente en punto (Ej: 19:00, 20:00).</span>
+                </div>
+
+                <button type="submit" class="btn-submit">Crear Nueva Clase</button>
+            </form>
+        </div>
+
     </div>
+
 </body>
 </html>

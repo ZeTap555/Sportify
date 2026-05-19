@@ -4,434 +4,389 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sportify - Panel de Administración</title>
+    <title>Sportify - Panel de Control Ejecutivo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
-        /* Tipografía e Identidad de Sistema Apple */
+        /* Base e Interfaz estilo macOS Dark */
         body {
             background-color: #000000;
             color: #ffffff;
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             margin: 0;
-            padding: 0;
             display: flex;
-            min-height: 100vh;
-            -webkit-font-smoothing: antialiased;
+            height: 100vh;
+            overflow: hidden;
         }
 
-        /* ------------------------------------------------------------------
-           BARRA LATERAL DE NAVEGACIÓN (Se mantiene idéntica para consistencia)
-        ------------------------------------------------------------------ */
+        /* COLUMNA 1: SIDEBAR IZQUIERDA */
         .sidebar {
-            width: 250px;
+            width: 240px;
             background-color: #1c1c1e;
             border-right: 1px solid #2c2c2e;
-            padding: 35px 20px;
+            padding: 30px 20px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            position: fixed;
             height: 100vh;
             box-sizing: border-box;
-            z-index: 100;
+            flex-shrink: 0;
         }
+        .sidebar-brand { font-size: 1.3rem; font-weight: 700; color: #00ff88; margin-bottom: 30px; text-transform: uppercase;}
+        .menu-item { display: block; padding: 12px 16px; color: #8e8e93; text-decoration: none; font-weight: 500; border-radius: 8px; margin-bottom: 5px; transition: all 0.15s; }
+        .menu-item.active { background-color: #2c2c2e; color: #ffffff; font-weight: 600; }
+        .menu-item:hover:not(.active) { background-color: rgba(255, 255, 255, 0.04); color: #ffffff; }
+        .sidebar-footer { border-top: 1px solid #2c2c2e; padding-top: 20px; }
+        .user-tag { font-size: 0.8rem; color: #8e8e93; margin-bottom: 10px; padding-left: 10px; }
+        .btn-danger { display: block; text-align: center; text-decoration: none; padding: 9px 18px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; background-color: transparent; color: #ff453a; border: 1px solid rgba(255, 69, 58, 0.2); transition: all 0.15s; }
+        .btn-danger:hover { background-color: rgba(255, 69, 58, 0.08); border-color: #ff453a; }
 
-        .sidebar-brand {
-            font-size: 1.35rem;
-            font-weight: 700;
-            color: #00ff88;
-            letter-spacing: -0.5px;
-            margin-bottom: 35px;
-            padding-left: 10px;
-            text-transform: uppercase;
-        }
-
-        .sidebar-menu {
+        /* CONTENEDOR DE CONTENIDO PRINCIPAL */
+        .main-workspace {
+            flex-grow: 1;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            height: 100vh;
+            background-color: #000000;
         }
 
-        .menu-item {
+        /* MARCO SUPERIOR (CONTROLES DE PESTAÑAS) */
+        .admin-header {
+            background-color: #1c1c1e;
+            border-bottom: 1px solid #2c2c2e;
+            padding: 20px 40px;
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            padding: 12px 16px;
-            color: #8e8e93;
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 0.9rem;
-            border-radius: 10px;
-            transition: all 0.15s ease;
+            flex-shrink: 0;
         }
+        .admin-header h1 { margin: 0; font-size: 1.4rem; font-weight: 700; letter-spacing: -0.5px; }
 
-        .menu-item.active {
+        /* Selector de pestañas dinámicas (Bento Layout Style) */
+        .tabs-container {
+            display: flex;
             background-color: #2c2c2e;
-            color: #ffffff;
+            padding: 4px;
+            border-radius: 10px;
+            gap: 4px;
+        }
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: #8e8e93;
+            padding: 8px 20px;
+            font-size: 0.9rem;
             font-weight: 600;
+            border-radius: 7px;
+            cursor: pointer;
+            transition: all 0.15s;
         }
-
-        .menu-item:hover:not(.active) {
-            background-color: rgba(255, 255, 255, 0.04);
+        .tab-btn.active {
+            background-color: #1c1c1e;
             color: #ffffff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
         }
 
-        /* ------------------------------------------------------------------
-           CONTENIDO PRINCIPAL MÓDULO ADMIN
-        ------------------------------------------------------------------ */
-        .main-content {
-            margin-left: 250px;
+        /* ÁREA DE CONTENIDO VARIABLE */
+        .panel-content {
             flex-grow: 1;
-            padding: 50px 60px;
-            max-width: 1000px;
+            padding: 40px;
+            overflow-y: auto;
             box-sizing: border-box;
         }
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; }
 
-        .admin-header {
-            margin-bottom: 30px;
-        }
+        /* REUTILIZACIÓN DE COMPONENTES FORMULARIO */
+        .bento-grid-two { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; }
+        .card-panel { background-color: #1c1c1e; border: 1px solid #2c2c2e; border-radius: 14px; padding: 25px; }
+        .card-panel h3 { margin-top: 0; margin-bottom: 20px; font-size: 1.1rem; font-weight: 600; color: #8e8e93; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .input-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+        .input-group label { font-size: 0.8rem; font-weight: 600; color: #8e8e93; text-transform: uppercase; }
+        .input-field, .select-field { background-color: #2c2c2e; border: 1px solid #3a3a3c; color: #ffffff; padding: 11px 14px; border-radius: 8px; font-size: 0.9rem; outline: none; width: 100%; box-sizing: border-box; }
+        .input-field:focus, .select-field:focus { border-color: #00ff88; }
+        .btn-action { background-color: #00ff88; color: #000; border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; transition: background 0.15s; }
+        .btn-action:hover { background-color: #12ff93; }
 
-        .admin-header h1 {
-            margin: 0;
-            font-size: 2rem;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-        }
+        /* CALENDARIO REDUCIDO PARA EL PANEL */
+        .calendar-mini-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background-color: #2c2c2e; border: 1px solid #2c2c2e; border-radius: 10px; overflow: hidden; margin-top: 15px; }
+        .mini-weekday { background-color: #1c1c1e; padding: 8px; text-align: center; font-size: 0.75rem; color: #8e8e93; font-weight: 600; }
+        .mini-day { background-color: #1c1c1e; min-height: 75px; padding: 6px; display: flex; flex-direction: column; justify-content: space-between; }
+        .mini-num { font-size: 0.8rem; font-weight: 600; color: #aeaea3; }
+        .mini-day.is-hoy .mini-num { color: #00ff88; }
+        .mini-pill { font-size: 0.65rem; padding: 2px 4px; border-radius: 3px; color: #000; font-weight: 600; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background-color: #0a84ff; }
 
-        .admin-header h1 span {
-            color: #00ff88;
-        }
+        /* ESTILOS DE LA PESTAÑA PAGOS */
+        .monto-badge { font-weight: 700; color: #00ff88; background-color: rgba(0, 255, 136, 0.08); padding: 4px 8px; border-radius: 6px; font-size: 0.85rem; }
+        .item-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #2c2c2e; }
+        .item-row:last-child { border-bottom: none; }
 
-        .admin-subtitle {
-            font-size: 0.9rem;
-            color: #8e8e93;
-            margin: 4px 0 0 0;
-        }
+        /* Dashboard de ganancias corporativas */
+        .ganancias-box { display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at top right, rgba(0,255,136,0.05), transparent), #1c1c1e; border: 1px solid #2c2c2e; border-radius: 16px; padding: 35px; margin-top: 30px; text-align: center; }
+        .ganancias-monto { font-size: 3.5rem; font-weight: 700; color: #00ff88; letter-spacing: -1px; margin: 0; line-height: 1; }
 
-        /* SEGMENTED CONTROL (Selector de pestañas estilo iOS) */
-        .segmented-control {
-            background-color: #1c1c1e;
-            padding: 3px;
-            border-radius: 10px;
-            display: inline-flex;
-            width: 100%;
-            max-width: 500px;
-            margin-bottom: 40px;
-            border: 1px solid #2c2c2e;
-        }
-
-        .tab-button {
-            flex: 1;
-            background: none;
-            border: none;
-            color: #8e8e93;
-            padding: 8px 0;
-            font-size: 0.85rem;
-            font-weight: 600;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.12s ease;
-        }
-
-        .tab-button.active {
-            background-color: #2c2c2e;
-            color: #ffffff;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-        }
-
-        /* PANELES DE CONTENIDO */
-        .tab-panel {
-            display: none; /* Se maneja con JS abajo */
-        }
-
-        .tab-panel.active {
-            display: block;
-        }
-
-        /* ESTRUCTURA DE TARJETAS (BENTO LAYOUT) */
-        .admin-card {
-            background-color: #1c1c1e;
-            border: 1px solid #2c2c2e;
-            border-radius: 14px;
-            padding: 24px;
-            margin-bottom: 24px;
-        }
-
-        .card-title {
-            font-size: 1.15rem;
-            font-weight: 600;
-            margin: 0 0 20px 0;
-            letter-spacing: -0.2px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        /* FORMULARIOS DE PRECIOS Y PAGOS */
-        .prices-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 20px;
-        }
-
-        .input-box {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .input-box label {
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: #8e8e93;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .input-row {
-            display: flex;
-            gap: 10px;
-        }
-
-        .input-row input, .select-ios {
-            background-color: #2c2c2e;
-            border: 1px solid #3a3a3c;
-            color: #ffffff;
-            padding: 10px 14px;
-            border-radius: 8px;
-            font-size: 0.95rem;
-            flex-grow: 1;
-            font-variant-numeric: tabular-nums;
-            outline: none;
-            transition: border-color 0.15s ease;
-        }
-
-        .input-row input:focus {
-            border-color: #00ff88;
-        }
-
-        .current-price {
-            font-size: 0.75rem;
-            color: #636366;
-            margin-top: 4px;
-        }
-
-        /* BOTONES PREMIUM (Píldoras iOS) */
-        .btn-action {
-            background-color: #00ff88;
-            color: #000000;
-            border: none;
-            padding: 10px 16px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 0.85rem;
-            cursor: pointer;
-            transition: background-color 0.15s ease;
-        }
-
-        .btn-action:hover {
-            background-color: #12ff93;
-        }
-
-        .btn-capsule {
-            background-color: #00ff88;
-            color: #000000;
-            padding: 8px 16px;
-            border-radius: 50px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            text-decoration: none;
-        }
-
-        /* GESTIÓN DE HORARIOS POR DÍA */
-        .day-section {
-            margin-top: 20px;
-        }
-
-        .day-title {
-            font-size: 0.85rem;
-            font-weight: 700;
-            color: #00ff88;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 12px;
-        }
-
-        .class-row {
-            background-color: #2c2c2e;
-            border-radius: 10px;
-            padding: 14px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-
-        .class-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .status-dot {
-            width: 7px;
-            height: 7px;
-            background-color: #00ff88;
-            border-radius: 50%;
-        }
-
-        .class-name {
-            font-weight: 600;
-            font-size: 1rem;
-        }
-
-        .class-meta {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            color: #aeaeb2;
-            font-size: 0.9rem;
-            font-variant-numeric: tabular-nums;
-        }
-
-        .btn-delete {
-            background: none;
-            border: none;
-            color: #ff453a;
-            cursor: pointer;
-            font-size: 0.85rem;
-            font-weight: 600;
-            padding: 4px 8px;
-            border-radius: 6px;
-            transition: background-color 0.15s ease;
-        }
-
-        .btn-delete:hover {
-            background-color: rgba(255, 69, 58, 0.1);
-        }
-
-        .text-placeholder {
-            color: #636366;
-            text-align: center;
-            padding: 30px 0;
-            font-size: 0.95rem;
-        }
+        /* Mensajes del sistema */
+        .alert-toast { padding: 12px 20px; border-radius: 8px; font-weight: 600; margin-bottom: 25px; border-left: 4px solid; background-color: #1c1c1e; }
     </style>
 </head>
 <body>
 
     <div class="sidebar">
-        <div class="sidebar-menu">
+        <div>
             <div class="sidebar-brand">Sportify</div>
-            <a href="{% url 'grilla_actividades' %}" class="menu-item">Cronograma</a>
-            <a href="#" class="menu-item">Mi Perfil</a>
-            <a href="#" class="menu-item active">Panel Admin</a>
+            <div class="sidebar-menu">
+                <a href="{% url 'grilla_actividades' %}" class="menu-item">Cronograma</a>
+                <a href="{% url 'perfil' %}" class="menu-item">Mi Perfil</a>
+                <a href="{% url 'panel_admin' %}" class="menu-item active">Panel Admin</a>
+                <a href="#" class="menu-item">Mis Reservas</a>
+                <a href="#" class="menu-item">Mis Pagos</a>
+                <a href="#" class="menu-item">Novedades</a>
+            </div>
+        </div>
+
+        <div class="sidebar-footer">
+            {% if request.user.is_authenticated %}
+                <div class="user-tag">Usuario: {{ request.user.first_name }}</div>
+                <a href="{% url 'logout' %}" class="btn-danger">Cerrar Sesión</a>
+            {% endif %}
         </div>
     </div>
 
-    <div class="main-content">
+    <div class="main-workspace">
         
         <div class="admin-header">
-            <h1>Panel <span>Admin</span></h1>
-            <p class="admin-subtitle">Bienvenido, {{ request.user.first_name|default:"Luciano Musicarelli" }}</p>
+            <h1>Panel de Administración</h1>
+            
+            <div class="tabs-container">
+                <button class="tab-btn active" onclick="switchTab('clases')">Clases</button>
+                <button class="tab-btn" onclick="switchTab('pagos')">Pagos</button>
+                <button class="tab-btn" onclick="switchTab('profesores')">Profesores</button>
+            </div>
         </div>
 
-        <div class="segmented-control">
-            <button class="tab-button active" onclick="switchTab('clases')">Clases</button>
-            <button class="tab-button" onclick="switchTab('pagos')">Pagos</button>
-            <button class="tab-button" onclick="switchTab('profesores')">Profesores</button>
-        </div>
+        <div class="panel-content">
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert-toast" style="
+                        border-left-color: {% if message.tags == 'error' %}#ff453a{% else %}#00ff88{% endif %};
+                        color: {% if message.tags == 'error' %}#ff453a{% else %}#00ff88{% endif %};
+                    ">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
 
-        <div id="panel-clases" class="tab-panel active">
-            <div class="admin-card">
-                <div class="card-title">
-                    <span>Gestión de Clases</span>
-                    <a href="{% url 'crear_clase' %}" class="btn-capsule">+ Nuevo Horario</a>
+            <div id="pane-clases" class="tab-pane active">
+                <div class="bento-grid-two">
+                    <div class="card-panel">
+                        <h3>Nueva Actividad</h3>
+                        <form method="POST">
+                        {% csrf_token %}
+                            <input type="hidden" name="action" value="crear_actividad">
+                            
+                            <div class="input-group">
+                                <label for="act-nombre">Nombre de la Disciplina</label>
+                                <input type="text" id="act-nombre" name="nombre" class="input-field" placeholder="Ej: Ritmos, CrossFit, Pilates" required>
+                            </div>
+                            <button type="submit" class="btn-action">Registrar Actividad</button>
+                        </form>
+                    </div>
+
+                    <div class="card-panel">
+                        <h3>Programar Clase</h3>
+                        <form method="POST">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="crear_clase">
+                            
+                            <div class="input-group">
+                                <label>Seleccionar Actividad</label>
+                                <select name="actividad" class="select-field" required>
+                                    <option value="">-- Seleccione disciplina --</option>
+                                    {% for act in actividades %}
+                                        <option value="{{ act.id }}">{{ act.nombre }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="input-group">
+                                <label>Asignar Profesor</label>
+                                <select name="profesor" class="select-field">
+                                    <option value="">-- Sin asignar (Opcional) --</option>
+                                    {% for prof in profesores %}
+                                        <option value="{{ prof.id }}">{{ prof.apellido }}, {{ prof.nombre }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                <div class="input-group">
+                                    <label>Fecha de Inicio de la Clase</label>
+                                    <input type="date" name="fecha" class="input-field" required>
+                                </div>
+                                <div class="input-group">
+                                    <label>Horario (Formato 24hs)</label>
+                                    <input type="time" name="horario" class="input-field" step="3600" placeholder="Ej: 19:00" required>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn-action">Añadir al Cronograma</button>
+                        </form>
+                    </div>
                 </div>
 
-                <div class="day-section">
-                    <div class="day-title">Domingo</div>
+                <div class="card-panel">
+                    <h3>Vista Control de Clases: {{ mes_nombre }} {{ anio_actual }}</h3>
+                    <div class="calendar-mini-grid">
+                        <div class="mini-weekday">Lun</div>
+                        <div class="mini-weekday">Mar</div>
+                        <div class="mini-weekday">Mié</div>
+                        <div class="mini-weekday">Jue</div>
+                        <div class="mini-weekday">Vie</div>
+                        <div class="mini-weekday">Sáb</div>
+                        <div class="mini-weekday">Dom</div>
+
+                        {% for semana in semanas_matriz %}
+                            {% for dia in semana %}
+                                <div class="mini-day {% if hoy.day == dia and hoy.month == mes_actual %}is-hoy{% endif %}">
+                                    <span class="mini-num">{% if dia != 0 %}{{ dia }}{% endif %}</span>
+                                    <div>
+                                        {% for key, clases in clases_por_dia.items %}
+                                            {% if key == dia and dia != 0 %}
+                                                {% for c in clases|slice:":2" %}
+                                                    <div class="mini-pill" title="{{ c.actividad.nombre }}">
+                                                        {{ c.horario|time:"H:i" }} {{ c.actividad.nombre|slice:":7" }}..
+                                                    </div>
+                                                {% endfor %}
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div id="pane-pagos" class="tab-pane">
+                <div class="bento-grid-two">
+                    <div class="card-panel">
+                        <h3>Monto Individual por Clase</h3>
+                        <p style="font-size:0.82rem; color:#8e8e93; margin-bottom:20px;">Establece el precio por asistencia única a cada disciplina.</p>
+                        
+                        <div style="max-height: 280px; overflow-y:auto; padding-right:5px;">
+                            {% for act in actividades %}
+                                <div class="item-row">
+                                    <span>Clase de <strong>{{ act.nombre }}</strong></span>
+                                    <span class="monto-badge">
+                                        {% if "Yoga" in act.nombre %}$3.000,00
+                                        {% elif "Funcional" in act.nombre %}$3.500,00
+                                        {% else %}$2.500,00{% endif %}
+                                    </span>
+                                </div>
+                            {% empty %}
+                                <p style="font-style:italic; color:#636366;">No hay actividades cargadas.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="card-panel">
+                        <h3>Monto Mensualidad por Actividad</h3>
+                        <p style="font-size:0.82rem; color:#8e8e93; margin-bottom:20px;">Precio fijo para pases libres mensuales por disciplina (Próxima fase).</p>
+                        
+                        <div style="max-height: 280px; overflow-y:auto; padding-right:5px;">
+                            {% for act in actividades %}
+                                <div class="item-row" style="opacity: 0.6;">
+                                    <span>Pase Mensual <strong>{{ act.nombre }}</strong></span>
+                                    <span class="monto-badge" style="color: #8e8e93; background: rgba(255,255,255,0.05);">
+                                        {% if "Yoga" in act.nombre %}$18.000 / mes
+                                        {% elif "Funcional" in act.nombre %}$22.000 / mes
+                                        {% else %}$15.000 / mes{% endif %}
+                                    </span>
+                                </div>
+                            {% empty %}
+                                <p style="font-style:italic; color:#636366;">No hay actividades cargadas.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ganancias-box">
+                    <div>
+                        <p style="font-size: 0.8rem; font-weight: 700; color: #8e8e93; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px;">Ganancias Registradas del Gimnasio</p>
+                        <h2 class="ganancias-monto">$184.500,00</h2>
+                        <p style="font-size: 0.78rem; color: #636366; margin-top: 15px;">* Estimación automática calculada a partir de las reservas e inscripciones activas.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="pane-profesores" class="tab-pane">
+                <div class="card-panel" style="max-width: 650px; margin: 0 auto;">
+                    <h3>Registrar Nuevo Profesor</h3>
+                    <p style="font-size: 0.85rem; color:#8e8e93; margin-bottom:25px;">Al dar de alta a un docente desde este formulario, se le otorgará de forma automática el rol y credenciales de "Profesor" en la plataforma.</p>
                     
-                    <div class="class-row">
-                        <div class="class-info">
-                            <div class="status-dot"></div>
-                            <span class="class-name">Yoga</span>
+                    <form method="POST">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="registrar_profesor">
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div class="input-group">
+                                <label for="prof-nombre">Nombre</label>
+                                <input type="text" id="prof-nombre" name="nombre" class="input-field" required>
+                            </div>
+                            <div class="input-group">
+                                <label for="prof-apellido">Apellido</label>
+                                <input type="text" id="prof-apellido" name="apellido" class="input-field" required>
+                            </div>
                         </div>
-                        <div class="class-meta">
-                            <span>22:22 - 22:55</span>
-                            <span>Capacidad: 10</span>
-                            <button class="btn-delete">Eliminar</button>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div class="input-group">
+                                <label for="prof-dni">DNI / Nombre de Usuario</label>
+                                <input type="text" id="prof-dni" name="dni" class="input-field" placeholder="Ej: 42333444" required>
+                            </div>
+                            <div class="input-group">
+                                <label for="prof-nac">Fecha de Nacimiento</label>
+                                <input type="date" id="prof-nac" name="fecha_nacimiento" class="input-field" required>
+                            </div>
                         </div>
-                    </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div class="input-group">
+                                <label for="prof-tel">Teléfono de Contacto</label>
+                                <input type="tel" id="prof-tel" name="telefono" class="input-field" placeholder="Ej: 2215556677" required>
+                            </div>
+                            <div class="input-group">
+                                <label for="prof-correo">Correo Electrónico</label>
+                                <input type="email" id="prof-correo" name="correo" class="input-field" placeholder="ejemplo@sportify.com" required>
+                            </div>
+                        </div>
+
+                        <div class="input-group" style="margin-bottom: 30px;">
+                            <label for="prof-pass">Contraseña Temporal</label>
+                            <input type="password" id="prof-pass" name="contrasenia" class="input-field" placeholder="••••••••" required>
+                            <span style="font-size:0.75rem; color:#636366; margin-top:4px;">* El profesor podrá actualizarla al iniciar sesión por primera vez.</span>
+                        </div>
+
+                        <button type="submit" class="btn-action">Dar de Alta Profesor</button>
+                    </form>
                 </div>
             </div>
+
         </div>
-
-        <div id="panel-pagos" class="tab-panel">
-            <div class="admin-card">
-                <div class="card-title">Precio por clase</div>
-                
-                <form method="POST" action="" class="prices-grid">
-                    {% csrf_token %}
-                    <div class="input-box">
-                        <label>Funcional</label>
-                        <div class="input-row">
-                            <input type="number" name="precio_funcional" value="10">
-                            <button type="submit" class="btn-action">Guardar</button>
-                        </div>
-                        <span class="current-price">Actual: $10 / clase</span>
-                    </div>
-
-                    <div class="input-box">
-                        <label>Pilates</label>
-                        <div class="input-row">
-                            <input type="number" name="precio_pilates" value="10">
-                            <button type="submit" class="btn-action">Guardar</button>
-                        </div>
-                        <span class="current-price">Actual: $10 / clase</span>
-                    </div>
-
-                    <div class="input-box">
-                        <label>Yoga</label>
-                        <div class="input-row">
-                            <input type="number" name="precio_yoga" value="10">
-                            <button type="submit" class="btn-action">Guardar</button>
-                        </div>
-                        <span class="current-price">Actual: $10 / clase</span>
-                    </div>
-                </form>
-            </div>
-
-            <div class="admin-card">
-                <div class="card-title">Pagos del mes</div>
-                <div class="input-box" style="max-width: 200px;">
-                    <select class="select-ios">
-                        <option value="5">Mayo 2026</option>
-                        <option value="4">Abril 2026</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        <div id="panel-profesores" class="tab-panel">
-            <div class="admin-card">
-                <div class="card-title">Gestión de Profesores</div>
-                <div class="text-placeholder">
-                    Gestión de profesores — próximamente desde el módulo central.
-                </div>
-            </div>
-        </div>
-
     </div>
 
     <script>
-        function switchTab(tabName) {
-            // Desactivar todos los botones y paneles
-            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
-
-            // Activar la pestaña seleccionada
+        function switchTab(tabId) {
+            // 1. Quitar estado activo de todos los botones
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            // 2. Ocultar todos los paneles de contenido
+            document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+            
+            // 3. Activar el botón seleccionado
             event.currentTarget.classList.add('active');
-            document.getElementById('panel-' + tabName).classList.add('active');
+            // 4. Mostrar el panel correspondiente
+            document.getElementById('pane-' + tabId).classList.add('active');
         }
     </script>
 </body>

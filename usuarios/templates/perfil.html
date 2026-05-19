@@ -6,17 +6,99 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mi Perfil - Sportify</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="{% static 'css/styles_app.css' %}">
 
     <style>
+        /* Base de diseño iOS Dark Mode / Estructura dividida */
         body {
-            background-color: #000;
-            font-family: 'Poppins', sans-serif;
-            color: white;
+            background-color: #000000;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Poppins, sans-serif;
             margin: 0;
-            padding: 40px;
+            padding: 0;
+            display: flex; /* Activa el layout dividido */
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* --- BARRA LATERAL DE NAVEGACIÓN INSTITUCIONAL --- */
+        .sidebar {
+            width: 250px;
+            background-color: #1c1c1e; /* Apple System Gray 6 */
+            border-right: 1px solid #2c2c2e;
+            padding: 35px 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: fixed;
+            height: 100vh;
+            box-sizing: border-box;
+            z-index: 100;
+        }
+
+        .sidebar-brand {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: #00ff88;
+            letter-spacing: -0.5px;
+            margin-bottom: 35px;
+            padding-left: 10px;
+            text-transform: uppercase;
+        }
+
+        .sidebar-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex-grow: 1;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            color: #8e8e93;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+            border-radius: 10px;
+            transition: all 0.15s ease;
+        }
+
+        .menu-item.active {
+            background-color: #2c2c2e; /* Apple System Gray 5 */
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .menu-item:hover:not(.active) {
+            background-color: rgba(255, 255, 255, 0.04);
+            color: #ffffff;
+        }
+
+        .sidebar-footer {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            border-top: 1px solid #2c2c2e;
+            padding-top: 20px;
+        }
+
+        .user-tag {
+            font-size: 0.8rem;
+            color: #8e8e93;
+            padding-left: 10px;
+        }
+
+        /* --- CONTENIDO PRINCIPAL (DERECHA) --- */
+        .main-content {
+            margin-left: 250px; /* Deja libre el espacio de la sidebar */
+            flex-grow: 1;
+            padding: 50px 60px;
+            max-width: 1100px;
+            box-sizing: border-box;
         }
 
         /* --- ESTILOS DEL MENSAJE FLOTANTE --- */
@@ -50,10 +132,9 @@
 
         .fade-out { opacity: 0; }
 
-        /* --- TU DISEÑO ORIGINAL (SIN TOCAR) --- */
+        /* --- TU DISEÑO ORIGINAL ADAPTADO A BLOQUES APPLE --- */
         .perfil-container {
-            max-width: 1100px;
-            margin: auto;
+            width: 100%;
         }
 
         .perfil-header {
@@ -61,47 +142,72 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 40px;
-            border-bottom: 2px solid #1f1f1f;
+            border-bottom: 1px solid #2c2c2e;
             padding-bottom: 20px;
         }
 
-        .logo {
-            color: #00ff88;
+        .perfil-header h1 {
+            margin: 0;
             font-size: 2rem;
             font-weight: 700;
+            letter-spacing: -0.5px;
         }
 
         .btn-editar-header {
             text-decoration: none;
-            background-color: #00ff88;
-            color: black;
-            padding: 12px 22px;
+            background-color: #1c1c1e;
+            color: #00ff88;
+            border: 1px solid #2c2c2e;
+            padding: 10px 20px;
             border-radius: 8px;
-            font-weight: 700;
-            transition: 0.2s;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.15s ease;
         }
 
         .btn-editar-header:hover {
-            background-color: #00cc6e;
+            background-color: #2c2c2e;
+            border-color: #3a3a3c;
+        }
+
+        .btn-danger {
+            background-color: transparent;
+            color: #ff453a;
+            border: 1px solid rgba(255, 69, 58, 0.2);
+            text-align: center;
+            text-decoration: none;
+            padding: 9px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.15s ease;
+        }
+
+        .btn-danger:hover {
+            background-color: rgba(255, 69, 58, 0.08);
+            border-color: #ff453a;
         }
 
         .perfil-content {
             display: flex;
-            gap: 30px;
+            gap: 24px;
             align-items: stretch;
         }
 
         .card {
-            background-color: #161616;
-            border: 1px solid #262626;
+            background-color: #1c1c1e;
+            border: 1px solid #2c2c2e;
             border-radius: 14px;
-            padding: 35px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            padding: 30px;
         }
 
         .perfil-izquierda {
-            width: 35%;
+            width: 30%;
             text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
 
         .perfil-derecha {
@@ -109,58 +215,71 @@
         }
 
         .avatar {
-            width: 150px;
-            height: 150px;
+            width: 110px;
+            height: 110px;
             border-radius: 50%;
-            border: 4px solid #00ff88;
-            margin: auto;
-            margin-bottom: 25px;
+            border: 2px solid #2c2c2e;
+            margin: 0 auto 20px auto;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 4rem;
-            color: #00ff88;
-            background-color: #111;
+            font-size: 2.8rem;
+            color: #8e8e93;
+            background-color: #2c2c2e;
         }
 
         .nombre-usuario {
-            font-size: 2rem;
+            font-size: 1.4rem;
             font-weight: 700;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
+            letter-spacing: -0.3px;
         }
 
         .badge-rol {
             display: inline-block;
-            background-color: #00ff88;
-            color: black;
-            padding: 8px 18px;
+            background-color: rgba(0, 255, 136, 0.1);
+            color: #00ff88;
+            padding: 5px 14px;
             border-radius: 30px;
-            font-weight: 700;
-            font-size: 0.9rem;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border: 1px solid rgba(0, 255, 136, 0.15);
         }
 
         .titulo-info {
-            color: #00ff88;
-            font-size: 1.5rem;
-            margin-bottom: 30px;
-            font-weight: 700;
+            color: #ffffff;
+            font-size: 1.2rem;
+            margin-bottom: 25px;
+            font-weight: 600;
+            letter-spacing: -0.2px;
         }
 
         .info-item {
-            margin-bottom: 22px;
-            border-bottom: 1px solid #222;
-            padding-bottom: 15px;
+            margin-bottom: 18px;
+            border-bottom: 1px solid #2c2c2e;
+            padding-bottom: 14px;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+            margin-bottom: 0;
         }
 
         .info-label {
-            color: #999;
-            font-size: 0.9rem;
-            margin-bottom: 6px;
+            color: #8e8e93;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
         }
 
         .info-value {
-            font-size: 1.1rem;
-            font-weight: 600;
+            font-size: 1.05rem;
+            font-weight: 500;
             color: white;
         }
     </style>
@@ -178,52 +297,77 @@
     </div>
     {% endif %}
 
-    <div class="perfil-container">
-
-        <div class="perfil-header">
-            <div class="logo">Sportify</div>
-            <a href="{% url 'editar_perfil' %}" class="btn-editar-header">
-                Modificar Perfil
-            </a>
+    <div class="sidebar">
+        <div>
+            <div class="sidebar-brand">Sportify</div>
+            <div class="sidebar-menu">
+                <a href="{% url 'grilla_actividades' %}" class="menu-item">Cronograma</a>
+                <a href="{% url 'perfil' %}" class="menu-item active">Mi Perfil</a>
+                {% if request.user.is_authenticated and request.user.rol == 'admin' %}
+                    <a href="{% url 'panel_admin' %}" class="menu-item">Panel Admin</a>
+                {% endif %}
+                <a href="#" class="menu-item">Mis Reservas</a>
+                <a href="#" class="menu-item">Mis Pagos</a>
+                <a href="#" class="menu-item">Novedades</a>
+            </div>
         </div>
 
-        <div class="perfil-content">
+        <div class="sidebar-footer">
+            {% if request.user.is_authenticated %}
+                <div class="user-tag">Usuario: {{ request.user.first_name }}</div>
+                <a href="{% url 'logout' %}" class="btn-danger">Cerrar Sesión</a>
+            {% endif %}
+        </div>
+    </div>
 
-            <div class="card perfil-izquierda">
-                <div class="avatar">
-                    <i class="fa-solid fa-user"></i>
-                </div>
-                <div class="nombre-usuario">
-                    {{ request.user.first_name }}
-                </div>
-                <div class="badge-rol">
-                    {{ request.user.rol }}
-                </div>
+    <div class="main-content">
+        <div class="perfil-container">
+
+            <div class="perfil-header">
+                <h1>Mi Perfil</h1>
+                <a href="{% url 'editar_perfil' %}" class="btn-editar-header">
+                    Modificar Perfil
+                </a>
             </div>
 
-            <div class="card perfil-derecha">
-                <div class="titulo-info">
-                    Información Personal
+            <div class="perfil-content">
+
+                <div class="card perfil-izquierda">
+                    <div class="avatar">
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+                    <div class="nombre-usuario">
+                        {{ request.user.first_name }}
+                    </div>
+                    <div class="badge-rol">
+                        {{ request.user.rol }}
+                    </div>
                 </div>
 
-                <div class="info-item">
-                    <div class="info-label">DNI</div>
-                    <div class="info-value">{{ request.user.dni }}</div>
-                </div>
+                <div class="card perfil-derecha">
+                    <div class="titulo-info">
+                        Información Personal
+                    </div>
 
-                <div class="info-item">
-                    <div class="info-label">Email</div>
-                    <div class="info-value">{{ request.user.email }}</div>
-                </div>
+                    <div class="info-item">
+                        <div class="info-label">DNI</div>
+                        <div class="info-value">{{ request.user.dni }}</div>
+                    </div>
 
-                <div class="info-item">
-                    <div class="info-label">Teléfono</div>
-                    <div class="info-value">{{ request.user.telefono }}</div>
-                </div>
+                    <div class="info-item">
+                        <div class="info-label">Email</div>
+                        <div class="info-value">{{ request.user.email }}</div>
+                    </div>
 
-                <div class="info-item">
-                    <div class="info-label">Fecha de Nacimiento</div>
-                    <div class="info-value">{{ request.user.fecha_nacimiento|date:"d/m/Y" }}</div>
+                    <div class="info-item">
+                        <div class="info-label">Teléfono</div>
+                        <div class="info-value">{{ request.user.telefono }}</div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-label">Fecha de Nacimiento</div>
+                        <div class="info-value">{{ request.user.fecha_nacimiento|date:"d/m/Y" }}</div>
+                    </div>
                 </div>
             </div>
         </div>
