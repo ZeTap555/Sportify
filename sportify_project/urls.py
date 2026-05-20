@@ -16,4 +16,5 @@ urlpatterns = [
    path('admin/', admin.site.urls),
    path('', include('gestion.urls')), # Tus vistas de actividades siguen en /gestion/
     path('', include('usuarios.urls')),
+    path('', include('pagos.urls')), # Tus vistas de pagos en /pagos/
 ]
