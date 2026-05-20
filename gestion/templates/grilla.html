@@ -153,7 +153,7 @@
                 {% endif %}
                 
                 <a href="{% if request.user.is_authenticated %}#{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Reservas</a>
-                <a href="{% if request.user.is_authenticated %}#{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Pagos</a>
+                <a href="{% if request.user.is_authenticated %}{% url 'historial_pagos' %}{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Pagos</a>
                 <a href="{% if request.user.is_authenticated %}#{% else %}{% url 'login' %}{% endif %}" class="menu-item">Novedades</a>
             </div>
         </div>
