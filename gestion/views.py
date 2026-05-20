@@ -6,8 +6,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from django.contrib.auth.hashers import make_password
-from .models import Clase, Actividad, Profesor
+from .models import Clase, Actividad, Profesor, Reserva
 from usuarios.models import Usuario
+from django.contrib.auth.decorators import login_required
 
 # 1. LA GRILLA REAL (Trae los datos que guardás en la BD)
 def grilla_actividades(request):
@@ -222,3 +223,10 @@ def panel_admin(request):
         'pestania_activa': pestania_activa,
     }
     return render(request, 'panel_admin.html', context)
+
+@login_required
+def historial_pagos(request):
+    # Buscamos todas las reservas del usuario logueado ordenadas por fecha de reserva de la más nueva a la más vieja
+    pagos = Reserva.objects.filter(usuario=request.user).order_by('-fecha_reserva')
+    
+    return render(request, 'gestion/historial_pagos.html', {'pagos': pagos})

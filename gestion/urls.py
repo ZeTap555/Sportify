@@ -8,4 +8,5 @@ urlpatterns = [
     #path('actividad/nueva/', views.crear_actividad, name='crear_actividad'),
     #path('clase/nueva/', views.crear_clase, name='crear_clase'),
     path('panel-admin/', views.panel_admin, name='panel_admin'),
+    path('historial-pagos/', views.historial_pagos, name='historial_pagos'),
 ]
