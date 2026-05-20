@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.contrib.auth.hashers import make_password
 from .models import Clase, Actividad, Profesor, Reserva
+from reservas.models import Mensualidad
 from usuarios.models import Usuario
 from django.contrib.auth.decorators import login_required
 
@@ -226,7 +227,58 @@ def panel_admin(request):
 
 @login_required
 def historial_pagos(request):
-    # Buscamos todas las reservas del usuario logueado ordenadas por fecha de reserva de la más nueva a la más vieja
+    from datetime import date
+
     pagos = Reserva.objects.filter(usuario=request.user).order_by('-fecha_reserva')
-    
-    return render(request, 'gestion/historial_pagos.html', {'pagos': pagos})
+
+    hoy = date.today()
+    dia_hoy = hoy.day
+    mes_hoy = hoy.month
+    anio_hoy = hoy.year
+
+    # Buscamos si el usuario tiene mensualidades este mes
+    mensualidades = Mensualidad.objects.filter(
+        usuario=request.user,
+        mes=mes_hoy,
+        anio=anio_hoy
+    )
+
+    # --- LOGICA DE LOS 4 ESCENARIOS DE LA USER STORY ---
+    resultados_mensualidad = []
+
+    if not mensualidades.exists():
+        # ESCENARIO 3: No posee ninguna mensualidad este mes
+        resultados_mensualidad.append({
+            'actividad': None,
+            'estado': 'sin_mensualidad',
+            'mensaje': 'Usted no posee ninguna mensualidad. Puede solicitar su mensualidad desde el cronograma.'
+        })
+    else:
+        for m in mensualidades:
+            if m.estado == 'pagada':
+                # ESCENARIO 1: Mensualidad pagada
+                resultados_mensualidad.append({
+                    'actividad': m.actividad.nombre,
+                    'estado': 'pagada',
+                    'mensaje': f'Su mensualidad de {m.actividad.nombre} está paga. ¡Puede disfrutar de su actividad!'
+                })
+            elif m.estado == 'pendiente' and dia_hoy <= 10:
+                # ESCENARIO 2: Pendiente pero dentro del plazo (día 1 al 10)
+                resultados_mensualidad.append({
+                    'actividad': m.actividad.nombre,
+                    'estado': 'pendiente',
+                    'mensaje': f'Su mensualidad de {m.actividad.nombre} está pendiente de pago. Por favor abone antes del día 11.'
+                })
+            elif m.estado == 'vencida' or (m.estado == 'pendiente' and dia_hoy > 10):
+                # ESCENARIO 4: Vencida (pasó el día 10 y no pagó)
+                resultados_mensualidad.append({
+                    'actividad': m.actividad.nombre,
+                    'estado': 'vencida',
+                    'mensaje': f'Tu mensualidad de {m.actividad.nombre} ha sido suspendida por falta de pago. El vencimiento fue el día 10 del corriente mes.'
+                })
+
+    context = {
+        'pagos': pagos,
+        'resultados_mensualidad': resultados_mensualidad,
+    }
+    return render(request, 'gestion/historial_pagos.html', context)
