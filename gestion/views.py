@@ -1,11 +1,16 @@
 import calendar
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
-from django.shortcuts import render, redirect 
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.http import JsonResponse
 from django.utils import timezone
 from django.contrib.auth.hashers import make_password
+from decimal import Decimal
+from django.db import transaction
+from django.core.mail import send_mail
+from django.conf import settings
 from .models import Clase, Actividad, Profesor, Reserva
 from reservas.models import Mensualidad
 from usuarios.models import Usuario
@@ -81,6 +86,171 @@ def grilla_actividades(request):
         'hoy': ahora,
     }
     return render(request, 'grilla.html', context)
+
+def enviar_confirmacion(usuario, clase, reserva):
+    try:
+        send_mail(
+            subject=f"Sportify - Inscripción confirmada: {clase.actividad.nombre}",
+            message=f"Hola {usuario.first_name},\n\n"
+                    f"Te inscribiste a {clase.actividad.nombre} el {clase.fecha} a las {clase.horario}.\n"
+                    f"Monto pagado: ${reserva.monto_pagado}\n"
+                    f"Medio de pago: {reserva.medio_pago}\n\n"
+                    f"¡Gracias por elegir Sportify!",
+            from_email='noreply@sportify.com',
+            recipient_list=[usuario.email],
+            fail_silently=True,
+        )
+    except Exception:
+        pass
+
+@login_required
+def inscribirse_clase(request, clase_id):
+    clase = get_object_or_404(Clase, id=clase_id)
+
+    if request.method == 'POST':
+        tipo_pago = request.POST.get('tipo_pago')
+        medio_pago = request.POST.get('medio_pago')
+
+        if tipo_pago not in ('senia', 'total'):
+            messages.error(request, "Tipo de pago inválido.")
+            return redirect('grilla_actividades')
+
+        if medio_pago not in ('Tarjeta', 'Mercado Pago'):
+            messages.error(request, "Medio de pago inválido.")
+            return redirect('grilla_actividades')
+
+        # Ya inscripto en esta clase
+        if Reserva.objects.filter(usuario=request.user, clase=clase).exists():
+            messages.error(request, "Ya estás inscripto en esta clase.")
+            return redirect('grilla_actividades')
+
+        # Sin cupo -> lista de espera
+        if clase.cupos_disponibles <= 0:
+            reserva = Reserva.objects.create(
+                usuario=request.user,
+                clase=clase,
+                en_lista_de_espera=True,
+                monto_pagado=0,
+                estado_pago='pendiente',
+            )
+            messages.warning(request,
+                "Lo sentimos, la clase a la que quiere asistir no tiene más cupos. "
+                "Se encuentra en lista de espera, le avisaremos novedades para abonarla.")
+            return redirect('grilla_actividades')
+
+        # Calcular monto
+        precio = clase.actividad.precio_clase
+        if tipo_pago == 'senia':
+            monto = precio * Decimal('0.50')
+        else:
+            monto = precio
+
+        # Guardar en sesión para el próximo paso
+        request.session['inscripcion_pendiente'] = {
+            'clase_id': clase.id,
+            'tipo_pago': tipo_pago,
+            'monto': str(monto),
+            'medio_pago': medio_pago,
+        }
+
+        if medio_pago == 'Tarjeta':
+            return redirect('pago_tarjeta')
+        else:
+            return redirect('pago_mercadopago')
+
+    return redirect('grilla_actividades')
+
+
+@login_required
+def pago_tarjeta(request):
+    datos = request.session.get('inscripcion_pendiente')
+    if not datos:
+        return redirect('grilla_actividades')
+
+    if request.method == 'POST':
+        numero = request.POST.get('numero', '')
+        vto = request.POST.get('vto', '')
+        cvv = request.POST.get('cvv', '')
+        titular = request.POST.get('titular', '')
+
+        if not all([numero, vto, cvv, titular]):
+            messages.error(request, "Complete todos los campos de la tarjeta.")
+            return render(request, 'pago_tarjeta.html', {'monto': datos['monto']})
+
+        # Simular validación de tarjeta
+        if len(numero.replace(' ', '')) < 16 or len(cvv) < 3:
+            messages.error(request, "La inscripción no puede hacerse, se rechazó el pago.")
+            del request.session['inscripcion_pendiente']
+            return redirect('pago_confirmacion', reserva_id=0)
+
+        # Pago exitoso -> crear reserva
+        with transaction.atomic():
+            clase = get_object_or_404(Clase, id=datos['clase_id'])
+            reserva = Reserva.objects.create(
+                usuario=request.user,
+                clase=clase,
+                monto_pagado=datos['monto'],
+                estado_pago='seña' if datos['tipo_pago'] == 'senia' else 'total',
+                medio_pago='Tarjeta',
+            )
+
+        enviar_confirmacion(request.user, clase, reserva)
+        del request.session['inscripcion_pendiente']
+        messages.success(request, "Inscripción realizada con éxito.")
+        return redirect('pago_confirmacion', reserva_id=reserva.id)
+
+    return render(request, 'pago_tarjeta.html', {'monto': datos['monto']})
+
+
+@login_required
+def pago_mercadopago(request):
+    datos = request.session.get('inscripcion_pendiente')
+    if not datos:
+        return redirect('grilla_actividades')
+
+    clase = get_object_or_404(Clase, id=datos['clase_id'])
+
+    # Simular redirección a MP - en producción usar SDK mercadopago
+    with transaction.atomic():
+        reserva = Reserva.objects.create(
+            usuario=request.user,
+            clase=clase,
+            monto_pagado=datos['monto'],
+            estado_pago='seña' if datos['tipo_pago'] == 'senia' else 'total',
+            medio_pago='Mercado Pago',
+        )
+
+    enviar_confirmacion(request.user, clase, reserva)
+    del request.session['inscripcion_pendiente']
+    messages.success(request, "Inscripción realizada con éxito.")
+    return redirect('pago_confirmacion', reserva_id=reserva.id)
+
+
+@login_required
+def pago_confirmacion(request, reserva_id):
+    if reserva_id == 0:
+        return render(request, 'pago_confirmacion.html', {'exito': False})
+    reserva = get_object_or_404(Reserva, id=reserva_id, usuario=request.user)
+    return render(request, 'pago_confirmacion.html', {
+        'exito': True,
+        'reserva': reserva,
+        'clase': reserva.clase,
+    })
+
+def detalle_clase_api(request, clase_id):
+    clase = get_object_or_404(Clase, id=clase_id)
+    data = {
+        'id': clase.id,
+        'actividad': clase.actividad.nombre,
+        'actividad_id': clase.actividad.id,
+        'horario': clase.horario.strftime('%H:%M'),
+        'profesor': f"{clase.profesor.nombre} {clase.profesor.apellido}" if clase.profesor else None,
+        'cupos_disponibles': clase.cupos_disponibles,
+        'precio_clase': float(clase.actividad.precio_clase),
+        'precio_mensualidad': float(clase.actividad.precio_mensualidad),
+        'logueado': request.user.is_authenticated,
+    }
+    return JsonResponse(data)
 
 def panel_admin(request):
     if not request.user.is_authenticated or request.user.rol != 'admin':

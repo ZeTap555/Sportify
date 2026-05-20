@@ -4,6 +4,8 @@ from django.utils import timezone
 
 class Actividad(models.Model):
     nombre = models.CharField(max_length=100, unique=True)
+    precio_clase = models.DecimalField(max_digits=10, decimal_places=2, default=2500.00)
+    precio_mensualidad = models.DecimalField(max_digits=10, decimal_places=2, default=15000.00)
 
     def __str__(self):
         return self.nombre
