@@ -285,7 +285,7 @@ def panel_admin(request):
     if request.method == 'POST':
         action = request.POST.get('action')
 
-        # --- A. PROCESAR NUEVA ACTIVIDAD (Ignora Mayúsculas y Minúsculas) ---
+        # --- A. PROCESAR NUEVA ACTIVIDAD ---
         if action == 'crear_actividad':
             pestania_activa = 'clases'
             nombre = request.POST.get('nombre')
@@ -293,14 +293,14 @@ def panel_admin(request):
             if nombre:
                 nombre_limpio = nombre.strip() 
                 if Actividad.objects.filter(nombre__iexact=nombre_limpio).exists():
-                    messages.error(request, "Error: La actividad ya se encuentra registrada en el sistema (ya existe con ese nombre).")
+                    messages.error(request, "Error: La actividad ya se encuentra registrada en el sistema.")
                 else:
                     Actividad.objects.create(nombre=nombre_limpio.capitalize())
                     messages.success(request, f"Actividad '{nombre_limpio.capitalize()}' creada con éxito.")
             else:
                 messages.error(request, "El nombre de la actividad no puede estar vacío.")
 
-        # --- B. PROCESAR PROGRAMAR CLASE (Validación recursiva infinita) ---
+        # --- B. PROCESAR PROGRAMAR CLASE ---
         elif action == 'crear_clase':
             pestania_activa = 'clases'
             actividad_id = request.POST.get('actividad')
@@ -313,11 +313,9 @@ def panel_admin(request):
             elif not fecha_str or not actividad_id:
                 messages.error(request, "Por favor, complete todos los campos obligatorios.")
             else:
-                # Convertimos el string a un objeto date real para calcular su día de la semana
                 fecha_obj = datetime.strptime(fecha_str, "%Y-%m-%d").date()
                 dia_semana_nuevo = fecha_obj.weekday()
 
-                # Buscamos colisiones: clases de la misma actividad a la misma hora
                 colision = Clase.objects.filter(
                     actividad_id=actividad_id,
                     horario=horario_str
@@ -325,7 +323,6 @@ def panel_admin(request):
 
                 ya_existe_choque = False
                 for c in colision:
-                    # Comparamos usando la nueva propiedad matemática del modelo
                     if c.dia_semana_num == dia_semana_nuevo:
                         ya_existe_choque = True
                         break
@@ -346,7 +343,47 @@ def panel_admin(request):
                     )
                     messages.success(request, "Clases creadas con éxito.")
 
-        # --- C. PROCESAR REGISTRAR PROFESOR ---
+        # --- C. PROCESAR REGISTRAR PROFESOR (¡Ahora bien tabulado!) ---
+        elif action == 'registrar_profesor':
+            pestania_activa = 'profesores'
+            dni = request.POST.get('dni')
+            nombre = request.POST.get('nombre')
+            apellido = request.POST.get('apellido')
+            fecha_nac = request.POST.get('fecha_nacimiento')
+            telefono = request.POST.get('telefono')
+            correo = request.POST.get('correo')
+            contrasenia = request.POST.get('contrasenia')
+
+            try:
+                if Usuario.objects.filter(username=dni).exists():
+                    messages.error(request, "Error: Ya existe un usuario registrado con ese DNI.")
+                else:
+                    user = Usuario.objects.create(
+                        username=dni,
+                        dni=dni,
+                        email=correo,
+                        first_name=nombre,
+                        last_name=apellido,
+                        telefono=telefono,
+                        fecha_nacimiento=fecha_nac,
+                        rol='profesor',
+                        is_active=True,
+                        password=make_password(contrasenia)
+                    )
+                    Profesor.objects.create(
+                        usuario=user,                # El enlace OneToOne que agregamos
+                        nombre=nombre,
+                        apellido=apellido,
+                         dni=dni,                     
+                        telefono=telefono,           
+                        correo=correo,               
+                        fecha_nacimiento=fecha_nac,  
+                        especialidad=""              
+)
+                    messages.success(request, f"Profesor {apellido}, {nombre} dado de alta con éxito.")
+            except Exception as e:
+                messages.error(request, f"Error en los datos: {e}")
+        """"
         elif action == 'registrar_profesor':
             pestania_activa = 'profesores'
             dni = request.POST.get('dni')
@@ -379,6 +416,7 @@ def panel_admin(request):
                     messages.success(request, f"Profesor {apellido}, {nombre} dado de alta con éxito.")
             except Exception as e:
                 messages.error(request, f"Error en los datos: {e}")
+"""
 
     # --- GENERACIÓN DEL CONTEXTO (GET) (Corregido para repetición infinita) ---
     año = int(request.GET.get('anio', ahora.year))
