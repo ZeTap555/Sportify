@@ -112,9 +112,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
-# Static files (CSS, Images, JavaScript)
 
-# sportify_project/settings.py
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 AUTH_USER_MODEL = 'usuarios.Usuario'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]

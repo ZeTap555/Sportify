@@ -83,7 +83,7 @@ def register_view(request):
         # 3. CONTROL DE ERRORES SIMULTÁNEOS
         # -----------------------------------------------------------------
         if errores:
-            messages.error(request, "Error en el registro. Verifique los datos ingresados.")
+            errores['general'] = 'Error en el registro. Verifique los datos ingresados.'
             return render(request, 'register.html', {
                 'errores': errores,
                 'valores': request.POST
@@ -105,12 +105,11 @@ def register_view(request):
             user.apta_medica = apta
             user.save()
 
-            messages.success(request, "Registro exitoso. Ahora puedes iniciar sesión.")
-            return redirect('login')
+            return redirect('/login/?success=register')
 
         except Exception as e:
             print(f"\n❌ ERROR CRÍTICO EN REGISTRO: {e}\n")
-            messages.error(request, f"Error al registrar: {e}")
+            errores['general'] = f'Error al registrar: {e}'
 
     return render(request, 'register.html', {'errores': errores})
 
@@ -121,8 +120,12 @@ def login_view(request):
         mensaje_exito=(
             'Contraseña reestablecida con éxito'
         )
+    elif request.GET.get('success')=='register':
+        mensaje_exito='Registro exitoso. Ahora puedes iniciar sesión.'
 
         
+
+    error = None
 
     if request.method == 'POST':
         dni_ingresado = request.POST.get('dni')
@@ -136,13 +139,14 @@ def login_view(request):
             # Una vez logueado, lo mandamos a la grilla de actividades
             return redirect('grilla_actividades')
         else:
-            messages.error(request, "DNI o contraseña incorrectos.")
+            error = "DNI o contraseña incorrectos."
 
     return render(
         request, 
         'login.html',
         {
-            'mensaje_exito':mensaje_exito
+            'mensaje_exito': mensaje_exito,
+            'error': error,
         }
     )
 
