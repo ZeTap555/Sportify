@@ -68,6 +68,7 @@ def grilla_actividades(request):
         dia_semana_sel = fecha_seleccionada.weekday()
         for clase in todas_las_clases:
             if clase.dia_semana_num == dia_semana_sel and fecha_seleccionada >= clase.fecha:
+                clase.cupos_mostrar = clase.cupos_para_fecha(fecha_seleccionada)
                 clases_detalle_dia.append(clase)
         
         # Las ordenamos por horario para que no queden mezcladas
@@ -106,36 +107,40 @@ def enviar_confirmacion(usuario, clase, reserva):
 @login_required
 def inscribirse_clase(request, clase_id):
     clase = get_object_or_404(Clase, id=clase_id)
+    fecha_clase_str = request.POST.get('fecha_clase')
+
+    if not fecha_clase_str:
+        return redirect('grilla_actividades')
+
+    try:
+        fecha_clase = datetime.strptime(fecha_clase_str, '%Y-%m-%d').date()
+    except ValueError:
+        return redirect('grilla_actividades')
 
     if request.method == 'POST':
         tipo_pago = request.POST.get('tipo_pago')
         medio_pago = request.POST.get('medio_pago')
 
         if tipo_pago not in ('senia', 'total'):
-            messages.error(request, "Tipo de pago inválido.")
             return redirect('grilla_actividades')
 
         if medio_pago not in ('Tarjeta', 'Mercado Pago'):
-            messages.error(request, "Medio de pago inválido.")
             return redirect('grilla_actividades')
 
-        # Ya inscripto en esta clase
-        if Reserva.objects.filter(usuario=request.user, clase=clase).exists():
-            messages.error(request, "Ya estás inscripto en esta clase.")
+        # Ya inscripto en esta fecha
+        if Reserva.objects.filter(usuario=request.user, clase=clase, fecha_clase=fecha_clase).exists():
             return redirect('grilla_actividades')
 
         # Sin cupo -> lista de espera
-        if clase.cupos_disponibles <= 0:
+        if clase.cupos_para_fecha(fecha_clase) <= 0:
             reserva = Reserva.objects.create(
                 usuario=request.user,
                 clase=clase,
+                fecha_clase=fecha_clase,
                 en_lista_de_espera=True,
                 monto_pagado=0,
                 estado_pago='pendiente',
             )
-            messages.warning(request,
-                "Lo sentimos, la clase a la que quiere asistir no tiene más cupos. "
-                "Se encuentra en lista de espera, le avisaremos novedades para abonarla.")
             return redirect('grilla_actividades')
 
         # Calcular monto
@@ -148,6 +153,7 @@ def inscribirse_clase(request, clase_id):
         # Guardar en sesión para el próximo paso
         request.session['inscripcion_pendiente'] = {
             'clase_id': clase.id,
+            'fecha_clase': fecha_clase_str,
             'tipo_pago': tipo_pago,
             'monto': str(monto),
             'medio_pago': medio_pago,
@@ -179,7 +185,6 @@ def pago_tarjeta(request):
 
         # Simular validación de tarjeta
         if len(numero.replace(' ', '')) < 16 or len(cvv) < 3:
-            messages.error(request, "La inscripción no puede hacerse, se rechazó el pago.")
             del request.session['inscripcion_pendiente']
             return redirect('pago_confirmacion', reserva_id=0)
 
@@ -189,6 +194,7 @@ def pago_tarjeta(request):
             reserva = Reserva.objects.create(
                 usuario=request.user,
                 clase=clase,
+                fecha_clase=datos['fecha_clase'],
                 monto_pagado=datos['monto'],
                 estado_pago='seña' if datos['tipo_pago'] == 'senia' else 'total',
                 medio_pago='Tarjeta',
@@ -196,7 +202,6 @@ def pago_tarjeta(request):
 
         enviar_confirmacion(request.user, clase, reserva)
         del request.session['inscripcion_pendiente']
-        messages.success(request, "Inscripción realizada con éxito.")
         return redirect('pago_confirmacion', reserva_id=reserva.id)
 
     return render(request, 'pago_tarjeta.html', {'monto': datos['monto']})
@@ -215,6 +220,7 @@ def pago_mercadopago(request):
         reserva = Reserva.objects.create(
             usuario=request.user,
             clase=clase,
+            fecha_clase=datos['fecha_clase'],
             monto_pagado=datos['monto'],
             estado_pago='seña' if datos['tipo_pago'] == 'senia' else 'total',
             medio_pago='Mercado Pago',
@@ -222,7 +228,6 @@ def pago_mercadopago(request):
 
     enviar_confirmacion(request.user, clase, reserva)
     del request.session['inscripcion_pendiente']
-    messages.success(request, "Inscripción realizada con éxito.")
     return redirect('pago_confirmacion', reserva_id=reserva.id)
 
 
@@ -239,16 +244,34 @@ def pago_confirmacion(request, reserva_id):
 
 def detalle_clase_api(request, clase_id):
     clase = get_object_or_404(Clase, id=clase_id)
+    fecha_str = request.GET.get('fecha')
+    ya_inscripto = False
+    en_espera = False
+    if fecha_str:
+        fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+        cupos = clase.cupos_para_fecha(fecha)
+        if request.user.is_authenticated:
+            reserva_user = Reserva.objects.filter(
+                usuario=request.user, clase=clase, fecha_clase=fecha
+            ).first()
+            if reserva_user:
+                ya_inscripto = True
+                en_espera = reserva_user.en_lista_de_espera
+    else:
+        cupos = 30
     data = {
         'id': clase.id,
         'actividad': clase.actividad.nombre,
         'actividad_id': clase.actividad.id,
+        'fecha': fecha_str or clase.fecha.strftime('%d/%m/%Y'),
         'horario': clase.horario.strftime('%H:%M'),
         'profesor': f"{clase.profesor.nombre} {clase.profesor.apellido}" if clase.profesor else None,
-        'cupos_disponibles': clase.cupos_disponibles,
+        'cupos_disponibles': cupos,
         'precio_clase': float(clase.actividad.precio_clase),
         'precio_mensualidad': float(clase.actividad.precio_mensualidad),
         'logueado': request.user.is_authenticated,
+        'ya_inscripto': ya_inscripto,
+        'en_espera': en_espera,
     }
     return JsonResponse(data)
 

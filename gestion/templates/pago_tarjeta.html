@@ -85,7 +85,7 @@
             <div class="grid-2">
                 <div class="input-group">
                     <label>Vencimiento</label>
-                    <input type="text" name="vto" placeholder="MM/AA" maxlength="5" required>
+                    <input type="text" name="vto" placeholder="MM/AA" maxlength="5" required oninput="if(this.value.length==2&&!this.value.includes('/')) this.value+='/';">
                 </div>
                 <div class="input-group">
                     <label>CVV</label>

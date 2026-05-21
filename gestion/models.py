@@ -48,15 +48,12 @@ class Clase(models.Model):
         )
         return ahora > clase_datetime
 
-    # 👥 Mantenemos tus cupos compartidos intactos por ahora
-    @property
-    def cupos_disponibles(self):
+    def cupos_para_fecha(self, fecha):
         CAPACIDAD_MAXIMA_GIMNASIO = 30
         total_reservas_franja = Reserva.objects.filter(
-            clase__fecha=self.fecha,
-            clase__horario=self.horario
+            clase=self,
+            fecha_clase=fecha,
         ).count()
-        
         disponibles = CAPACIDAD_MAXIMA_GIMNASIO - total_reservas_franja
         return max(0, disponibles)
 
@@ -107,6 +104,7 @@ class Reserva(models.Model):
     # Tabla intermedia para conectar los usuarios con las clases específicas
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     clase = models.ForeignKey(Clase, on_delete=models.CASCADE, related_name='reservas')
+    fecha_clase = models.DateField(null=True, blank=True)
     fecha_reserva = models.DateTimeField(auto_now_add=True)
     
     # 📋 LISTA DE ESPERA INTERNA
@@ -119,7 +117,7 @@ class Reserva(models.Model):
 
     class Meta:
         # Evita que un mismo usuario se anote dos veces a la misma clase exacta
-        unique_together = ('usuario', 'clase')
+        unique_together = ('usuario', 'clase', 'fecha_clase')
 
     def __str__(self):
         estado = "Lista de Espera" if self.en_lista_de_espera else "Confirmado"

@@ -290,8 +290,8 @@
                                     Prof: {% if clase.profesor %}{{ clase.profesor.nombre }} {{ clase.profesor.apellido }}{% else %}<span style="color:#636366; font-style:italic;">Sin asignar</span>{% endif %}
                                 </div>
                                 <div class="detail-footer">
-                                    <span class="cupos-badge">Cupos disp: {{ clase.cupos_disponibles }}</span>
-                                    <button onclick="abrirModalDetalle({{ clase.id }})" class="btn-ver-detalle" style="cursor:pointer;">Ver detalle</button>
+                                    <span class="cupos-badge">Cupos disp: {{ clase.cupos_mostrar }}</span>
+                                    <button onclick="abrirModalDetalle({{ clase.id }}, '{{ fecha_seleccionada|date:"Y-m-d" }}')" class="btn-ver-detalle" style="cursor:pointer;">Ver detalle</button>
                                 </div>
                             </div>
                         {% endfor %}
@@ -309,7 +309,10 @@
     <div class="modal-card" onclick="event.stopPropagation()">
         <button class="modal-cerrar" onclick="cerrarModal()">&times;</button>
         <h2 id="modal-actividad"></h2>
-        <div class="modal-subtitle" id="modal-horario"></div>
+        <div class="modal-subtitle">
+            <div id="modal-fecha"></div>
+            <div id="modal-horario"></div>
+        </div>
 
         <hr class="modal-divider">
 
@@ -330,13 +333,16 @@
 
 <script>
     var modalData = null;
+    var modalFecha = null;
 
-    function abrirModalDetalle(claseId) {
-        fetch('/clase/' + claseId + '/datos/')
+    function abrirModalDetalle(claseId, fecha) {
+        modalFecha = fecha;
+        fetch('/clase/' + claseId + '/datos/?fecha=' + fecha)
             .then(r => r.json())
             .then(data => {
                 modalData = data;
                 document.getElementById('modal-actividad').textContent = data.actividad;
+                document.getElementById('modal-fecha').textContent = data.fecha;
                 document.getElementById('modal-horario').textContent = data.horario + ' hs';
                 document.getElementById('modal-profesor').textContent = data.profesor || 'Sin asignar';
 
@@ -373,19 +379,39 @@
             `;
 
         } else if (paso === 'inscribir') {
+            if (modalData.ya_inscripto) {
+                if (modalData.en_espera) {
+                    acciones.innerHTML = `
+                        <p style="color:#ff9f0a; text-align:center; margin-bottom:20px; font-weight:600;">⏳ Estás en lista de espera</p>
+                        <p style="color:#8e8e93; text-align:center; margin-bottom:20px;">Te avisaremos si se libera un cupo.</p>
+                        <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver</button>
+                    `;
+                } else {
+                    acciones.innerHTML = `
+                        <p style="color:#30d158; text-align:center; margin-bottom:20px; font-weight:600;">✅ Ya estás inscripto en esta clase para esta fecha</p>
+                        <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver</button>
+                    `;
+                }
+                return;
+            }
             if (modalData.cupos_disponibles <= 0) {
                 // Sin cupo -> lista de espera
-                var form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '/clase/' + modalData.id + '/inscribirse/';
-                form.innerHTML = '<input type="hidden" name="csrfmiddlewaretoken" value="' + getCSRFToken() + '">' +
-                    '<input type="hidden" name="tipo_pago" value="total">' +
-                    '<input type="hidden" name="medio_pago" value="Tarjeta">' +
-                    '<p style="color:#ff453a; text-align:center; margin-bottom:20px;">' +
-                    'Lo sentimos, la clase a la que quiere asistir no tiene más cupos.</p>' +
-                    '<p style="color:#8e8e93; text-align:center; margin-bottom:20px;">' +
-                    'Se encuentra en lista de espera, le avisaremos novedades para abonarla.</p>';
-                acciones.appendChild(form);
+                acciones.innerHTML = `
+                    <p style="color:#ff453a; text-align:center; margin-bottom:20px;">
+                        Lo sentimos, la clase a la que quiere asistir no tiene más cupos.
+                    </p>
+                    <p style="color:#8e8e93; text-align:center; margin-bottom:20px;">
+                        ¿Querés anotarte en lista de espera? Te avisaremos si se libera un cupo.
+                    </p>
+                    <form method="POST" action="/clase/${modalData.id}/inscribirse/" id="form-espera">
+                        <input type="hidden" name="csrfmiddlewaretoken" value="${getCSRFToken()}">
+                        <input type="hidden" name="tipo_pago" value="total">
+                        <input type="hidden" name="medio_pago" value="Tarjeta">
+                        <input type="hidden" name="fecha_clase" value="${modalFecha}">
+                        <button type="submit" class="modal-btn primary">Anotarme en lista de espera</button>
+                    </form>
+                    <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver</button>
+                `;
                 return;
             }
 
@@ -411,12 +437,13 @@
                     <input type="hidden" name="csrfmiddlewaretoken" value="${getCSRFToken()}">
                     <input type="hidden" name="tipo_pago" value="${tipoPago}">
                     <input type="hidden" name="medio_pago" value="" id="input-medio-pago">
+                    <input type="hidden" name="fecha_clase" value="${modalFecha}">
                 </form>
                 <button class="modal-btn primary" onclick="enviarForm('Tarjeta')">
                     💳 Tarjeta de crédito/débito
                 </button>
                 <button class="modal-btn primary" onclick="enviarForm('Mercado Pago')">
-                    🟡 Mercado Pago
+                    <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#00BFFF; margin-right:6px; vertical-align:middle;"></span> Mercado Pago
                 </button>
                 <button class="modal-btn secondary" onclick="mostrarPasoSel('inscribir')">Volver</button>
             `;
