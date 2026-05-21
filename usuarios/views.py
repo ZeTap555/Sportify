@@ -4,6 +4,11 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from .models import Usuario
 from datetime import date
+from django.core.mail import send_mail, EmailMultiAlternatives
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
+from django.conf import settings
+import uuid
 
 def register_view(request):
     errores = {}
@@ -75,6 +80,14 @@ def register_view(request):
     return render(request, 'register.html', {'errores': errores})
 
 def login_view(request):
+    mensaje_exito=None
+    if request.GET.get('success')=='password-reset':
+        mensaje_exito=(
+            'Contraseña reestablecida con éxito'
+        )
+
+        
+
     if request.method == 'POST':
         dni_ingresado = request.POST.get('dni')
         pass_ingresada = request.POST.get('password')
@@ -89,11 +102,253 @@ def login_view(request):
         else:
             messages.error(request, "DNI o contraseña incorrectos.")
 
-    return render(request, 'login.html')
+    return render(
+        request, 
+        'login.html',
+        {
+            'mensaje_exito':mensaje_exito
+        }
+    )
 
 def logout_view(request):
     logout(request)
     return redirect('login')
+
+def forgot_password_view(request):
+
+ errores = {}
+
+ mensaje_exito = None
+
+ if request.method == 'POST':
+
+     email = request.POST.get(
+         'email',
+         ''
+     ).strip()
+
+     # =========================
+     # VALIDAR FORMATO
+     # =========================
+
+     try:
+
+         validate_email(email)
+
+     except ValidationError:
+
+         errores['email'] = (
+             'Por favor, ingrese un mail válido.'
+         )
+
+     # =========================
+     # VALIDAR EXISTENCIA
+     # =========================
+
+     if not errores:
+ 
+         if not Usuario.objects.filter(
+             email=email
+         ).exists():
+
+             errores['email'] = (
+                 'Por favor, ingrese un mail asignado a una cuenta.'
+             )
+
+     # =========================
+     # GENERAR TOKEN
+     # =========================
+
+     if not errores:
+
+         user = Usuario.objects.get(
+             email=email
+         )
+
+         token = str(
+             uuid.uuid4()
+         )
+
+         user.reset_token = token
+
+         user.save()
+
+         reset_link = (
+             f'http://127.0.0.1:8000/reset-password/{token}/'
+         )
+
+         # =========================
+         # MAIL
+         # =========================
+
+         asunto = (
+             'Recuperación de contraseña - Sportify'
+         )
+
+         mensaje_texto = f'''
+ 
+
+ Recibimos una solicitud para recuperar tu contraseña.
+
+ Ingresá al siguiente enlace:
+
+ {reset_link}
+ '''
+         mensaje_html = f'''
+
+ <div style="
+     background-color:#000000;
+     padding:40px;
+     font-family:Poppins,sans-serif;
+     text-align:center;
+  ">
+
+  <h1 style="
+      color:#00ff88;
+      margin-bottom:10px;
+ ">
+     SPORTIFY
+ </h1>
+
+ <h2 style="
+     color:white;
+     margin-bottom:25px;
+ ">
+     Recuperación de contraseña
+ </h2>
+
+ <p style="
+     color:#cccccc;
+     margin-bottom:35px;
+     font-size:15px;
+ ">
+     Recibimos una solicitud para recuperar tu contraseña.
+ </p>
+
+ <a
+     href="{reset_link}"
+     style="
+         background-color:#00ff88;
+         color:black;
+         padding:14px 28px;
+         border-radius:10px;
+         text-decoration:none;
+         font-weight:700;
+         display:inline-block;
+         font-size:15px;
+     "
+ >
+     Cambiar contraseña
+ </a>
+
+ <p style="
+     color:#777777;
+     margin-top:35px;
+     font-size:13px;
+ ">
+     Si no realizaste esta solicitud,
+     puedes ignorar este correo.
+ </p>
+
+
+ </div>
+ '''
+
+
+
+         email_message = EmailMultiAlternatives(
+             asunto,
+             mensaje_texto,
+             settings.EMAIL_HOST_USER,
+             [email]
+         )
+
+         email_message.attach_alternative(
+             mensaje_html,
+             "text/html"
+         )
+
+         email_message.send()
+
+         mensaje_exito = (
+             'Se ha enviado un correo para el cambio de contraseña. Por favor, revise su casilla'
+         )
+
+ return render(
+     request,
+     'forgot_password.html',
+     {
+         'errores': errores,
+         'mensaje_exito': mensaje_exito
+     }
+ )
+
+
+def reset_password_view(request, token):
+
+ errores = {}
+
+ try:
+
+     user = Usuario.objects.get(
+         reset_token=token
+     )
+
+ except Usuario.DoesNotExist:
+
+     return render(
+         request,
+         'reset_password_invalid.html'
+     )
+
+ if request.method == 'POST':
+     print("ENTRO AL POST")
+
+     password = request.POST.get(
+         'password',
+         ''
+     )
+
+     confirmar = request.POST.get(
+         'confirmar_password',
+         ''
+     )
+
+     # VALIDAR COINCIDENCIA
+
+     if password != confirmar:
+
+         errores['password'] = (
+             'Las contraseñas no coinciden'
+         )
+
+     # GUARDAR PASSWORD
+
+     if not errores:
+         print("Entro al guardado")
+
+         user.set_password(password )
+         user.save(update_fields=['password'])
+        
+
+         # INVALIDAR TOKEN
+
+         user.reset_token = None
+
+         user.save(update_fields=['reset_token'])
+
+        
+         logout(request)
+
+         return redirect( '/login/?success=password-reset' )
+
+ return render(
+     request,
+     'reset_password.html',
+     {
+         'errores': errores
+     }
+ )
 
 @login_required
 def perfil_view(request):
