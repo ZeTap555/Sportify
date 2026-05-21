@@ -1,14 +1,10 @@
+import re
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from .models import Usuario
 from datetime import date
-from django.core.mail import send_mail, EmailMultiAlternatives
-from django.core.validators import validate_email
-from django.core.exceptions import ValidationError
-from django.conf import settings
-import uuid
 
 def register_view(request):
     errores = {}
@@ -22,40 +18,80 @@ def register_view(request):
         passw = request.POST.get('password', '')
         apta = request.FILES.get('apta_medica')
 
-        # Validación: campos requeridos completos
-        if not nombre or not dni or not fecha_nac_str or not email or not passw:
-            messages.error(request, "Se deben ingresar todos los datos.")
-            return render(request, 'register.html', {'errores': errores})
-
-        # Validación: DNI único
-        if Usuario.objects.filter(dni=dni).exists():
-            errores['dni'] = "Ya existe Usuario con este DNI."
-
-        # Validación: email único
-        if Usuario.objects.filter(email=email).exists():
-            errores['email'] = "Ya existe usuario con ese email."
-
-        # Validación: mayor de 16 años
-        try:
-            dia, mes, anio = fecha_nac_str.split('/')
-            fecha_nac = date(int(anio), int(mes), int(dia))
-            hoy = date.today()
-            edad = hoy.year - fecha_nac.year - ((hoy.month, hoy.day) < (fecha_nac.month, fecha_nac.day))
-            if edad < 16:
-                errores['fecha_nacimiento'] = "Debe ser mayor de 16 años para registrarse."
-        except (ValueError, IndexError):
-            errores['fecha_nacimiento'] = "Fecha de nacimiento inválida."
-
-        # Validación: apta médica adjunta
+        # -----------------------------------------------------------------
+        # 1. VALIDACIÓN DE CAMPOS VACÍOS
+        # -----------------------------------------------------------------
+        if not nombre:
+            errores['nombre_apellido'] = "El nombre y apellido no puede estar vacío."
+        if not dni:
+            errores['dni'] = "El DNI no puede estar vacío."
+        if not fecha_nac_str:
+            errores['fecha_nacimiento'] = "La fecha de nacimiento no puede estar vacía."
+        if not email:
+            errores['email'] = "El correo electrónico no puede estar vacío."
+        if not passw:
+            errores['password'] = "La contraseña no puede estar vacía."
         if not apta:
             errores['apta_medica'] = "Debe adjuntar el apta médica para continuar con el registro."
 
-        # Si hay errores, mostrar mensaje general y devolver
+        # -----------------------------------------------------------------
+        # 2. VALIDACIONES DE FORMATO AVANZADAS
+        # -----------------------------------------------------------------
+        # Validar Nombre (solo letras y espacios)
+        if nombre and not re.match(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$', nombre):
+            errores['nombre_apellido'] = "El nombre y apellido solo puede contener letras y espacios."
+
+        # Validar DNI (solo números)
+        if dni and not dni.isdigit():
+            errores['dni'] = "El DNI solo puede contener números."
+        elif dni:
+            if Usuario.objects.filter(dni=dni).exists():
+                errores['dni'] = "Ya existe un Usuario registrado con este DNI."
+
+        # 🆕 Validar Teléfono (Solo números Y entre 8 y 12 dígitos)
+        if tel:
+            if not tel.isdigit():
+                errores['telefono'] = "El teléfono solo puede contener números sin espacios ni guiones."
+            elif not (8 <= len(tel) <= 12):
+                errores['telefono'] = "El teléfono debe tener entre 8 y 12 dígitos (Ej: 2216423692)."
+
+        # 🆕 Validar Email estricto (Debe contener algo@algo.com)
+        # El patrón r'^[\w\.-]+@[\w\.-]+\.com$' obliga a que termine sí o sí en .com
+        if email:
+            if not re.match(r'^[\w\.-]+@[\w\.-]+\.com$', email):
+                errores['email'] = "El correo debe tener un formato válido terminado en .com (Ej: usuario@direccion.com)."
+            elif Usuario.objects.filter(email=email).exists():
+                errores['email'] = "Ya existe un usuario con ese email."
+
+        # 🆕 Validar Contraseña (Mínimo 4 caracteres)
+        if passw and len(passw) < 4:
+            errores['password'] = "La contraseña debe tener como mínimo 4 caracteres."
+
+        # Validar Fecha de nacimiento y Edad (Mayor de 16)
+        if fecha_nac_str:
+            try:
+                dia, mes, anio = fecha_nac_str.split('/')
+                fecha_nac = date(int(anio), int(mes), int(dia))
+                hoy = date.today()
+                edad = hoy.year - fecha_nac.year - ((hoy.month, hoy.day) < (fecha_nac.month, fecha_nac.day))
+                if edad < 16:
+                    errores['fecha_nacimiento'] = "Debe ser mayor de 16 años para registrarse."
+            except (ValueError, IndexError):
+                errores['fecha_nacimiento'] = "Fecha de nacimiento inválida. Use el formato DD/MM/AAAA."
+
+        # -----------------------------------------------------------------
+        # 3. CONTROL DE ERRORES SIMULTÁNEOS
+        # -----------------------------------------------------------------
         if errores:
             messages.error(request, "Error en el registro. Verifique los datos ingresados.")
-            return render(request, 'register.html', {'errores': errores})
+            return render(request, 'register.html', {
+                'errores': errores,
+                'valores': request.POST
+            })
 
-        # Creamos el usuario
+        # -----------------------------------------------------------------
+        # 4. CREACIÓN DEL USUARIO
+        # -----------------------------------------------------------------
         try:
             user = Usuario.objects.create_user(
                 username=dni,
@@ -64,7 +100,6 @@ def register_view(request):
                 password=passw,
                 first_name=nombre
             )
-
             user.telefono = tel
             user.fecha_nacimiento = fecha_nac
             user.apta_medica = apta
@@ -78,6 +113,7 @@ def register_view(request):
             messages.error(request, f"Error al registrar: {e}")
 
     return render(request, 'register.html', {'errores': errores})
+
 
 def login_view(request):
     mensaje_exito=None

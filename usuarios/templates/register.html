@@ -19,33 +19,35 @@
 
         <p class="subtitulo">Crear cuenta</p>
 
-        <form method="POST" enctype="multipart/form-data">
+        <form method="POST" enctype="multipart/form-data" novalidate>
             {% csrf_token %}
             <div class="input-group">
                 <label>Nombre y apellido</label>
-                <input type="text" name="nombre_apellido" placeholder="Ingrese su nombre y apellido" required>
+                <input type="text" name="nombre_apellido" placeholder="Ingrese su nombre y apellido" value="{{ valores.nombre_apellido|default:'' }}">
+                {% if errores.nombre_apellido %}<span class="error-campo">{{ errores.nombre_apellido }}</span>{% endif %}
             </div>
 
             <div class="input-group">
                 <label>DNI</label>
-                <input type="text" name="dni" placeholder="Ingrese su DNI" required>
+                <input type="text" name="dni" placeholder="Ingrese su DNI" value="{{ valores.dni|default:'' }}">
                 {% if errores.dni %}<span class="error-campo">{{ errores.dni }}</span>{% endif %}
             </div>
 
             <div class="input-group">
                 <label>Fecha de nacimiento</label>
-                <input type="text" name="fecha_nacimiento" id="fechaNacimiento" placeholder="DD/MM/AAAA" required>
+                <input type="text" name="fecha_nacimiento" id="fechaNacimiento" placeholder="DD/MM/AAAA" value="{{ valores.fecha_nacimiento|default:'' }}">
                 {% if errores.fecha_nacimiento %}<span class="error-campo">{{ errores.fecha_nacimiento }}</span>{% endif %}
             </div>
 
             <div class="input-group">
                 <label>Teléfono</label>
-                <input type="text" name="telefono" placeholder="Ingrese su teléfono">
+                <input type="text" name="telefono" placeholder="Ej: 2216423692 (entre 8 y 12 dígitos)" value="{{ valores.telefono|default:'' }}">
+                {% if errores.telefono %}<span class="error-campo">{{ errores.telefono }}</span>{% endif %}
             </div>
 
             <div class="input-group">
                 <label>Correo electrónico</label>
-                <input type="email" name="email" placeholder="Ingrese su correo" required>
+                <input type="email" name="email" placeholder="Ej: mail@direccion.com" value="{{ valores.email|default:'' }}">
                 {% if errores.email %}<span class="error-campo">{{ errores.email }}</span>{% endif %}
             </div>
 
@@ -58,9 +60,10 @@
             <div class="input-group">
                 <label>Contraseña</label>
                 <div class="password-container">
-                    <input type="password" name="password" placeholder="Ingrese su contraseña" id="register-password" required>
+                    <input type="password" name="password" placeholder="Mínimo 4 caracteres" id="register-password">
                     <span class="toggle-password" onclick="toggleRegisterPassword()">👁</span>
                 </div>
+                {% if errores.password %}<span class="error-campo">{{ errores.password }}</span>{% endif %}
             </div>
 
             <button type="submit">REGISTRARSE</button>
