@@ -242,11 +242,64 @@ def pago_confirmacion(request, reserva_id):
         'clase': reserva.clase,
     })
 
+def detalle_clase_fecha(request, clase_id):
+    clase = get_object_or_404(Clase, id=clase_id)
+    fecha_str = request.GET.get('fecha') # Capturamos la fecha del casillero de la grilla
+
+    # Si es Admin, ve el panel de control de la clase para esa fecha
+    if request.user.is_authenticated and request.user.rol == 'admin':
+        # 1. Traemos a todos los usuarios que quedaron atrapados en la lista de espera para esta fecha
+        cola_espera = Reserva.objects.filter(
+            clase=clase, 
+            fecha_clase=fecha_str, 
+            en_lista_de_espera=True
+        ).select_related('usuario')
+
+        # 2. Traemos la lista completa de profesores para el elemento <select>
+        lista_profesores = Profesor.objects.all()
+
+        context = {
+            'clase': clase,
+            'fecha_clase': fecha_str,
+            'cola_espera': cola_espera,
+            'lista_profesores': lista_profesores,
+        }
+        return render(request, 'gestion/detalle_clase_admin.html', context)
+    
+    # Si es un usuario común, lo mandás al HTML genial que armó tu equipo
+    context = {'clase': clase, 'fecha_clase': fecha_str}
+    return render(request, 'gestion/detalle_clase_usuario.html', context)
+
+@login_required
+def asignar_profesor_clase(request, clase_id):
+    if request.user.rol != 'admin':
+        return redirect('grilla_actividades')
+
+    if request.method == 'POST':
+        clase = get_object_or_404(Clase, id=clase_id)
+        profesor_id = request.POST.get('profesor_id')
+        fecha_clase = request.POST.get('fecha_clase') # Atajamos la fecha que mandó el modal
+
+        if profesor_id:
+            clase.profesor = get_object_or_404(Profesor, id=profesor_id)
+        else:
+            clase.profesor = None
+        clase.save()
+        messages.success(request, "Profesor asignado con éxito a la clase.")
+        
+        # Volvemos a la grilla manteniendo la posición en el calendario
+        if fecha_clase:
+            partes = fecha_clase.split('-') # ['2026', '05', '20']
+            return redirect(f"/?anio={partes[0]}&mes={partes[1]}&dia_sel={int(partes[2])}")
+            
+    return redirect('grilla_actividades')
+
 def detalle_clase_api(request, clase_id):
     clase = get_object_or_404(Clase, id=clase_id)
     fecha_str = request.GET.get('fecha')
     ya_inscripto = False
     en_espera = False
+    
     if fecha_str:
         fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
         cupos = clase.cupos_para_fecha(fecha)
@@ -259,19 +312,64 @@ def detalle_clase_api(request, clase_id):
                 en_espera = reserva_user.en_lista_de_espera
     else:
         cupos = 30
+
+    # 🍏 LÓGICA NUEVA PARA EL ADMIN: Empaquetamos cola de espera y profesores
+    es_admin = request.user.is_authenticated and request.user.rol == 'admin'
+    cola_espera_data = []
+    todos_profes_data = []
+
+    if es_admin and fecha_str:
+        # 1. Alumnos en la lista de espera para esta fecha exacta
+        cola = Reserva.objects.filter(clase=clase, fecha_clase=fecha, en_lista_de_espera=True).select_related('usuario')
+        
+        # Obtenemos el mes y año de la clase para validar la mensualidad correspondiente
+        mes_clase = fecha.month
+        anio_clase = fecha.year
+
+        for r in cola:
+            # Buscamos si este usuario específico tiene una mensualidad activa/paga para esta actividad en este mes
+            tiene_mensualidad = Mensualidad.objects.filter(
+                usuario=r.usuario,
+                actividad=clase.actividad,
+                mes=mes_clase,
+                anio=anio_clase,
+                estado='pagada' # Modificá esto si consideran válidas las 'pendientes'
+            ).exists()
+
+            cola_espera_data.append({
+                'username': r.usuario.username,
+                'first_name': r.usuario.first_name,
+                'last_name': r.usuario.last_name,
+                'pase_mensual': tiene_mensualidad, # <-- Mandamos el Booleano (True/False)
+            })
+        # 2. Todos los profesores para armar el <select> dinámico
+        profesores = Profesor.objects.all()
+        for p in profesores:
+            todos_profes_data.append({
+                'id': p.id,
+                'nombre': p.nombre,
+                'apellido': p.apellido,
+            })
+
     data = {
         'id': clase.id,
         'actividad': clase.actividad.nombre,
         'actividad_id': clase.actividad.id,
         'fecha': fecha_str or clase.fecha.strftime('%d/%m/%Y'),
         'horario': clase.horario.strftime('%H:%M'),
-        'profesor': f"{clase.profesor.nombre} {clase.profesor.apellido}" if clase.profesor else None,
+        'profesor': f"{clase.profesor.apellido}, {clase.profesor.nombre}" if clase.profesor else 'Sin asignar',
+        'profesor_id': clase.profesor.id if clase.profesor else '',
         'cupos_disponibles': cupos,
         'precio_clase': float(clase.actividad.precio_clase),
         'precio_mensualidad': float(clase.actividad.precio_mensualidad),
         'logueado': request.user.is_authenticated,
+        'rol': request.user.rol if request.user.is_authenticated else 'anonimo', # <-- Agregamos el Rol para el JS
         'ya_inscripto': ya_inscripto,
         'en_espera': en_espera,
+        
+        # Guardamos las nuevas listas que el JS necesita mapear
+        'cola_espera': cola_espera_data,
+        'todos_los_profesores': todos_profes_data,
     }
     return JsonResponse(data)
 
