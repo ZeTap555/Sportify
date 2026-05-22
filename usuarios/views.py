@@ -5,6 +5,11 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from .models import Usuario
 from datetime import date
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
+import uuid
+from django.core.mail import EmailMultiAlternatives
+from django.conf import settings
 
 def register_view(request):
     errores = {}

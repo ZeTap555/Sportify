@@ -213,6 +213,35 @@
             {% endif %}
         </div>
 
+        {% if messages %}
+            <div style="padding: 20px 40px 0 40px; box-sizing: border-box;">
+                {% for message in messages %}
+                    <div style="
+                        padding: 12px 20px; 
+                        border-radius: 8px; 
+                        margin-bottom: 10px; 
+                        font-size: 0.9rem; 
+                        font-weight: 500;
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        {% if message.tags == 'success' %}
+                            background-color: rgba(48, 209, 88, 0.15); 
+                            color: #30d158; 
+                            border: 1px solid rgba(48, 209, 88, 0.3);
+                        {% else %}
+                            background-color: rgba(255, 69, 58, 0.15); 
+                            color: #ff453a; 
+                            border: 1px solid rgba(255, 69, 58, 0.3);
+                        {% endif %}
+                    ">
+                        <span>{{ message }}</span>
+                        <button onclick="this.parentElement.remove()" style="background:none; border:none; color:inherit; font-size:1.2rem; cursor:pointer; line-height:1; padding:0 0 0 15px;">&times;</button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
         <div class="app-container">
             
             <div class="calendar-section">
@@ -367,8 +396,64 @@
             return;
         }
 
+        // 🍏 VISTA EXCLUSIVA PARA EL ADMINISTRADOR
+        if (modalData.rol === 'admin') {
+            // Recibimos los profesores y la cola de espera desde el JSON de la API
+            let opcionesProfesores = `<option value="">--- Sin Profesor Asignado ---</option>`;
+            if (modalData.todos_los_profesores) {
+                modalData.todos_los_profesores.forEach(p => {
+                    let seleccionado = modalData.profesor_id == p.id ? 'selected' : '';
+                    opcionesProfesores += `<option value="${p.id}" ${seleccionado}>${p.apellido}, ${p.nombre}</option>`;
+                });
+            }
+
+            let listaEsperaHTML = '';
+            if (modalData.cola_espera && modalData.cola_espera.length > 0) {
+                modalData.cola_espera.forEach(u => {
+                    // Creamos el badge según el estado de su mensualidad
+                    let badgeMensualidad = u.pase_mensual 
+                        ? `<span style="background: rgba(48, 209, 88, 0.2); color: #30d158; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; margin-left: 8px;">Mensualidad</span>`
+                        : `<span style="background: rgba(255, 159, 10, 0.2); color: #ff9f0a; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; margin-left: 8px;">Por Clase</span>`;
+
+                    listaEsperaHTML += `
+                        <li style="font-size:0.9rem; color:#fff; margin-bottom:8px; display: flex; align-items: center; justify-content: space-between;">
+                            <div>
+                                ⏳ <strong>${u.last_name}, ${u.first_name}</strong> 
+                                <span style="color:#8e8e93; font-size:0.85rem;">(DNI: ${u.username})</span>
+                            </div>
+                            ${badgeMensualidad}
+                        </li>`;
+                });
+            } else {
+                listaEsperaHTML = `<li style="font-size:0.9rem; color:#636366; font-style:italic;">No hay alumnos en espera</li>`;
+            }
+
+            acciones.innerHTML = `
+                <div style="background:#2c2c2e; padding:15px; border-radius:10px; margin-bottom:20px;">
+                    <h3 style="font-size:1rem; margin:0 0 10px 0; color:#ff9f0a;">📋 Lista de Espera del Día</h3>
+                    <ul style="padding-left:15px; margin:0;">${listaEsperaHTML}</ul>
+                </div>
+
+                <form method="POST" action="/clase/${modalData.id}/asignar-profesor/">
+                    <input type="hidden" name="csrfmiddlewaretoken" value="${getCSRFToken()}">
+                    <input type="hidden" name="fecha_clase" value="${modalFecha}">
+                    
+                    <div style="margin-bottom:15px;">
+                        <label style="font-size:0.85rem; color:#8e8e93; display:block; margin-bottom:6px;">Reasignar Personal:</label>
+                        <select name="profesor_id" style="width:100%; padding:10px; background:#2c2c2e; border:1px solid #3a3a3c; color:#fff; border-radius:8px; font-size:0.95rem;">
+                            ${opcionesProfesores}
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="modal-btn primary">Guardar Profesor</button>
+                </form>
+            `;
+            document.getElementById('modalDetalle').classList.add('active');
+            return;
+        }
+
+        // 👤 FLUJO COMPLETO DE ALUMNOS (El código de tus compañeros queda intacto acá abajo)
         if (paso === '') {
-            // PASO 1: Elegir entre inscribirse o mensualidad
             acciones.innerHTML = `
                 <button class="modal-btn primary" onclick="mostrarPasoSel('inscribir')">
                     Inscribirse a esta clase
@@ -395,7 +480,6 @@
                 return;
             }
             if (modalData.cupos_disponibles <= 0) {
-                // Sin cupo -> lista de espera
                 acciones.innerHTML = `
                     <p style="color:#ff453a; text-align:center; margin-bottom:20px;">
                         Lo sentimos, la clase a la que quiere asistir no tiene más cupos.
@@ -415,7 +499,6 @@
                 return;
             }
 
-            // PASO 2: Elegir seña o completo
             acciones.innerHTML = `
                 <p style="color:#8e8e93; text-align:center; margin-bottom:15px;">Seleccioná cómo querés pagar</p>
                 <button class="modal-btn primary" onclick="mostrarPasoSel('pago', 'senia')">
@@ -430,7 +513,6 @@
         } else if (paso === 'pago') {
             var tipoPago = arguments[1] || 'total';
 
-            // PASO 3: Elegir medio de pago
             acciones.innerHTML = `
                 <p style="color:#8e8e93; text-align:center; margin-bottom:15px;">Medio de pago</p>
                 <form method="POST" action="/clase/${modalData.id}/inscribirse/" id="form-pago">
