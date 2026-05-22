@@ -367,6 +367,18 @@ def reset_password_view(request, token):
              'Las contraseñas no coinciden'
          )
 
+     #MINIMO 4 CARACTERES
+     if len(password) < 4:
+            errores['password'] = (
+                'La contraseña debe tener al menos 4 caracteres'
+            )
+    
+     #NO PUEDE SER IGUAL A LA ACTUAL
+     if user.check_password(password):
+            errores['password'] = (
+                    'La contraseña debe ser diferente a la actual'
+            )
+
      # GUARDAR PASSWORD
 
      if not errores:
