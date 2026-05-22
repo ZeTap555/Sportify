@@ -16,6 +16,7 @@ from reservas.models import Mensualidad
 from usuarios.models import Usuario
 from django.contrib.auth.decorators import login_required
 
+
 # 1. LA GRILLA REAL (Trae los datos que guardás en la BD)
 def grilla_actividades(request):
     ahora = timezone.now().date()
