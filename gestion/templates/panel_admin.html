@@ -167,17 +167,18 @@
 
         <div class="panel-content">
             
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert-toast" style="
-                        border-left-color: {% if message.tags == 'error' %}#ff453a{% else %}#00ff88{% endif %};
-                        color: {% if message.tags == 'error' %}#ff453a{% else %}#00ff88{% endif %};
-                    ">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-
+            <div id="contenedor-mensajes-gym">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert-toast" style="
+                            border-left-color: {% if message.tags == 'error' %}#ff453a{% else %}#00ff88{% endif %};
+                            color: {% if message.tags == 'error' %}#ff453a{% else %}#00ff88{% endif %};
+                        ">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
             <div id="pane-clases" class="tab-pane active">
                 <div class="bento-grid-two">
                     <div class="card-panel">
@@ -194,16 +195,16 @@
                         </form>
                     </div>
 
-                    <div class="card-panel">
-                        <h3>Programar Clase</h3>
-                        <form method="POST">
+                   <div class="card-panel">
+                        <h3>Crear Clase</h3>
+                        <form method="POST" id="form-crear-clase">
                             {% csrf_token %}
                             <input type="hidden" name="action" value="crear_clase">
                             
                             <div class="input-group">
                                 <label>Seleccionar Actividad</label>
-                                <select name="actividad" class="select-field" required>
-                                    <option value="">-- Seleccione disciplina --</option>
+                                <select name="actividad" id="id_actividad" class="select-field">
+                                    <option value="" selected>-- Seleccione disciplina --</option>
                                     {% for act in actividades %}
                                         <option value="{{ act.id }}">{{ act.nombre }}</option>
                                     {% endfor %}
@@ -212,8 +213,8 @@
 
                             <div class="input-group">
                                 <label>Asignar Profesor</label>
-                                <select name="profesor" class="select-field">
-                                    <option value="">-- Sin asignar (Opcional) --</option>
+                                <select name="profesor" id="id_profesor" class="select-field">
+                                    <option value="" selected>-- Seleccione un Profesor Obligatoriamente --</option>
                                     {% for prof in profesores %}
                                         <option value="{{ prof.id }}">{{ prof.apellido }}, {{ prof.nombre }}</option>
                                     {% endfor %}
@@ -223,16 +224,33 @@
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                                 <div class="input-group">
                                     <label>Fecha de Inicio de la Clase</label>
-                                    <input type="date" name="fecha" class="input-field" required>
+                                    <input type="date" name="fecha" id="id_fecha" class="input-field">
                                 </div>
                                 <div class="input-group">
-                                    <label>Horario (Formato 24hs)</label>
-                                    <input type="time" name="horario" class="input-field" step="3600" placeholder="Ej: 19:00" required>
+                                    <label>Horario (Horas en punto)</label>
+                                    <select name="horario" id="id_horario" class="select-field">
+                                        <option value="" selected>-- Seleccione Hora --</option>
+                                        <option value="08:00">08:00 hs</option>
+                                        <option value="09:00">09:00 hs</option>
+                                        <option value="10:00">10:00 hs</option>
+                                        <option value="11:00">11:00 hs</option>
+                                        <option value="12:00">12:00 hs</option>
+                                        <option value="13:00">13:00 hs</option>
+                                        <option value="14:00">14:00 hs</option>
+                                        <option value="15:00">15:00 hs</option>
+                                        <option value="16:00">16:00 hs</option>
+                                        <option value="17:00">17:00 hs</option>
+                                        <option value="18:00">18:00 hs</option>
+                                        <option value="19:00">19:00 hs</option>
+                                        <option value="20:00">20:00 hs</option>
+                                    </select>
                                 </div>
                             </div>
                             <button type="submit" class="btn-action">Añadir al Cronograma</button>
                         </form>
                     </div>
+
+
                 </div>
 
                 <div class="card-panel">
@@ -388,6 +406,80 @@
             // 4. Mostrar el panel correspondiente
             document.getElementById('pane-' + tabId).classList.add('active');
         }
+
+        // 🌟 FUNCIÓN CORREGIDA: Usa el contenedor único y plancha notificaciones viejas
+        function mostrarErrorGym(mensaje) {
+            const contenedor = document.getElementById('contenedor-mensajes-gym');
+            
+            // Reemplazamos todo el contenido (viejos mensajes de Django o JS mueren acá)
+            contenedor.innerHTML = `
+                <div class="alert-toast" style="border-left-color: #ff453a; color: #ff453a;">
+                    ${mensaje}
+                </div>
+            `;
+            
+            // Scroll suave hacia arriba para que el Admin lo vea al toque
+            document.querySelector('.panel-content').scrollTop = 0;
+        }
+
+        // 🌟 INTERCEPTOR DEL FORMULARIO
+        document.getElementById('form-crear-clase').addEventListener('submit', function(event) {
+            const actividad = document.getElementById('id_actividad').value;
+            const profesor = document.getElementById('id_profesor').value;
+            const fechaStr = document.getElementById('id_fecha').value;
+            const horarioStr = document.getElementById('id_horario').value;
+
+            // 1. Validar vacíos
+            if (!actividad || !fechaStr || !horarioStr) {
+                event.preventDefault();
+                mostrarErrorGym("Error: Por favor, complete todos los campos obligatorios del formulario.");
+                return;
+            }
+
+            // 2. Validar Profesor Obligatorio
+            if (!profesor || profesor === "") {
+                event.preventDefault();
+                mostrarErrorGym("Error: Debe seleccionar obligatoriamente un profesor para poder dictar la clase.");
+                return;
+            }
+
+            // 3. Validar Fecha Pasada, Hoy (Horario viejo) y Domingos
+            const ahora = new Date(); // Objeto con la fecha y HORA exacta de este segundo
+            
+            // Creamos un clon de "ahora" pero en cero para comparar limpiamente solo los días
+            const hoySoloFecha = new Date(ahora.getTime());
+            hoySoloFecha.setHours(0, 0, 0, 0);
+            
+            const fechaSeleccionada = new Date(fechaStr + 'T00:00:00');
+            
+            // Freno 1: Si el día elegido es estrictamente anterior a hoy
+            if (fechaSeleccionada < hoySoloFecha) {
+                event.preventDefault();
+                mostrarErrorGym("Error: No se pueden programar clases en una fecha que ya pasó.");
+                return;
+            }
+
+            // Freno 2: Si es HOY, chequear que la hora seleccionada no se haya quedado en el pasado
+            if (fechaSeleccionada.getTime() === hoySoloFecha.getTime()) {
+                // El horarioStr viene como "HH:00" (ej: "08:00")
+                const horaSeleccionada = parseInt(horarioStr.split(':')[0], 10);
+                
+                // Si la hora de la clase es menor o igual a la hora actual del sistema
+                if (horaSeleccionada <= ahora.getHours()) {
+                    event.preventDefault();
+                    mostrarErrorGym(`Error: El horario seleccionado (${horarioStr} hs) ya pasó para el día de hoy.`);
+                    return;
+                }
+            }
+
+            // Freno 3: Control de domingos
+            if (fechaSeleccionada.getDay() === 0) {
+                event.preventDefault();
+                mostrarErrorGym("Error: El gimnasio permanece cerrado los domingos. Por favor, elija un día de lunes a sábado.");
+                return;
+            }
+        });
+
     </script>
 </body>
 </html>

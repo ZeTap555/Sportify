@@ -59,6 +59,8 @@ def grilla_actividades(request):
                 for clase in todas_las_clases:
                     # Se repite si coincide el día de la semana Y el casillero es posterior o igual al inicio de la clase
                     if clase.dia_semana_num == dia_semana_casillero and fecha_casillero >= clase.fecha:
+                        # 🌟 CORRECCIÓN 1: Calculamos el cupo dinámico y compartido por casillero del mes
+                        clase.cupos_mostrar = clase.cupos_para_fecha(fecha_casillero)
                         clases_por_dia[dia].append(clase)
 
     # 5. 📋 NUEVA LOGICA PARA EL DETALLE DEL DÍA SELECCIONADO (Abajo a la derecha)
@@ -398,7 +400,7 @@ def panel_admin(request):
             else:
                 messages.error(request, "El nombre de la actividad no puede estar vacío.")
 
-        # --- B. PROCESAR PROGRAMAR CLASE ---
+        # --- B. PROCESAR PROGRAMAR CLASE (¡CON CANDADO DE PROFESOR!) ---
         elif action == 'crear_clase':
             pestania_activa = 'clases'
             actividad_id = request.POST.get('actividad')
@@ -406,42 +408,82 @@ def panel_admin(request):
             fecha_str = request.POST.get('fecha')
             horario_str = request.POST.get('horario')
 
-            if horario_str and not horario_str.endswith(':00'):
-                messages.error(request, "Error: Las clases deben comenzar en punto (Ej: 19:00).")
-            elif not fecha_str or not actividad_id:
+            # 🛠️ VALIDACIÓN 1: Profesor obligatorio
+            if not profesor_id or profesor_id == "":
+                messages.error(request, "Error: Debe seleccionar obligatoriamente un profesor para la clase.")
+            elif not fecha_str or not actividad_id or not horario_str:
                 messages.error(request, "Por favor, complete todos los campos obligatorios.")
             else:
                 fecha_obj = datetime.strptime(fecha_str, "%Y-%m-%d").date()
-                dia_semana_nuevo = fecha_obj.weekday()
+                
+                try:
+                    horario_obj = datetime.strptime(horario_str, "%H:%M").time()
+                except ValueError:
+                    horario_obj = datetime.strptime(horario_str, "%H:%M:%S").time()
 
-                colision = Clase.objects.filter(
-                    actividad_id=actividad_id,
-                    horario=horario_str
-                )
-
-                ya_existe_choque = False
-                for c in colision:
-                    if c.dia_semana_num == dia_semana_nuevo:
-                        ya_existe_choque = True
-                        break
-
-                if ya_existe_choque:
-                    messages.error(request, "Error: ya existen clases de esa actividad en el horario y dia seleccionado.")
+                # 🛠️ VALIDACIÓN 2: Solo horas en punto
+                if horario_obj.minute != 0 or horario_obj.second != 0:
+                    messages.error(request, "Error: Las clases deben comenzar estrictamente en punto (Ej: 19:00).")
+                
+                # 🛠️ VALIDACIÓN 3: Rango de 8 a 20 hs
+                elif horario_obj.hour < 8 or horario_obj.hour > 20:
+                    messages.error(request, "Error: El gimnasio se encuentra cerrado. Las clases se dictan únicamente de 08 a 20 hs.")
+                
+                # 🛠️ VALIDACIÓN 4: Prohibir fechas pasadas
+                elif fecha_obj < ahora:
+                    messages.error(request, "Error: No se pueden programar clases en una fecha que ya pasó.")
+                
+                # 🛠️ VALIDACIÓN 5: Prohibir los domingos
+                elif fecha_obj.weekday() == 6:
+                    messages.error(request, "Error: El gimnasio permanece cerrado los domingos.")
+                
                 else:
-                    actividad = Actividad.objects.get(id=actividad_id)
-                    profesor = None
-                    if profesor_id and profesor_id != "":
-                        profesor = Profesor.objects.get(id=profesor_id)
+                    dia_semana_nuevo = fecha_obj.weekday()
 
-                    Clase.objects.create(
-                        actividad=actividad,
-                        profesor=profesor,
-                        fecha=fecha_obj,
-                        horario=horario_str
+                    # 1. Le pedimos a la DB solo los campos físicos que sí entiende (profesor, hora e inicio)
+                    clases_profe_horario = Clase.objects.filter(
+                        profesor_id=profesor_id,
+                        horario=horario_obj,
+                        fecha__lte=fecha_obj  # Filtra que la recurrencia haya empezado antes o igual a hoy
                     )
-                    messages.success(request, "Clases creadas con éxito.")
 
-        # --- C. PROCESAR REGISTRAR PROFESOR (¡Ahora bien tabulado!) ---
+                    # 2. Usamos tu @property en memoria recorriendo la lista con Python nativo
+                    profesor_ocupado = False
+                    for c in clases_profe_horario:
+                        if c.dia_semana_num == dia_semana_nuevo:  # 🌟 ¡Acá usamos tu propiedad impecable!
+                            profesor_ocupado = True
+                            break
+
+                    if profesor_ocupado:
+                        messages.error(request, f"Error: El profesor ya se encuentra asignado a otra clase en ese mismo día y horario.")
+                    else:
+                        # Chequeamos colisión base de la misma actividad
+                        colision = Clase.objects.filter(
+                            actividad_id=actividad_id,
+                            horario=horario_obj
+                        )
+
+                        ya_existe_choque = False
+                        for c in colision:
+                            if c.dia_semana_num == dia_semana_nuevo:
+                                ya_existe_choque = True
+                                break
+
+                        if ya_existe_choque:
+                            messages.error(request, "Error: ya existen clases de esa actividad en el horario y dia seleccionado.")
+                        else:
+                            actividad = Actividad.objects.get(id=actividad_id)
+                            profesor = Profesor.objects.get(id=profesor_id)
+
+                            Clase.objects.create(
+                                actividad=actividad,
+                                profesor=profesor,
+                                fecha=fecha_obj,
+                                horario=horario_obj
+                            )
+                            messages.success(request, "Clases creadas con éxito.")
+
+        # --- C. PROCESAR REGISTRAR PROFESOR ---
         elif action == 'registrar_profesor':
             pestania_activa = 'profesores'
             dni = request.POST.get('dni')
@@ -469,76 +511,41 @@ def panel_admin(request):
                         password=make_password(contrasenia)
                     )
                     Profesor.objects.create(
-                        usuario=user,                # El enlace OneToOne que agregamos
+                        usuario=user,
                         nombre=nombre,
                         apellido=apellido,
-                         dni=dni,                     
+                        dni=dni,                    
                         telefono=telefono,           
-                        correo=correo,               
+                        correo=correo,              
                         fecha_nacimiento=fecha_nac,  
                         especialidad=""              
-)
-                    messages.success(request, f"Profesor {apellido}, {nombre} dado de alta con éxito.")
-            except Exception as e:
-                messages.error(request, f"Error en los datos: {e}")
-        """"
-        elif action == 'registrar_profesor':
-            pestania_activa = 'profesores'
-            dni = request.POST.get('dni')
-            nombre = request.POST.get('nombre')
-            apellido = request.POST.get('apellido')
-            fecha_nac = request.POST.get('fecha_nacimiento')
-            telefono = request.POST.get('telefono')
-            correo = request.POST.get('correo')
-            contrasenia = request.POST.get('contrasenia')
-
-            try:
-                if Usuario.objects.filter(username=dni).exists():
-                    messages.error(request, "Error: Ya existe un usuario registrado con ese DNI.")
-                else:
-                    user = Usuario.objects.create(
-                        username=dni,
-                        email=correo,
-                        first_name=nombre,
-                        last_name=apellido,
-                        rol='profesor',
-                        password=make_password(contrasenia)
-                    )
-                    Profesor.objects.create(
-                        nombre=nombre,
-                        apellido=apellido,
-                        dni=dni,
-                        telefono=telefono,
-                        correo=correo
                     )
                     messages.success(request, f"Profesor {apellido}, {nombre} dado de alta con éxito.")
             except Exception as e:
                 messages.error(request, f"Error en los datos: {e}")
-"""
 
-    # --- GENERACIÓN DEL CONTEXTO (GET) (Corregido para repetición infinita) ---
+    # --- GENERACIÓN DEL CONTEXTO (GET) (Limpio y sin bucles duplicados) ---
     año = int(request.GET.get('anio', ahora.year))
     mes = int(request.GET.get('mes', ahora.month))
     
-    # Traemos todos los moldes de clases del sistema sin importar el mes
     todas_las_clases = Clase.objects.all()
 
     cal = calendar.Calendar(firstweekday=0)
     semanas_matriz = cal.monthdayscalendar(año, mes)
     meses_nombres = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
 
-    # 🧠 MACHACADO MATEMÁTICO: Mapeamos qué clases fijas caen en cada casillero del mini calendario
     clases_por_dia = {}
     for semana in semanas_matriz:
         for dia in semana:
             if dia != 0:
                 fecha_casillero = date(año, mes, dia)
-                dia_semana_casillero = fecha_casillero.weekday() # 0=Lunes, 1=Martes, etc.
+                dia_semana_casillero = fecha_casillero.weekday()
                 
                 clases_por_dia[dia] = []
                 for clase in todas_las_clases:
-                    # Se dibuja si coincide el día de la semana y el casillero no es anterior a su fecha de inicio
                     if clase.dia_semana_num == dia_semana_casillero and fecha_casillero >= clase.fecha:
+                        # Sincronizamos los cupos compartidos dinámicamente usando el nuevo método del models.py
+                        clase.cupos_mostrar = clase.cupos_para_fecha(fecha_casillero)
                         clases_por_dia[dia].append(clase)
 
     context = {

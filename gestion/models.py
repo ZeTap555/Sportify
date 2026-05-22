@@ -66,10 +66,14 @@ class Clase(models.Model):
 
     def cupos_para_fecha(self, fecha):
         CAPACIDAD_MAXIMA_GIMNASIO = 30
+        
+        # 🌟 FILTRADO GLOBAL: Contamos las reservas de CUALQUIER clase 
+        # que coincida en la misma fecha y en el mismo horario.
         total_reservas_franja = Reserva.objects.filter(
-            clase=self,
             fecha_clase=fecha,
+            clase__horario=self.horario  # <-- Mapea por el horario compartido
         ).count()
+        
         disponibles = CAPACIDAD_MAXIMA_GIMNASIO - total_reservas_franja
         return max(0, disponibles)
 
