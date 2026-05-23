@@ -15,6 +15,7 @@ from .models import Clase, Actividad, Profesor, Reserva
 from reservas.models import Mensualidad
 from usuarios.models import Usuario
 from django.contrib.auth.decorators import login_required
+from calendar import monthrange
 
 
 # 1. LA GRILLA REAL (Trae los datos que guardás en la BD)
@@ -107,7 +108,7 @@ def enviar_confirmacion(usuario, clase, reserva):
     except Exception:
         pass
 
-@login_required
+"""@login_required
 def inscribirse_clase(request, clase_id):
     clase = get_object_or_404(Clase, id=clase_id)
     fecha_clase_str = request.POST.get('fecha_clase')
@@ -167,9 +168,107 @@ def inscribirse_clase(request, clase_id):
         else:
             return redirect('pago_mercadopago')
 
+    return redirect('grilla_actividades')"""
+
+@login_required
+def inscribirse_clase(request, clase_id):
+    clase = get_object_or_404(Clase, id=clase_id)
+    fecha_clase_str = request.POST.get('fecha_clase')
+
+    if not fecha_clase_str:
+        return redirect('grilla_actividades')
+
+    try:
+        fecha_clase = datetime.strptime(fecha_clase_str, '%Y-%m-%d').date()
+    except ValueError:
+        return redirect('grilla_actividades')
+
+    if request.method == 'POST':
+        tipo_pago = request.POST.get('tipo_pago')
+        medio_pago = request.POST.get('medio_pago')
+        flujo_tipo = request.POST.get('flujo_tipo', 'clase')
+
+        if tipo_pago not in ('senia', 'total'):
+            return redirect('grilla_actividades')
+
+        if medio_pago not in ('Tarjeta', 'Mercado Pago'):
+            return redirect('grilla_actividades')
+
+        # Ya inscripto en esta fecha
+        if Reserva.objects.filter(usuario=request.user, clase=clase, fecha_clase=fecha_clase).exists():
+            return redirect('grilla_actividades')
+
+        # Sin cupo -> lista de espera para ESTA clase puntual
+        if clase.cupos_para_fecha(fecha_clase) <= 0:
+            reserva = Reserva.objects.create(
+                usuario=request.user,
+                clase=clase,
+                fecha_clase=fecha_clase,
+                en_lista_de_espera=True,
+                monto_pagado=0,
+                estado_pago='pendiente',
+            )
+            return redirect('grilla_actividades')
+
+        # 🧮 CÁLCULO DE MONTO INTELIGENTE
+        if flujo_tipo == 'mensualidad':
+            hoy = datetime.now().date()
+            anio = fecha_clase.year
+            mes = fecha_clase.month
+            
+            # Buscamos el rango de días del mes (ej: de 1 a 31)
+            _, ultimo_dia = monthrange(anio, mes)
+            
+            # Determinamos el día de la semana de esta clase (0=Lunes, 1=Martes... 6=Domingo)
+            dia_semana_objetivo = fecha_clase.weekday()
+            
+            clases_validas_restantes = 0
+            
+            # Recorremos desde hoy (o desde el 1 del mes si es un mes futuro) hasta el fin de mes
+            inicio_conteo = hoy if hoy.month == mes and hoy.year == anio else date(anio, mes, 1)
+            
+            for d in range(inicio_conteo.day, ultimo_dia + 1):
+                fecha_evaluar = date(anio, mes, d)
+                
+                # Si coincide el día de la semana (ej: todos los martes que quedan)
+                if fecha_evaluar.weekday() == dia_semana_objetivo:
+                    # REGLA: Verificar si esa fecha futura de la clase tiene cupo disponible
+                    if clase.cupos_para_fecha(fecha_evaluar) > 0:
+                        clases_validas_restantes += 1
+            
+            # Si por alguna razón da 0 (ej: te anotás al último día sin cupos en los otros), cobramos mínimo 1
+            if clases_validas_restantes == 0:
+                clases_validas_restantes = 1
+                
+            # El monto es el proporcional de las clases que realmente va a aprovechar
+            monto = clase.actividad.precio_clase * clases_validas_restantes
+            
+        else:
+            # Flujo normal por clase suelta
+            precio = clase.actividad.precio_clase
+            if tipo_pago == 'senia':
+                monto = precio * Decimal('0.50')
+            else:
+                monto = precio
+
+        # Guardar en sesión para Mercado Pago o Tarjeta
+        request.session['inscripcion_pendiente'] = {
+            'clase_id': clase.id,
+            'fecha_clase': fecha_clase_str,
+            'tipo_pago': tipo_pago,
+            'monto': str(monto),
+            'medio_pago': medio_pago,
+            'flujo_tipo': flujo_tipo,
+        }
+
+        if medio_pago == 'Tarjeta':
+            return redirect('pago_tarjeta')
+        else:
+            return redirect('pago_mercadopago')
+
     return redirect('grilla_actividades')
 
-
+"""""
 @login_required
 def pago_tarjeta(request):
     datos = request.session.get('inscripcion_pendiente')
@@ -200,6 +299,48 @@ def pago_tarjeta(request):
                 fecha_clase=datos['fecha_clase'],
                 monto_pagado=datos['monto'],
                 estado_pago='seña' if datos['tipo_pago'] == 'senia' else 'total',
+                medio_pago='Tarjeta',
+            )
+
+        enviar_confirmacion(request.user, clase, reserva)
+        del request.session['inscripcion_pendiente']
+        return redirect('pago_confirmacion', reserva_id=reserva.id)
+
+    return render(request, 'pago_tarjeta.html', {'monto': datos['monto']})"""
+    
+@login_required
+def pago_tarjeta(request):
+    datos = request.session.get('inscripcion_pendiente')
+    if not datos:
+        return redirect('grilla_actividades')
+
+    if request.method == 'POST':
+        numero = request.POST.get('numero', '')
+        vto = request.POST.get('vto', '')
+        cvv = request.POST.get('cvv', '')
+        titular = request.POST.get('titular', '')
+
+        if not all([numero, vto, cvv, titular]):
+            messages.error(request, "Complete todos los campos de la tarjeta.")
+            return render(request, 'pago_tarjeta.html', {'monto': datos['monto']})
+
+        if len(numero.replace(' ', '')) < 16 or len(cvv) < 3:
+            del request.session['inscripcion_pendiente']
+            return redirect('pago_confirmacion', reserva_id=0)
+
+        # Pago exitoso -> crear reserva asociada a la clase
+        with transaction.atomic():
+            clase = get_object_or_404(Clase, id=datos['clase_id'])
+            
+            # Determinamos el estado del pago. Si es mensualidad, el pago siempre es 'total'
+            estado_final = 'total' if datos['flujo_tipo'] == 'mensualidad' else ('seña' if datos['tipo_pago'] == 'senia' else 'total')
+
+            reserva = Reserva.objects.create(
+                usuario=request.user,
+                clase=clase,
+                fecha_clase=datos['fecha_clase'],
+                monto_pagado=datos['monto'],
+                estado_pago=estado_final,
                 medio_pago='Tarjeta',
             )
 
