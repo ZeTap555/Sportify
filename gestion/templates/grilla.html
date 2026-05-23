@@ -453,12 +453,23 @@
         }
 
         // 👤 FLUJO COMPLETO DE ALUMNOS (El código de tus compañeros queda intacto acá abajo)
-        if (paso === '') {
+        /*
+            if (paso === '') {
             acciones.innerHTML = `
                 <button class="modal-btn primary" onclick="mostrarPasoSel('inscribir')">
                     Inscribirse a esta clase
                 </button>
                 <button class="modal-btn secondary" onclick="alert('Mensualidad - próximamente')">
+                    Contratar mensualidad
+                </button>
+            `;
+        */
+        if (paso === '') {
+            acciones.innerHTML = `
+                <button class="modal-btn primary" onclick="mostrarPasoSel('inscribir')">
+                    Inscribirse a esta clase
+                </button>
+                <button class="modal-btn secondary" onclick="mostrarPasoSel('pago', 'total', 'mensualidad')">
                     Contratar mensualidad
                 </button>
             `;
@@ -510,7 +521,7 @@
                 <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver</button>
             `;
 
-        } else if (paso === 'pago') {
+        /*} else if (paso === 'pago') {
             var tipoPago = arguments[1] || 'total';
 
             acciones.innerHTML = `
@@ -528,6 +539,31 @@
                     <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#00BFFF; margin-right:6px; vertical-align:middle;"></span> Mercado Pago
                 </button>
                 <button class="modal-btn secondary" onclick="mostrarPasoSel('inscribir')">Volver</button>
+            `;
+        }*/
+         } else if (paso === 'pago') {
+            var tipoPago = arguments[1] || 'total';
+            var flujoTipo = arguments[2] || 'clase'; 
+
+            // Si es mensualidad vuelve a la pantalla inicial (''), si no vuelve a 'inscribir'
+            var pasoVolver = (flujoTipo === 'mensualidad') ? '' : 'inscribir';
+
+            acciones.innerHTML = `
+                <p style="color:#8e8e93; text-align:center; margin-bottom:15px;">Medio de pago</p>
+                <form method="POST" action="/clase/${modalData.id}/inscribirse/" id="form-pago">
+                    <input type="hidden" name="csrfmiddlewaretoken" value="${getCSRFToken()}">
+                    <input type="hidden" name="tipo_pago" value="${tipoPago}">
+                    <input type="hidden" name="medio_pago" value="" id="input-medio-pago">
+                    <input type="hidden" name="fecha_clase" value="${modalFecha}">
+                    <input type="hidden" name="flujo_tipo" value="${flujoTipo}">
+                </form>
+                <button class="modal-btn primary" onclick="enviarForm('Tarjeta')">
+                    💳 Tarjeta de crédito/débito
+                </button>
+                <button class="modal-btn primary" onclick="enviarForm('Mercado Pago')">
+                    <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#00BFFF; margin-right:6px; vertical-align:middle;"></span> Mercado Pago
+                </button>
+                <button class="modal-btn secondary" onclick="mostrarPasoSel('${pasoVolver}')">Volver</button>
             `;
         }
 
