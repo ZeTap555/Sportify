@@ -15,4 +15,8 @@ urlpatterns = [
     path('pago/mercadopago/', views.pago_mercadopago, name='pago_mercadopago'),
     path('pago/confirmacion/<int:reserva_id>/', views.pago_confirmacion, name='pago_confirmacion'),
     path('clase/<int:clase_id>/asignar-profesor/', views.asignar_profesor_clase, name='asignar_profesor_clase'),
+    path('notificaciones/',views.ver_notificaciones,name='ver_notificaciones'),
+    path('notificaciones/marcar/<int:notificacion_id>/',views.marcar_leida,name='marcar_leida'),
+    path('notificaciones/borrar/<int:notificacion_id>/',views.borrar_notificacion,name='borrar_notificacion'),
+    path('notificaciones/borrar-todas/',views.borrar_todas_notificaciones,name='borrar_todas_notificaciones'),
 ]
