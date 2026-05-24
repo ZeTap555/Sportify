@@ -16,7 +16,7 @@ from reservas.models import Mensualidad
 from usuarios.models import Usuario
 from django.contrib.auth.decorators import login_required
 from calendar import monthrange
-
+from .models import Notificacion
 
 # 1. LA GRILLA REAL (Trae los datos que guardás en la BD)
 def grilla_actividades(request):
@@ -90,6 +90,8 @@ def grilla_actividades(request):
         'clases_detalle_dia': clases_detalle_dia,
         'hoy': ahora,
     }
+    cantidad_no_leidas=Notificacion.objects.filter(usuario=request.user,leida=False).count()
+    context['cantidad_no_leidas'] = cantidad_no_leidas
     return render(request, 'grilla.html', context)
 
 def enviar_confirmacion(usuario, clase, reserva):
@@ -760,3 +762,39 @@ def historial_pagos(request):
         'resultados_mensualidad': resultados_mensualidad,
     }
     return render(request, 'gestion/historial_pagos.html', context)
+
+@login_required
+def ver_notificaciones(request):
+    notificaciones=Notificacion.objects.filter(usuario=request.user).order_by('-fecha')
+    return render(request, 'gestion/notificaciones.html', {'notificaciones': notificaciones})
+
+@login_required
+def marcar_leida(request, notificacion_id):
+    notificacion = Notificacion.objects.get(
+        id=notificacion_id,
+        usuario=request.user
+    )
+
+    notificacion.leida = True
+    notificacion.save()
+
+    return redirect('ver_notificaciones')
+
+
+@login_required
+def borrar_notificacion(request, notificacion_id):
+    notificacion = Notificacion.objects.get(
+        id=notificacion_id,
+        usuario=request.user
+    )
+
+    notificacion.delete()
+
+    return redirect('ver_notificaciones')
+
+
+@login_required
+def borrar_todas_notificaciones(request):
+    Notificacion.objects.filter(usuario=request.user).delete()
+
+    return redirect('ver_notificaciones')

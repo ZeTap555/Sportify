@@ -508,6 +508,14 @@ def editar_perfil_view(request):
                     'Contraseña incorrecta - '
                     'Volver a intentar'
                 )
+            elif len(password_nueva)<4:
+                errores['password'] = (
+                    'La contraseña debe tener como minimo 4 caracteres- Volver a intentar'
+                )
+            elif user.check_password(password_nueva):
+                errores['password'] = (
+                    'La contraseña nueva debe ser diferente a la actual - Volver a intentar'
+                )
 
         # =========================
         # SI HAY ERRORES
