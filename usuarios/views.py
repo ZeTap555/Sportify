@@ -83,6 +83,15 @@ def register_view(request):
                     errores['fecha_nacimiento'] = "Debe ser mayor de 16 años para registrarse."
             except (ValueError, IndexError):
                 errores['fecha_nacimiento'] = "Fecha de nacimiento inválida. Use el formato DD/MM/AAAA."
+        
+        if apta:
+            # 1. Extraemos la extensión del nombre del archivo y la pasamos a minúsculas
+            extension = apta.name.split('.')[-1].lower()
+            extensiones_permitidas = ['pdf', 'jpg', 'jpeg', 'png']
+            
+            # 2. Si la extensión no está en la lista de confianza, clavamos el error
+            if extension not in extensiones_permitidas:
+                errores['apta_medica'] = "Archivo inválido. El apta médica debe ser obligatoriamente un documento PDF o una imagen (JPG, JPEG, PNG)."
 
         # -----------------------------------------------------------------
         # 3. CONTROL DE ERRORES SIMULTÁNEOS
