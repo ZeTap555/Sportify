@@ -90,7 +90,10 @@ def grilla_actividades(request):
         'clases_detalle_dia': clases_detalle_dia,
         'hoy': ahora,
     }
-    cantidad_no_leidas=Notificacion.objects.filter(usuario=request.user,leida=False).count()
+    if request.user.is_authenticated:
+        cantidad_no_leidas = Notificacion.objects.filter(usuario=request.user, leida=False).count()
+    else:
+        cantidad_no_leidas = 0
     context['cantidad_no_leidas'] = cantidad_no_leidas
     return render(request, 'grilla.html', context)
 
