@@ -1,5 +1,6 @@
 import calendar
 from datetime import datetime, date
+from multiprocessing import context
 from dateutil.relativedelta import relativedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -11,6 +12,8 @@ from decimal import Decimal
 from django.db import transaction
 from django.core.mail import send_mail
 from django.conf import settings
+from requests import request
+from urllib3 import request
 from .models import Clase, Actividad, Profesor, Reserva
 from reservas.models import Mensualidad
 from usuarios.models import Usuario
@@ -92,7 +95,11 @@ def grilla_actividades(request):
         'clases_detalle_dia': clases_detalle_dia,
         'hoy': ahora,
     }
-    cantidad_no_leidas=Notificacion.objects.filter(usuario=request.user,leida=False).count()
+    if request.user.is_authenticated:
+        cantidad_no_leidas = Notificacion.objects.filter(usuario=request.user, leida=False).count()
+    else:
+        cantidad_no_leidas = 0
+
     context['cantidad_no_leidas'] = cantidad_no_leidas
     return render(request, 'grilla.html', context)
 

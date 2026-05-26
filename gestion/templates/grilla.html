@@ -242,57 +242,57 @@
     <div class="right-area">
         
         <div class="top-header">
-            {% if not request.user.is_authenticated %}
-                <a href="{% url 'login' %}" class="btn-header-login">
-                    Iniciar Sesión
-                </a>
-            {% else %}
-                <div style="display:flex; align-items:center; gap:15px;">
+    {% if not request.user.is_authenticated %}
+        <a href="{% url 'login' %}" class="btn-header-login">
+            Iniciar Sesión
+        </a>
+    {% else %}
+        <div style="display:flex; align-items:center; gap:15px;">
 
-                    <a href="{% url 'ver_notificaciones' %}"
-                       style="
-                            position:relative;
-                            text-decoration:none;
-                            font-size:26px;
-                            display:inline-block;
-                       ">
+            <a href="{% url 'ver_notificaciones' %}"
+               style="
+                    position:relative;
+                    text-decoration:none;
+                    font-size:26px;
+                    display:inline-block;
+               ">
 
-                        🔔
+                🔔
 
-                        {% if cantidad_no_leidas > 0 %}
-                            <span style="
-                                position:absolute;
-                                top:-8px;
-                                right:-10px;
-                                background:red;
-                                color:white;
-                                border-radius:50%;
-                                min-width:18px;
-                                height:18px;
-                                display:flex;
-                                align-items:center;
-                                justify-content:center;
-                                font-size:11px;
-                                font-weight:bold;
-                                padding:2px;
-                            ">
-                                {{ cantidad_no_leidas }}
-                            </span>
-                        {% endif %}
-
-                    </a>
-
+                {% if cantidad_no_leidas > 0 %}
                     <span style="
-                        font-size:0.85rem;
-                        color:#8e8e93;
-                        font-weight:500;
+                        position:absolute;
+                        top:-8px;
+                        right:-10px;
+                        background:red;
+                        color:white;
+                        border-radius:50%;
+                        min-width:18px;
+                        height:18px;
+                        display:flex;
+                        align-items:center;
+                        justify-content:center;
+                        font-size:11px;
+                        font-weight:bold;
+                        padding:2px;
                     ">
-                        Hola, {{ request.user.first_name }} 👋
+                        {{ cantidad_no_leidas }}
                     </span>
+                {% endif %}
 
-                </div>
-            {% endif %}
+            </a>
+
+            <span style="
+                font-size:0.85rem;
+                color:#8e8e93;
+                font-weight:500;
+            ">
+                Hola, {{ request.user.first_name }} 👋
+            </span>
+
         </div>
+    {% endif %}
+</div>
 
         {% if messages %}
             <div style="padding: 20px 40px 0 40px; box-sizing: border-box;">
