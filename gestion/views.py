@@ -19,6 +19,7 @@ from calendar import monthrange
 from .models import Notificacion
 import mercadopago
 from django.http import HttpResponse
+from gestion.models import Notificacion
 
 # 1. LA GRILLA REAL (Trae los datos que guardás en la BD)
 def grilla_actividades(request):
@@ -326,21 +327,102 @@ def pago_tarjeta(request):
         vto = request.POST.get('vto', '')
         cvv = request.POST.get('cvv', '')
         titular = request.POST.get('titular', '')
+        #VALIDAR CAMPOS VACIOS
 
         if not all([numero, vto, cvv, titular]):
             messages.error(request, "Complete todos los campos de la tarjeta.")
             return render(request, 'pago_tarjeta.html', {'monto': datos['monto']})
 
-        if len(numero.replace(' ', '')) < 16 or len(cvv) < 3:
-            del request.session['inscripcion_pendiente']
-            return redirect('pago_confirmacion', reserva_id=0)
+        numero_limpio=numero.replace(' ','')
+        
+        try:
+            mes_vto,anio_vto=vto.split('/')
+            mes_vto=int(mes_vto)
+            anio_vto=int(anio_vto)
+            hoy=datetime.now()
+            anio_actual=hoy.year %100
+            mes_actual=hoy.month
+            if(
+                anio_vto<anio_actual 
+                or(
+                    anio_vto==anio_actual and mes_vto<mes_actual
+                )
+            ):
+                resultado="tarjeta_vencida"
+        except:
+            resultado="tarjeta_vencida"
+
+
+        if len(numero_limpio)!=16:
+            resultado="tarjeta_corta"
+        elif len(cvv)!=3:
+            resultado="cvv_invalido"
+        else:
+            tarjetas_prueba={
+                "1234123412341234":{
+                    "titular":"Facundo Carbone",
+                    "cvv":"123",
+                    "vto":"12/30",
+                    "resultado":"ok"
+                },
+                "3456345634563456":{
+                    "titular":"Juan Perez",
+                    "cvv":"456",
+                    "vto":"11/29",
+                    "resultado":"tarjeta_inexistente"
+                },
+                "2134213421342134":{
+                    "titular":"Maria Lopez",
+                    "cvv":"789",
+                    "vto":"10/28",
+                    "resultado":"saldo_insuficiente"
+                }
+            }
+            tarjeta=tarjetas_prueba.get(numero_limpio)
+            if not tarjeta:
+                resultado="error_banco"
+            elif tarjeta["titular"].lower() != titular.lower():
+                resultado="titular_incorrecto"
+            elif tarjeta["cvv"] != cvv:
+                resultado="cvv_invalido"
+            elif tarjeta["vto"] != vto:
+                resultado="tarjeta_vencida"
+            else:
+                resultado=tarjeta["resultado"]
+        
+
+        
+        #MANEJO DE ESCENARIOS
+        if resultado=="titular_incorrecto":
+            messages.error(request,"El nombre del titular no coincide con el registrado en la tarjeta")
+            return render(request,'pago_tarjeta.html',{'monto':datos['monto']})
+        if resultado=="cvv_invalido":
+            messages.error(request,"El CVV ingresado es incorrecto")
+            return render(request,'pago_tarjeta.html',{'monto':datos['monto']})
+        if resultado=="tarjeta_vencida":
+            messages.error(request,"La tarjeta ingresada se encuentra vencida")
+            return render(request,'pago_tarjeta.html',{'monto':datos['monto']})
+        if resultado=="saldo_insuficiente":
+            messages.error(request,"La tarjeta no posee saldo suficiente para completar la operación")
+            return render(request,'pago_tarjeta.html',{'monto':datos['monto']})
+        if resultado == "tarjeta_inexistente":
+            messages.error(request,"La tarjeta no existe")
+            return render(request,'pago_tarjeta.html',{'monto':datos['monto']})
+        if resultado == "error_banco":
+            messages.error(request,"ERROR-No se pudo establecer conexión con el banco.")
+            return render(request,'pago_tarjeta.html',{'monto':datos['monto']})
+        if resultado=="tarjeta_corta":
+            messages.error(request,"La tarjeta ingresada debe tener 16 digitos.")
+            return render(request,'pago_tarjeta.html',{'monto':datos['monto']})
+        
+
 
         # Pago exitoso -> crear reserva asociada a la clase
         with transaction.atomic():
             clase = get_object_or_404(Clase, id=datos['clase_id'])
             
             # Determinamos el estado del pago. Si es mensualidad, el pago siempre es 'total'
-            estado_final = 'total' if datos['flujo_tipo'] == 'mensualidad' else ('seña' if datos['tipo_pago'] == 'senia' else 'total')
+            estado_final = ('total' if datos['flujo_tipo'] == 'mensualidad' else ('seña' if datos['tipo_pago'] == 'senia' else 'total'))
 
             reserva = Reserva.objects.create(
                 usuario=request.user,
@@ -350,6 +432,11 @@ def pago_tarjeta(request):
                 estado_pago=estado_final,
                 medio_pago='Tarjeta',
             )
+            Notificacion.objects.create(
+                usuario=request.user,
+                mensaje=f"Se realizó con éxito tu pago para la clase: {clase.actividad.nombre}"
+            )
+
 
         enviar_confirmacion(request.user, clase, reserva)
         del request.session['inscripcion_pendiente']
