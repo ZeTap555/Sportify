@@ -252,7 +252,7 @@ def inscribirse_clase(request, clase_id):
             # Flujo normal por clase suelta
             precio = clase.actividad.precio_clase
             if tipo_pago == 'senia':
-                monto = precio * Decimal('0.50')
+                monto = (precio * Decimal('0.50')).quantize(Decimal('0.01'))
             else:
                 monto = precio
 
