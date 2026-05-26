@@ -1,5 +1,6 @@
 import calendar
 from datetime import datetime, date
+from multiprocessing import context
 from dateutil.relativedelta import relativedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -11,12 +12,16 @@ from decimal import Decimal
 from django.db import transaction
 from django.core.mail import send_mail
 from django.conf import settings
+from requests import request
+from urllib3 import request
 from .models import Clase, Actividad, Profesor, Reserva
 from reservas.models import Mensualidad
 from usuarios.models import Usuario
 from django.contrib.auth.decorators import login_required
 from calendar import monthrange
 from .models import Notificacion
+import mercadopago
+from django.http import HttpResponse
 
 # 1. LA GRILLA REAL (Trae los datos que guardás en la BD)
 def grilla_actividades(request):
@@ -94,6 +99,7 @@ def grilla_actividades(request):
         cantidad_no_leidas = Notificacion.objects.filter(usuario=request.user, leida=False).count()
     else:
         cantidad_no_leidas = 0
+
     context['cantidad_no_leidas'] = cantidad_no_leidas
     return render(request, 'grilla.html', context)
 
@@ -358,28 +364,53 @@ def pago_tarjeta(request):
 
 @login_required
 def pago_mercadopago(request):
-    datos = request.session.get('inscripcion_pendiente')
+    
+    datos=request.session.get('inscripcion_pendiente')
     if not datos:
-        return redirect('grilla_actividades')
-
-    clase = get_object_or_404(Clase, id=datos['clase_id'])
-
-    # Simular redirección a MP - en producción usar SDK mercadopago
+        return redirect ('grilla_actividades')
+    sdk=mercadopago.SDK(settings.MERCADO_PAGO_ACCESS_TOKEN)
+    
+    preference_response=sdk.preference().create({
+        "items": [
+            {
+                "title":"Reserva Sportify",
+                "quantity":1,
+                "currency_id":"ARS",
+                "unit_price":float(datos['monto'])
+            }
+        ],
+        "back_urls":{
+            "success": "http://127.0.0.1:8000/pago/exito/?status=approved",
+            "failure":"http://127.0.0.1:8000/pago/error/",
+            "pending": "http://127.0.0.1:8000/pago/pendiente/",
+        },
+    })
+    print(preference_response)
+    preference=preference_response["response"]
+    return redirect (preference["init_point"])
+@login_required
+def pago_exito(request):
+    print("ENTRO A PAGO EXITO")
+    datos=request.session.get('inscripcion_pendiente')
+    if not datos:
+        return redirect ('grilla_actividades')
+    clase=get_object_or_404(Clase,id=datos['clase_id'])
     with transaction.atomic():
-        reserva = Reserva.objects.create(
-            usuario=request.user,
-            clase=clase,
-            fecha_clase=datos['fecha_clase'],
-            monto_pagado=datos['monto'],
-            estado_pago='seña' if datos['tipo_pago'] == 'senia' else 'total',
-            medio_pago='Mercado Pago',
-        )
-
-    enviar_confirmacion(request.user, clase, reserva)
+        reserva=Reserva.objects.create(usuario=request.user,clase=clase,fecha_clase=datos['fecha_clase'],monto_pagado=datos['monto'],estado_pago='seña' if datos['tipo_pago']=='senia' else 'total',medio_pago='Mercado Pago')
+    enviar_confirmacion(request.user,clase,reserva)
     del request.session['inscripcion_pendiente']
-    return redirect('pago_confirmacion', reserva_id=reserva.id)
+    return redirect('pago_confirmacion',reserva_id=reserva.id)
 
+@login_required
+def pago_error(request):
+    messages.error(request,'El pago fue cancelado')
+    return redirect('grilla_actividades'
+    )
 
+@login_required
+def pago_pendiente(request):
+    messages.warning(request,'El pago quedo pendiente')
+    return redirect('grilla_actividades')
 @login_required
 def pago_confirmacion(request, reserva_id):
     if reserva_id == 0:

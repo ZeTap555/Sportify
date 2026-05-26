@@ -19,12 +19,12 @@
             overflow: hidden;
         }
 
-        /* COLUMNA 1: SIDEBAR IZQUIERDA */
+        /* 🍏 COLUMNA 1: SIDEBAR IZQUIERDA - Con tus paddings y medidas reales */
         .sidebar {
             width: 240px;
             background-color: #1c1c1e;
             border-right: 1px solid #2c2c2e;
-            padding: 30px 20px;
+            padding: 20px 15px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -32,7 +32,45 @@
             box-sizing: border-box;
             flex-shrink: 0;
         }
-        .sidebar-brand { font-size: 1.3rem; font-weight: 700; color: #00ff88; margin-bottom: 30px; text-transform: uppercase;}
+
+        /* TUS MEDIDAS EXACTAS DEL LOGO OVALADO */
+        .sidebar-brand { 
+            width: 100%;                  
+            height: 30px;                 
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 15px;              
+            margin-bottom: 25px;          
+            border: 2px solid #00ff88;    
+            border-radius: 40px;          
+            background-color: rgba(0, 255, 136, 0.03); 
+        }
+
+        .sidebar-brand-link {
+            display: block;
+            width: 100%;
+            text-align: center;
+            text-decoration: none;
+        }
+        
+        .logo-sidebar {
+            height: 150px;                 
+            width: auto;                  
+            object-fit: contain;          
+        }
+
+        .sidebar-brand-link:hover .logo-sidebar {
+            transform: scale(1.03);
+        }
+
+        .sidebar-menu { 
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex-grow: 1;
+        }
         .menu-item { display: block; padding: 12px 16px; color: #8e8e93; text-decoration: none; font-weight: 500; border-radius: 8px; margin-bottom: 5px; transition: all 0.15s; }
         .menu-item.active { background-color: #2c2c2e; color: #ffffff; font-weight: 600; }
         .menu-item:hover:not(.active) { background-color: rgba(255, 255, 255, 0.04); color: #ffffff; }
@@ -134,14 +172,18 @@
 
     <div class="sidebar">
         <div>
-            <div class="sidebar-brand">Sportify</div>
+            <div class="sidebar-brand" style="justify-content: center; padding: 10px 0;">
+                <a href="{% url 'grilla_actividades' %}" class="sidebar-brand-link">
+                    <img src="{% static 'img/logo_Sportify_name.png' %}" class="logo-sidebar" alt="Sportify Logo">
+                </a>
+            </div>
+            
             <div class="sidebar-menu">
                 <a href="{% url 'grilla_actividades' %}" class="menu-item">Cronograma</a>
                 <a href="{% url 'perfil' %}" class="menu-item">Mi Perfil</a>
                 <a href="{% url 'panel_admin' %}" class="menu-item active">Panel Admin</a>
-                <a href="#" class="menu-item">Mis Reservas</a>
-                <a href="#" class="menu-item">Mis Pagos</a>
-                <a href="#" class="menu-item">Novedades</a>
+                <a href="{% if request.user.is_authenticated %}#{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Reservas</a>
+                <a href="{% if request.user.is_authenticated %}{% url 'historial_pagos' %}{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Pagos</a>
             </div>
         </div>
 
@@ -396,75 +438,53 @@
 
     <script>
         function switchTab(tabId) {
-            // 1. Quitar estado activo de todos los botones
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            // 2. Ocultar todos los paneles de contenido
             document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
-            
-            // 3. Activar el botón seleccionado
             event.currentTarget.classList.add('active');
-            // 4. Mostrar el panel correspondiente
             document.getElementById('pane-' + tabId).classList.add('active');
         }
 
-        // 🌟 FUNCIÓN CORREGIDA: Usa el contenedor único y plancha notificaciones viejas
         function mostrarErrorGym(mensaje) {
             const contenedor = document.getElementById('contenedor-mensajes-gym');
-            
-            // Reemplazamos todo el contenido (viejos mensajes de Django o JS mueren acá)
             contenedor.innerHTML = `
                 <div class="alert-toast" style="border-left-color: #ff453a; color: #ff453a;">
                     ${mensaje}
                 </div>
             `;
-            
-            // Scroll suave hacia arriba para que el Admin lo vea al toque
             document.querySelector('.panel-content').scrollTop = 0;
         }
 
-        // 🌟 INTERCEPTOR DEL FORMULARIO
         document.getElementById('form-crear-clase').addEventListener('submit', function(event) {
             const actividad = document.getElementById('id_actividad').value;
             const profesor = document.getElementById('id_profesor').value;
             const fechaStr = document.getElementById('id_fecha').value;
             const horarioStr = document.getElementById('id_horario').value;
 
-            // 1. Validar vacíos
             if (!actividad || !fechaStr || !horarioStr) {
                 event.preventDefault();
                 mostrarErrorGym("Error: Por favor, complete todos los campos obligatorios del formulario.");
                 return;
             }
 
-            // 2. Validar Profesor Obligatorio
             if (!profesor || profesor === "") {
                 event.preventDefault();
                 mostrarErrorGym("Error: Debe seleccionar obligatoriamente un profesor para poder dictar la clase.");
                 return;
             }
 
-            // 3. Validar Fecha Pasada, Hoy (Horario viejo) y Domingos
-            const ahora = new Date(); // Objeto con la fecha y HORA exacta de este segundo
-            
-            // Creamos un clon de "ahora" pero en cero para comparar limpiamente solo los días
+            const ahora = new Date();
             const hoySoloFecha = new Date(ahora.getTime());
             hoySoloFecha.setHours(0, 0, 0, 0);
-            
             const fechaSeleccionada = new Date(fechaStr + 'T00:00:00');
             
-            // Freno 1: Si el día elegido es estrictamente anterior a hoy
             if (fechaSeleccionada < hoySoloFecha) {
                 event.preventDefault();
                 mostrarErrorGym("Error: No se pueden programar clases en una fecha que ya pasó.");
                 return;
             }
 
-            // Freno 2: Si es HOY, chequear que la hora seleccionada no se haya quedado en el pasado
             if (fechaSeleccionada.getTime() === hoySoloFecha.getTime()) {
-                // El horarioStr viene como "HH:00" (ej: "08:00")
                 const horaSeleccionada = parseInt(horarioStr.split(':')[0], 10);
-                
-                // Si la hora de la clase es menor o igual a la hora actual del sistema
                 if (horaSeleccionada <= ahora.getHours()) {
                     event.preventDefault();
                     mostrarErrorGym(`Error: El horario seleccionado (${horarioStr} hs) ya pasó para el día de hoy.`);
@@ -472,14 +492,12 @@
                 }
             }
 
-            // Freno 3: Control de domingos
             if (fechaSeleccionada.getDay() === 0) {
                 event.preventDefault();
                 mostrarErrorGym("Error: El gimnasio permanece cerrado los domingos. Por favor, elija un día de lunes a sábado.");
                 return;
             }
         });
-
     </script>
 </body>
 </html>
