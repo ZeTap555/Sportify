@@ -24,7 +24,7 @@
             width: 240px;
             background-color: #1c1c1e;
             border-right: 1px solid #2c2c2e;
-            padding: 30px 20px;
+            padding: 20px 15px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -32,7 +32,40 @@
             box-sizing: border-box;
             flex-shrink: 0;
         }
-        .sidebar-brand { font-size: 1.3rem; font-weight: 700; color: #00ff88; margin-bottom: 30px; text-transform: uppercase;}
+
+        /* 🌟 CONTENEDOR NUEVO DEL LOGO: Ajustado para que calce prolijo */
+        .sidebar-brand { 
+            width: 100%;                  /* Ocupa todo el ancho de la barra lateral */
+            height: 30px;                 /* ⚠️ CLAVE: Misma altura que el .top-header para que no sobresalga de la línea */
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 15px;              /* Aire a los costados */
+            margin-bottom: 25px;          /* Espacio con los botones del menú de abajo */
+            
+            /* El borde verde ovalado */
+            border: 2px solid #00ff88;    
+            border-radius: 40px;          /* 🌟 CLAVE: Al ser más ancho que alto, este radio lo hace OVALADO */
+            background-color: rgba(0, 255, 136, 0.03); /* Un fondo sutil opcional */
+        }
+        .sidebar-brand-link {
+            display: block;
+            width: 100%;
+            text-align: center;
+            text-decoration: none;
+        }
+        
+        .logo-sidebar {
+            height: 150px;                 /* Controla qué tan alta es la mancuerna por dentro */
+            width: auto;                  /* Deja que se estire horizontalmente sola */
+            object-fit: contain;          /* Evita que la imagen se rompa o deforme */
+        }
+
+        .sidebar-brand-link:hover .logo-sidebar {
+            transform: scale(1.03);
+        }
+
         .menu-item { display: block; padding: 12px 16px; color: #8e8e93; text-decoration: none; font-weight: 500; border-radius: 8px; margin-bottom: 5px; transition: all 0.15s; }
         .menu-item.active { background-color: #2c2c2e; color: #ffffff; font-weight: 600; }
         .menu-item:hover:not(.active) { background-color: rgba(255, 255, 255, 0.04); color: #ffffff; }
@@ -178,7 +211,12 @@
 <body>
     <div class="sidebar">
         <div>
-            <div class="sidebar-brand">Sportify</div>
+            <div class="sidebar-brand" style="justify-content: center; padding: 10px 0;">
+                <a href="{% url 'grilla_actividades' %}" class="sidebar-brand-link">
+                    <img src="{% static 'img/logo_Sportify_name.png' %}" class="logo-sidebar" alt="Sportify Logo">
+                </a>
+            </div>
+            
             <div class="sidebar-menu">
                 <a href="{% url 'grilla_actividades' %}" class="menu-item active">Cronograma</a>
                 
@@ -190,7 +228,6 @@
                 
                 <a href="{% if request.user.is_authenticated %}#{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Reservas</a>
                 <a href="{% if request.user.is_authenticated %}{% url 'historial_pagos' %}{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Pagos</a>
-                <a href="{% if request.user.is_authenticated %}#{% else %}{% url 'login' %}{% endif %}" class="menu-item">Novedades</a>
             </div>
         </div>
 
@@ -442,11 +479,11 @@
 
         // 🍏 VISTA EXCLUSIVA PARA EL ADMINISTRADOR
         if (modalData.rol === 'admin') {
-            // Recibimos los profesores y la cola de espera desde el JSON de la API
             let opcionesProfesores = `<option value="">--- Sin Profesor Asignado ---</option>`;
             if (modalData.todos_los_profesores) {
                 modalData.todos_los_profesores.forEach(p => {
                     let seleccionado = modalData.profesor_id == p.id ? 'selected' : '';
+                    optionsProfesores = ''; // Limpieza de murguita vieja
                     opcionesProfesores += `<option value="${p.id}" ${seleccionado}>${p.apellido}, ${p.nombre}</option>`;
                 });
             }
@@ -454,7 +491,6 @@
             let listaEsperaHTML = '';
             if (modalData.cola_espera && modalData.cola_espera.length > 0) {
                 modalData.cola_espera.forEach(u => {
-                    // Creamos el badge según el estado de su mensualidad
                     let badgeMensualidad = u.pase_mensual 
                         ? `<span style="background: rgba(48, 209, 88, 0.2); color: #30d158; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; margin-left: 8px;">Mensualidad</span>`
                         : `<span style="background: rgba(255, 159, 10, 0.2); color: #ff9f0a; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; margin-left: 8px;">Por Clase</span>`;
@@ -496,18 +532,7 @@
             return;
         }
 
-        // 👤 FLUJO COMPLETO DE ALUMNOS (El código de tus compañeros queda intacto acá abajo)
-        /*
-            if (paso === '') {
-            acciones.innerHTML = `
-                <button class="modal-btn primary" onclick="mostrarPasoSel('inscribir')">
-                    Inscribirse a esta clase
-                </button>
-                <button class="modal-btn secondary" onclick="alert('Mensualidad - próximamente')">
-                    Contratar mensualidad
-                </button>
-            `;
-        */
+        // 👤 FLUJO COMPLETO DE ALUMNOS
         if (paso === '') {
             acciones.innerHTML = `
                 <button class="modal-btn primary" onclick="mostrarPasoSel('inscribir')">
@@ -565,31 +590,10 @@
                 <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver</button>
             `;
 
-        /*} else if (paso === 'pago') {
-            var tipoPago = arguments[1] || 'total';
-
-            acciones.innerHTML = `
-                <p style="color:#8e8e93; text-align:center; margin-bottom:15px;">Medio de pago</p>
-                <form method="POST" action="/clase/${modalData.id}/inscribirse/" id="form-pago">
-                    <input type="hidden" name="csrfmiddlewaretoken" value="${getCSRFToken()}">
-                    <input type="hidden" name="tipo_pago" value="${tipoPago}">
-                    <input type="hidden" name="medio_pago" value="" id="input-medio-pago">
-                    <input type="hidden" name="fecha_clase" value="${modalFecha}">
-                </form>
-                <button class="modal-btn primary" onclick="enviarForm('Tarjeta')">
-                    💳 Tarjeta de crédito/débito
-                </button>
-                <button class="modal-btn primary" onclick="enviarForm('Mercado Pago')">
-                    <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#00BFFF; margin-right:6px; vertical-align:middle;"></span> Mercado Pago
-                </button>
-                <button class="modal-btn secondary" onclick="mostrarPasoSel('inscribir')">Volver</button>
-            `;
-        }*/
          } else if (paso === 'pago') {
             var tipoPago = arguments[1] || 'total';
             var flujoTipo = arguments[2] || 'clase'; 
 
-            // Si es mensualidad vuelve a la pantalla inicial (''), si no vuelve a 'inscribir'
             var pasoVolver = (flujoTipo === 'mensualidad') ? '' : 'inscribir';
 
             acciones.innerHTML = `
