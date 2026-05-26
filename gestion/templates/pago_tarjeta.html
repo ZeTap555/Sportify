@@ -105,23 +105,23 @@
 
             <div class="input-group">
                 <label>Número de tarjeta</label>
-                <input type="text" name="numero" placeholder="1234 5678 9012 3456" maxlength="19" required>
+                <input type="text" name="numero" placeholder="1234 5678 9012 3456" maxlength="19" >
             </div>
 
             <div class="grid-2">
                 <div class="input-group">
                     <label>Vencimiento</label>
-                    <input type="text" name="vto" placeholder="MM/AA" maxlength="5" required oninput="if(this.value.length==2&&!this.value.includes('/')) this.value+='/';">
+                    <input type="text" name="vto" placeholder="MM/AA" maxlength="5"  oninput="if(this.value.length==2&&!this.value.includes('/')) this.value+='/';">
                 </div>
                 <div class="input-group">
                     <label>CVV</label>
-                    <input type="text" name="cvv" placeholder="123" maxlength="4" required>
+                    <input type="text" name="cvv" placeholder="123" maxlength="4" >
                 </div>
             </div>
 
             <div class="input-group">
                 <label>Titular</label>
-                <input type="text" name="titular" placeholder="Nombre como figura en la tarjeta" required>
+                <input type="text" name="titular" placeholder="Nombre como figura en la tarjeta" >
             </div>
 
             <button type="submit" class="btn-pagar">Pagar e inscribirse</button>
