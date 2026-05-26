@@ -13,13 +13,37 @@
             font-family: 'Poppins', sans-serif;
             margin: 0; min-height: 100vh;
             display: flex; align-items: center; justify-content: center;
+            position: relative;
+        }
+        .brand-top {
+            position: absolute;
+            top: 24px;
+            left: 24px;
+            color: #00ff88;
+            font-size: 1.3rem;
+            font-weight: 700;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            z-index: 10;
         }
         .card {
             background: #1c1c1e; border: 1px solid #2c2c2e;
             border-radius: 16px; padding: 40px;
             max-width: 440px; width: 90%;
             box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            position: relative;
         }
+        .close-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            color: #8e8e93;
+            text-decoration: none;
+            font-size: 1.5rem;
+            line-height: 1;
+        }
+        .close-btn:hover { color: #fff; }
         h1 { color: #00ff88; font-size: 1.4rem; margin: 0 0 5px 0; }
         .sub { color: #8e8e93; font-size: 0.85rem; margin-bottom: 30px; }
         .input-group { margin-bottom: 20px; }
@@ -60,7 +84,9 @@
     </style>
 </head>
 <body>
+    <a href="/" class="brand-top">Sportify</a>
     <div class="card">
+        <a href="/" class="close-btn">×</a>
         <h1>Pago con tarjeta</h1>
         <div class="sub">Completá los datos para finalizar la inscripción</div>
 
