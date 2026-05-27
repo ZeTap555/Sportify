@@ -111,7 +111,7 @@
                     class="btn btn-sportify btn-sm" 
                     data-bs-toggle="modal" 
                     data-bs-target="#modalMensualidad">
-                    Consultar Mensualidad
+                    Consultar Mensualidades
                 </button>
                 <a href="/" class="btn btn-outline-secondary btn-sm rounded-pill">Volver al Inicio</a>
             </div>
@@ -190,41 +190,48 @@
     </div>
 </div>
 
-
-<!-- ===================== MODAL CONSULTAR MENSUALIDAD ===================== -->
+ <!-- ===================== MODAL CONSULTAR MENSUALIDAD ===================== -->
 <div class="modal fade modal-custom" id="modalMensualidad" tabindex="-1" aria-labelledby="modalMensualidadLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
 
             <div class="modal-header">
-                <h5 class="modal-title text-warning-custom" id="modalMensualidadLabel">Estado de tu Mensualidad</h5>
+                <h5 class="modal-title text-warning-custom" id="modalMensualidadLabel">Estado de tus Mensualidades</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
 
             <div class="modal-body">
                 {% for resultado in resultados_mensualidad %}
-                    <div class="resultado-card {{ resultado.estado }}">
+                    <div class="resultado-card {{ resultado.estado }}" style="margin-bottom: 15px;">
 
                         {% if resultado.actividad %}
-                            <p class="mb-1 text-white-50" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">
-                                {{ resultado.actividad }}
+                            <p class="mb-1 text-white-50" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
+                                🏅 {{ resultado.actividad }}
                             </p>
                         {% endif %}
 
-                        <p class="mb-0 text-white" style="font-size: 0.95rem;">
+                        <p class="mb-0 text-white" style="font-size: 0.95rem; line-height: 1.4;">
                             {{ resultado.mensaje }}
                         </p>
 
-                        <!-- Íconos de estado -->
-                        <div class="mt-2">
+                        <!-- Íconos de estado con colores dinámicos sincronizados -->
+                        <div class="mt-3">
                             {% if resultado.estado == 'pagada' %}
-                                <span class="badge" style="background-color: #34c759; color: #000;">✓ Pagada</span>
+                                <span class="badge" style="background-color: rgba(52, 199, 89, 0.2); color: #34c759; border: 1px solid #34c759; padding: 6px 12px; font-size: 0.8rem; font-weight: 600;">
+                                    ✓ VIGENTE / PAGADA
+                                </span>
                             {% elif resultado.estado == 'pendiente' %}
-                                <span class="badge" style="background-color: #ffd60a; color: #000;">⏳ Pendiente</span>
+                                <span class="badge" style="background-color: rgba(255, 214, 10, 0.2); color: #ffd60a; border: 1px solid #ffd60a; padding: 6px 12px; font-size: 0.8rem; font-weight: 600;">
+                                    ⏳ PENDIENTE
+                                </span>
                             {% elif resultado.estado == 'vencida' %}
-                                <span class="badge" style="background-color: #ff453a; color: #fff;">✕ Vencida</span>
+                                <span class="badge" style="background-color: rgba(255, 69, 58, 0.2); color: #ff453a; border: 1px solid #ff453a; padding: 6px 12px; font-size: 0.8rem; font-weight: 600;">
+                                    ✕ VENCIDA / SUSPENDIDA
+                                </span>
                             {% elif resultado.estado == 'sin_mensualidad' %}
-                                <span class="badge" style="background-color: #636366; color: #fff;">— Sin mensualidad</span>
+                                <span class="badge" style="background-color: rgba(99, 99, 102, 0.2); color: #aeaeae; border: 1px solid #636366; padding: 6px 12px; font-size: 0.8rem; font-weight: 600;">
+                                    — SIN PASO MENSUAL
+                                </span>
                             {% endif %}
                         </div>
 
@@ -239,7 +246,7 @@
         </div>
     </div>
 </div>
-<!-- ====================================================================== -->
+
 
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
