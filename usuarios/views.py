@@ -27,17 +27,17 @@ def register_view(request):
         # 1. VALIDACIÓN DE CAMPOS VACÍOS
         # -----------------------------------------------------------------
         if not nombre:
-            errores['nombre_apellido'] = "El nombre y apellido no puede estar vacío."
+            errores['nombre_apellido'] = "***"
         if not dni:
-            errores['dni'] = "El DNI no puede estar vacío."
+            errores['dni'] = "***"
         if not fecha_nac_str:
-            errores['fecha_nacimiento'] = "La fecha de nacimiento no puede estar vacía."
+            errores['fecha_nacimiento'] = "***"
         if not email:
-            errores['email'] = "El correo electrónico no puede estar vacío."
+            errores['email'] = "***"
         if not passw:
-            errores['password'] = "La contraseña no puede estar vacía."
+            errores['password'] = "***"
         if not apta:
-            errores['apta_medica'] = "Debe adjuntar el apta médica para continuar con el registro."
+            errores['apta_medica'] = "***"
 
         # -----------------------------------------------------------------
         # 2. VALIDACIONES DE FORMATO AVANZADAS
