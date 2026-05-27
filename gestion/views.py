@@ -113,19 +113,22 @@ def grilla_actividades(request):
 
 def enviar_confirmacion(usuario, clase, reserva):
     try:
+        fecha_clase = reserva.fecha_clase
+        if isinstance(fecha_clase, str):
+            fecha_clase = datetime.strptime(fecha_clase, '%Y-%m-%d').date()
         send_mail(
             subject=f"Sportify - Inscripción confirmada: {clase.actividad.nombre}",
             message=f"Hola {usuario.first_name},\n\n"
-                    f"Te inscribiste a {clase.actividad.nombre} el {clase.fecha} a las {clase.horario}.\n"
+                    f"Te inscribiste a la clase de {clase.actividad.nombre} del {fecha_clase.strftime('%d-%m-%Y')} a las {clase.horario}.\n"
                     f"Monto pagado: ${reserva.monto_pagado}\n"
                     f"Medio de pago: {reserva.medio_pago}\n\n"
                     f"¡Gracias por elegir Sportify!",
-            from_email='noreply@sportify.com',
+            from_email='sportifygymapp@gmail.com',
             recipient_list=[usuario.email],
-            fail_silently=True,
+            fail_silently=False,
         )
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[EMAIL ERROR] {e}")
 
 """""
 @login_required
@@ -588,10 +591,11 @@ def pago_tarjeta(request):
             else:
                 # Flujo normal de una clase única individual
                 estado_final = 'seña' if datos['tipo_pago'] == 'senia' else 'total'
+                fecha_clase = datetime.strptime(datos['fecha_clase'], '%Y-%m-%d').date()
                 reserva = Reserva.objects.create(
                     usuario=request.user,
                     clase=clase,
-                    fecha_clase=datos['fecha_clase'],
+                    fecha_clase=fecha_clase,
                     monto_pagado=datos['monto'],
                     estado_pago=estado_final,
                     medio_pago='Tarjeta',
