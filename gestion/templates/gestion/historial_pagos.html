@@ -131,6 +131,7 @@
                             <th>Actividad</th>
                             <th>Fecha</th>
                             <th>Estado</th>
+                            <th>Comprobante</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -139,13 +140,48 @@
                             <td>{{ pago.clase.actividad.nombre }}</td>
                             <td>{{ pago.fecha_reserva|date:"d/m/Y" }}</td>
                             <td>{{ pago.estado_pago }}</td>
+                            <td>
+                                <a href="{% url 'comprobante_pdf' pago.id %}" 
+                                   class="btn  btn-success" 
+                                   onclick="mostrarMensajeDescarga()">
+                                    Descargar comprobante
+                                </a>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
+
             </div>
         {% endif %}
-
+        <div id="mensaje-descarga"
+             class="alert alert-success"
+             style="
+                display: none; 
+                position:fixed;
+                top:70px;
+                left:50%;
+                transform: translateX(-50%);
+                z-index:9999;
+                background-color:#00c853;
+                color:white;
+                font-weight:bold;
+                padding: 20px 40px;
+                border-radius:12px;
+                box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
+                font-size:18px
+                ">
+                ✅Descargando el comprobante de pago
+        </div>
+        <script>
+            function mostrarMensajeDescarga() {
+                const mensaje = document.getElementById("mensaje-descarga");
+                mensaje.style.display = "block";
+                setTimeout(function() {
+                    mensaje.style.display = "none";
+                }, 5000);
+            }
+        </script>
     </div>
 
     <!-- LOGO -->

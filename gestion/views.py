@@ -23,7 +23,14 @@ from .models import Notificacion
 import mercadopago
 from django.http import HttpResponse
 from gestion.models import Notificacion
-
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.utils import ImageReader
+from reportlab.lib.colors import Color,black,grey
+from django.utils.timezone import localtime
+from reportlab.pdfbase.pdfmetrics import stringWidth
+from django.utils import timezone
+import os
 # 1. LA GRILLA REAL (Trae los datos que guardás en la BD)
 def grilla_actividades(request):
     ahora = timezone.now().date()
@@ -919,3 +926,91 @@ def borrar_todas_notificaciones(request):
     Notificacion.objects.filter(usuario=request.user).delete()
 
     return redirect('ver_notificaciones')
+
+
+@login_required
+def comprobante_pdf(request,reserva_id):
+    reserva=get_object_or_404(
+        Reserva,id=reserva_id,usuario=request.user
+    )
+    response=HttpResponse(content_type='application/pdf')
+    response['Content-Disposition']=(
+        f'attachment; filename="comprobante_Sportify.pdf"')
+    pdf=canvas.Canvas(response,pagesize=A4)
+    width,height=A4
+    logo_path=os.path.join(
+        settings.BASE_DIR,'static','img','logo_Sportify.png'
+    )
+    if os.path.exists(logo_path):
+        pdf.drawImage(
+            ImageReader(logo_path),
+            220,
+            height -140,
+            width=150,
+            height=100,
+            mask='auto'
+        )
+    
+    pdf.setFont("Helvetica-Bold",24)
+    pdf.drawCentredString(width/2,height -180,"COMPROBANTE DE PAGO")
+
+    pdf.drawCentredString(width/2,height -240, f" N° OPERACIÓN: {reserva.id}")
+
+    pdf.rect(40,220,515,420)
+
+    if os.path.exists(logo_path):
+        pdf.saveState()
+        pdf.setFillAlpha(0.08)
+        pdf.drawImage(
+            ImageReader(logo_path),
+            120,
+            330,
+            width=350,
+            height=250,
+            mask='auto'
+        )
+        pdf.restoreState()
+
+    y=height -330
+    datos=[
+        ("DNI DEL USUARIO:", request.user.username),
+        ("ACTIVIDAD:",reserva.clase.actividad.nombre),
+        ("FECHA DE LA CLASE:",str(reserva.fecha_clase)),
+        ("MONTO PAGADO:",f"${reserva.monto_pagado}"),
+        ("MEDIO DE PAGO:",reserva.medio_pago),
+        ("ESTADO:",reserva.estado_pago),
+        (
+            "FECHA Y HORA DE EMISIÓN:",
+            reserva.fecha_reserva.strftime("%d/%m/%Y %H:%M")
+        )
+    ]
+    for titulo,valor in datos:
+        pdf.setFont("Helvetica-Bold",16)
+        pdf.drawString(60,y,titulo)
+        pdf.setFont("Helvetica",16)
+        pdf.drawString(340,y,str(valor))
+        y-=42
+    pdf.rect(40,80,515,120)
+    pdf.setFont("Helvetica-Bold",18)
+    pdf.drawCentredString(
+        width/2,
+        175,
+        "DETALLE DEL PAGO"
+    )
+    pdf.line(40,150,555,150)
+    pdf.setFont("Helvetica-Bold",14)
+    pdf.drawString(50,125,"DESCRIPCIÓN")
+    pdf.drawString(430,125,"IMPORTE")
+    pdf.setFont("Helvetica",14)
+    pdf.drawString(
+        50,95,f"Clase: {reserva.clase.actividad.nombre}"
+    )
+    pdf.drawString(
+        430,95,f"${reserva.monto_pagado}"
+    )
+    pdf.setFont("Helvetica-Bold",18)
+    pdf.drawCentredString(width/2,40,"GRACIAS POR SER PARTE DE SPORTIFY!")
+    pdf.save()
+    return response
+
+
