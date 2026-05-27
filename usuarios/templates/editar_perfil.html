@@ -233,15 +233,17 @@
                 <!-- TELEFONO -->
 
                 <div class="input-group">
-
                     <label>Teléfono</label>
-
                     <input
                         type="text"
                         name="telefono"
-                        value="{{ request.user.telefono }}"
+                        value="{{ valores.telefono|default:request.user.telefono }}"
                     >
-
+                    {% if errores.telefono %}
+                        <div class="error">
+                            {{ errores.telefono }}
+                        </div>
+                    {% endif %}
                 </div>
 
                 <!-- FECHA -->

@@ -55,10 +55,9 @@ def register_view(request):
 
         # 🆕 Validar Teléfono (Solo números Y entre 8 y 12 dígitos)
         if tel:
-            if not tel.isdigit():
-                errores['telefono'] = "El teléfono solo puede contener números sin espacios ni guiones."
-            elif not (8 <= len(tel) <= 12):
-                errores['telefono'] = "El teléfono debe tener entre 8 y 12 dígitos (Ej: 2216423692)."
+            # Unificamos: si falla el formato numérico O falla el largo, va el error
+            if not tel.isdigit() or not (8 <= len(tel) <= 12):
+                errores['telefono'] = "El teléfono debe contener solo números y tener entre 8 y 12 dígitos (Ej: 2216423692)."
 
         # 🆕 Validar Email estricto (Debe contener algo@algo.com)
         # El patrón r'^[\w\.-]+@[\w\.-]+\.com$' obliga a que termine sí o sí en .com
@@ -428,110 +427,65 @@ def perfil_view(request):
 def editar_perfil_view(request):
 
     user = request.user
-
     errores = {}
 
     if request.method == 'POST':
 
         email = request.POST.get('email', '').strip()
-
         telefono = request.POST.get('telefono', '').strip()
+        fecha_nacimiento_str = request.POST.get('fecha_nacimiento', '').strip()
+        password_actual = request.POST.get('password_actual', '')
+        password_nueva = request.POST.get('password_nueva', '')
 
-        fecha_nacimiento_str = request.POST.get(
-            'fecha_nacimiento',
-            ''
-        ).strip()
+        # =================================================================
+        # 🆕 VALIDACIÓN DE TELÉFONO UNIFICADA
+        # =================================================================
+        if telefono:
+            if not telefono.isdigit() or not (8 <= len(telefono) <= 12):
+                errores['telefono'] = "Modificación fallida - El teléfono debe contener solo números y tener entre 8 y 12 dígitos"
 
-        password_actual = request.POST.get(
-            'password_actual',
-            ''
-        )
+        # =================================================================
+        # 🆕 VALIDACIÓN DE EMAIL ESTRICTO Y DUPLICADO
+        # =================================================================
+        if email:
+            if not re.match(r'^[\w\.-]+@[\w\.-]+\.com$', email):
+                errores['email'] = "Modificación fallida - el correo debe tener un formato válido terminado en .com "
+            elif Usuario.objects.filter(email=email).exclude(id=user.id).exists():
+                errores['email'] = "Modificación sin éxito - Email ya asociado a otra cuenta."
 
-        password_nueva = request.POST.get(
-            'password_nueva',
-            ''
-        )
-
-        # =========================
-        # VALIDAR EMAIL DUPLICADO
-        # =========================
-
-        if Usuario.objects.filter(email=email).exclude(id=user.id).exists():
-
-            errores['email'] = (
-                'Modificación sin éxito - '
-                'Email ya asociado a otra cuenta'
-            )
-
-        # =========================
+        # =================================================================
         # VALIDAR MAYOR DE 16
-        # =========================
-
+        # =================================================================
         try:
-
             dia, mes, anio = fecha_nacimiento_str.split('/')
-
-            fecha_nacimiento = date(
-                int(anio),
-                int(mes),
-                int(dia)
-            )
-
+            fecha_nacimiento = date(int(anio), int(mes), int(dia))
             hoy = date.today()
-
             edad = (
                 hoy.year - fecha_nacimiento.year
-                -
-                (
-                    (hoy.month, hoy.day)
-                    <
-                    (
-                        fecha_nacimiento.month,
-                        fecha_nacimiento.day
-                    )
-                )
+                - ((hoy.month, hoy.day) < (fecha_nacimiento.month, fecha_nacimiento.day))
             )
 
             if edad < 16:
+                errores['fecha_nacimiento'] = "Modificación fallida - El usuario debe ser mayor a 16 años."
 
-                errores['fecha_nacimiento'] = (
-                    'Modificación fallida - '
-                    'El usuario debe ser mayor a 16 años'
-                )
+        except (ValueError, IndexError):
+            errores['fecha_nacimiento'] = "Fecha inválida. Use el formato DD/MM/AAAA."
 
-        except ValueError:
-
-            errores['fecha_nacimiento'] = (
-                'Fecha inválida'
-            )
-
-        # =========================
+        # =================================================================
         # VALIDAR PASSWORD
-        # =========================
-
+        # =================================================================
         if password_nueva:
-
             if not user.check_password(password_actual):
-
-                errores['password'] = (
-                    'Contraseña incorrecta - '
-                    'Volver a intentar'
-                )
-            elif len(password_nueva)<4:
-                errores['password'] = (
-                    'La contraseña debe tener como minimo 4 caracteres- Volver a intentar'
-                )
+                errores['password'] = "Contraseña incorrecta - Volver a intentar."
+            elif len(password_nueva) < 4:
+                errores['password'] = "La contraseña debe tener como mínimo 4 caracteres - Volver a intentar."
             elif user.check_password(password_nueva):
-                errores['password'] = (
-                    'La contraseña nueva debe ser diferente a la actual - Volver a intentar'
-                )
+                errores['password'] = "La contraseña nueva debe ser diferente a la actual - Volver a intentar."
 
-        # =========================
-        # SI HAY ERRORES
-        # =========================
-
+        # =================================================================
+        # SI HAY ERRORES RETORNA CON EL CONTEXTO
+        # =================================================================
         if errores:
-
             return render(
                 request,
                 'editar_perfil.html',
@@ -540,18 +494,14 @@ def editar_perfil_view(request):
                 }
             )
 
-        # =========================
-        # GUARDAR CAMBIOS
-        # =========================
-
+        # =================================================================
+        # GUARDAR CAMBIOS LIMPIOS
+        # =================================================================
         user.email = email
-
         user.telefono = telefono
-
         user.fecha_nacimiento = fecha_nacimiento
 
         if password_nueva:
-
             user.set_password(password_nueva)
 
         user.save()
@@ -561,10 +511,7 @@ def editar_perfil_view(request):
             'Modificación exitosa'
         )
 
-        # IMPORTANTE:
-        # vuelve a loguear al usuario
-        # despues de cambiar password
-
+        # Mantiene la sesión activa tras el cambio de password
         login(request, user)
 
         return redirect('perfil')
