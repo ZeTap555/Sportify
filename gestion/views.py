@@ -445,7 +445,7 @@ def pago_tarjeta(request):
                     "titular":"Juan Perez",
                     "cvv":"456",
                     "vto":"11/29",
-                    "resultado":"tarjeta_inexistente"
+                    "resultado":"error_banco"
                 },
                 "2134213421342134":{
                     "titular":"Maria Lopez",
@@ -456,7 +456,7 @@ def pago_tarjeta(request):
             }
             tarjeta=tarjetas_prueba.get(numero_limpio)
             if not tarjeta:
-                resultado="error_banco"
+                resultado="tarjeta_inexistente"
             elif tarjeta["titular"].lower() != titular.lower():
                 resultado="titular_incorrecto"
             elif tarjeta["cvv"] != cvv:
