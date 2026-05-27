@@ -1252,6 +1252,14 @@ def historial_pagos(request):
         'resultados_mensualidad': resultados_mensualidad,
     }
     return render(request, 'gestion/historial_pagos.html', context)
+
+@login_required
+def mis_reservas(request):
+    from datetime import date
+    reservas = Reserva.objects.filter(usuario=request.user, fecha_clase__gte=date.today())\
+        .select_related('clase__actividad', 'clase__profesor')\
+        .order_by('-fecha_clase', '-clase__horario')
+    return render(request, 'gestion/mis_reservas.html', {'reservas': reservas})
     
 @login_required
 def ver_notificaciones(request):
