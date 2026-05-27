@@ -389,7 +389,7 @@
                     <h2>Detalles del Día</h2>
                     <div class="day-detail-subtitle">{{ fecha_seleccionada|date:"l d \d\e F" }}</div>
 
-                    {% if clases_detalle_dia %}
+                  {% if clases_detalle_dia %}
                         {% for clase in clases_detalle_dia %}
                             <div class="detail-card" style="border-left-color: {% if 'Funcional' in clase.actividad.nombre %}#ff9f0a{% elif 'Yoga' in clase.actividad.nombre %}#bf5af2{% else %}#0a84ff{% endif %};">
                                 <div class="detail-card-header">
@@ -401,7 +401,7 @@
                                 </div>
                                 <div class="detail-footer">
                                     <span class="cupos-badge">Cupos disp: {{ clase.cupos_mostrar }}</span>
-                                    <button onclick="abrirModalDetalle({{ clase.id }}, '{{ fecha_seleccionada|date:"Y-m-d" }}')" class="btn-ver-detalle" style="cursor:pointer;">Ver detalle</button>
+                                    <button onclick="abrirModalDetalle({{ clase.id }}, '{{ fecha_seleccionada|date:'Y-m-d' }}')" class="btn-ver-detalle" style="cursor:pointer;">Ver detalle</button>
                                 </div>
                             </div>
                         {% endfor %}
@@ -437,6 +437,12 @@
 
         <hr class="modal-divider">
 
+        <div id="modal-feedback-pago"></div>
+
+        <div id="modal-acciones"></div>
+
+        <hr class="modal-divider">
+
         <div id="modal-acciones"></div>
     </div>
 </div>
@@ -445,7 +451,7 @@
     var modalData = null;
     var modalFecha = null;
 
-    function abrirModalDetalle(claseId, fecha) {
+    function abrirModalDetalle(claseId, fecha, feedbackId = 0, pagoStatus = '', pagoMsg = '') {
         modalFecha = fecha;
         fetch('/clase/' + claseId + '/datos/?fecha=' + fecha)
             .then(r => r.json())
@@ -459,6 +465,30 @@
                 const cuposEl = document.getElementById('modal-cupos');
                 cuposEl.textContent = data.cupos_disponibles;
                 cuposEl.className = 'modal-info-value ' + (data.cupos_disponibles > 0 ? 'cupos-verde' : 'cupos-rojo');
+
+                // =========================================================================
+                // 🌟 CARTEL CON BOTÓN DE CERRAR INTEGRADO ADENTRO DEL MODAL
+                // ==========================================================================
+                const feedbackEl = document.getElementById('modal-feedback-pago');
+                if (feedbackEl) {
+                    if (parseInt(claseId) === parseInt(feedbackId) && pagoMsg !== '' && pagoStatus !== 'cancelado' && pagoMsg !== 'null') {
+                        const esExito = (pagoStatus === 'success');
+                        feedbackEl.innerHTML = `
+                            <div id="alert-pago-modal" style="
+                                margin-bottom: 20px; padding: 12px 15px; border-radius: 8px; font-size: 0.88rem; font-weight: 600;
+                                display: flex; align-items: center; justify-content: space-between;
+                                background-color: ${esExito ? 'rgba(48, 209, 88, 0.15)' : 'rgba(255, 69, 58, 0.15)'};
+                                color: ${esExito ? '#30d158' : '#ff453a'};
+                                border: 1px solid ${esExito ? 'rgba(48, 209, 88, 0.3)' : 'rgba(255, 69, 58, 0.3)'};
+                            ">
+                                <span>${pagoMsg}</span>
+                                <button onclick="this.parentElement.remove()" style="background:none; border:none; color:inherit; font-size:1.3rem; cursor:pointer; line-height:1; padding:0 0 0 10px;">&times;</button>
+                            </div>
+                        `;
+                    } else {
+                        feedbackEl.innerHTML = '';
+                    }
+                }
 
                 mostrarPasoSel('');
             });
@@ -572,6 +602,9 @@
                         <input type="hidden" name="tipo_pago" value="total">
                         <input type="hidden" name="medio_pago" value="Tarjeta">
                         <input type="hidden" name="fecha_clase" value="${modalFecha}">
+                        <input type="hidden" name="grilla_anio" value="{{ anio_actual }}">
+                        <input type="hidden" name="grilla_mes" value="{{ mes_actual }}">
+                        <input type="hidden" name="grilla_dia" value="{{ fecha_seleccionada.day }}">
                         <button type="submit" class="modal-btn primary">Anotarme en lista de espera</button>
                     </form>
                     <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver</button>
@@ -638,8 +671,27 @@
         return '';
     }
 
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') cerrarModal();
+    // 🌟 AUTO-APERTURA DEL MODAL CON ERROR AL VOLVER DE LA TARJETA
+    document.addEventListener("DOMContentLoaded", function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const feedbackId = urlParams.get('clase_feedback_id');
+        const pagoStatus = urlParams.get('pago_status');
+        
+        // Si no viene el mensaje, o es la palabra null, lo forzamos a un string vacío ""
+        let pagoMsg = urlParams.get('pago_msg');
+        if (!pagoMsg || pagoMsg === 'null') {
+            pagoMsg = '';
+        }
+
+        const anio = urlParams.get('anio');
+        const mes = urlParams.get('mes');
+        const diaSel = urlParams.get('dia_sel');
+
+        if (feedbackId) {
+            const fechaFormateada = `${anio}-${String(mes).padStart(2, '0')}-${String(diaSel).padStart(2, '0')}`;
+            // Ejecutamos pasando el mensaje ya sanitizado sin "null"
+            abrirModalDetalle(feedbackId, fechaFormateada, feedbackId, pagoStatus, pagoMsg);
+        }
     });
 </script>
 

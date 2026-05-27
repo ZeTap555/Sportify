@@ -73,9 +73,9 @@
         .btn-pagar:hover { background: #12ff93; }
         .btn-volver {
             display: block; text-align: center; margin-top: 15px;
-            color: #8e8e93; text-decoration: none; font-size: 0.85rem;
+            color:  #8e8e93; text-decoration: none; font-size: 0.85rem;
         }
-        .btn-volver:hover { color: #fff; }
+        .btn-volver:hover { color: #ff0000; }
         .error-msg {
             background: #ff453a20; border: 1px solid #ff453a40;
             color: #ff453a; padding: 10px; border-radius: 8px;
@@ -83,17 +83,15 @@
         }
     </style>
 </head>
-<body>
-    <a href="/" class="brand-top">Sportify</a>
-    <div class="card">
+    <body>
+        <a href="/" class="brand-top">Sportify</a>
+        <div class="card">
         <a href="/" class="close-btn">×</a>
         <h1>Pago con tarjeta</h1>
         <div class="sub">Completá los datos para finalizar la inscripción</div>
 
-        {% if messages %}
-            {% for message in messages %}
-                <div class="error-msg">{{ message }}</div>
-            {% endfor %}
+        {% if msg_feedback %}
+            <div class="error-msg"> {{ msg_feedback }}</div>
         {% endif %}
 
         <div class="monto-box">
@@ -105,29 +103,42 @@
 
             <div class="input-group">
                 <label>Número de tarjeta</label>
-                <input type="text" name="numero" placeholder="1234 5678 9012 3456" maxlength="19" >
+                <input type="text" name="numero" placeholder="1234 5678 9012 3456" maxlength="19" required>
             </div>
 
             <div class="grid-2">
                 <div class="input-group">
                     <label>Vencimiento</label>
-                    <input type="text" name="vto" placeholder="MM/AA" maxlength="5"  oninput="if(this.value.length==2&&!this.value.includes('/')) this.value+='/';">
+                    <input type="text" name="vto" placeholder="MM/AA" maxlength="5" required
+                        oninput="if(this.value.length==2&&!this.value.includes('/')) this.value+='/';">
                 </div>
                 <div class="input-group">
                     <label>CVV</label>
-                    <input type="text" name="cvv" placeholder="123" maxlength="4" >
+                    <input type="text" name="cvv" placeholder="123" maxlength="4" required>
                 </div>
             </div>
 
             <div class="input-group">
                 <label>Titular</label>
-                <input type="text" name="titular" placeholder="Nombre como figura en la tarjeta" >
+                <input type="text" name="titular" placeholder="Nombre como figura en la tarjeta" required>
             </div>
 
             <button type="submit" class="btn-pagar">Pagar e inscribirse</button>
         </form>
 
-        <a href="/" class="btn-volver">Volver al cronograma</a>
+        {% if msg_url_grilla %}
+            <a href="/?anio={{ g_anio }}&mes={{ g_mes }}&dia_sel={{ g_dia }}&clase_feedback_id={{ clase_id }}&pago_status=fallback&pago_msg={{ msg_url_grilla }}" class="btn-volver">
+                Volver al cronograma
+            </a>
+        {% else %}
+            <a href="/?anio={{ g_anio }}&mes={{ g_mes }}&dia_sel={{ g_dia }}&clase_feedback_id={{ clase_id }}&pago_status=cancelado&pago_msg=" class="btn-volver">
+                Cancelar y Volver
+            </a>
+        {% endif %}
+    </div>
+        
+    </div> </body>
+    </div> </body>
     </div>
 </body>
 </html>

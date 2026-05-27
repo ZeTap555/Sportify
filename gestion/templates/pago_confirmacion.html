@@ -48,37 +48,35 @@
     </style>
 </head>
 <body>
-    <div class="card {% if exito %}exito{% else %}error{% endif %}">
-        {% if exito %}
-            <div class="icono">&#10004;</div>
-            <h1>Inscripción realizada con éxito</h1>
-            <p>Te confirmamos tu lugar en la clase.</p>
+    <div class="card exito">
+        
+        <div class="icono">&#10004;</div>
+        <h1>Inscripción realizada con éxito</h1>
+        <p>Te confirmamos tu lugar en la clase.</p>
 
-            <div class="detalle">
-                <div class="row">
-                    <span class="label">Actividad</span>
-                    <span class="value">{{ reserva.clase.actividad.nombre }}</span>
-                </div>
-                <div class="row">
-                    <span class="label">Horario</span>
-                    <span class="value">{{ reserva.clase.fecha }} {{ reserva.clase.horario }}</span>
-                </div>
-                <div class="row">
-                    <span class="label">Monto pagado</span>
-                    <span class="value">${{ reserva.monto_pagado }}</span>
-                </div>
-                <div class="row">
-                    <span class="label">Medio de pago</span>
-                    <span class="value">{{ reserva.medio_pago }}</span>
-                </div>
+        <div class="detalle">
+            <div class="row">
+                <span class="label">Actividad</span>
+                <span class="value">{{ reserva.clase.actividad.nombre }}</span>
             </div>
-        {% else %}
-            <div class="icono">&#10008;</div>
-            <h1>La inscripción no puede hacerse</h1>
-            <p>Se rechazó el pago. Verificá los datos e intentá de nuevo.</p>
-        {% endif %}
+            <div class="row">
+                <span class="label">Horario</span>
+                <span class="value">{{ reserva.clase.fecha }} {{ reserva.clase.horario }}</span>
+            </div>
+            <div class="row">
+                <span class="label">Monto pagado</span>
+                <span class="value">${{ reserva.monto_pagado }}</span>
+            </div>
+            <div class="row">
+                <span class="label">Medio de pago</span>
+                <span class="value">{{ reserva.medio_pago }}</span>
+            </div>
+        </div>
 
-        <a href="/" class="btn-inicio">Volver al cronograma</a>
+        <a href="/?anio={{ g_anio }}&mes={{ g_mes }}&dia_sel={{ g_dia }}&clase_feedback_id={{ clase_id }}&pago_status=success&pago_msg=¡Inscripción realizada con éxito!" 
+           class="btn-volver">
+            Volver al cronograma
+        </a>
     </div>
 </body>
 </html>

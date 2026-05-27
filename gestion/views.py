@@ -27,7 +27,9 @@ from gestion.models import Notificacion
 # 1. LA GRILLA REAL (Trae los datos que guardás en la BD)
 def grilla_actividades(request):
     ahora = timezone.now().date()
-    
+    # Al principio de grilla_actividades(request) en views.py:
+    #if request.GET.get('pago_exito') == 'true':
+        #messages.success(request, "¡Tu inscripción y pago han sido registrados con éxito en el sistema!")
     # 1. Capturar mes y año seleccionados (por defecto el mes actual)
     año = int(request.GET.get('anio', ahora.year))
     mes = int(request.GET.get('mes', ahora.month))
@@ -95,6 +97,10 @@ def grilla_actividades(request):
         'fecha_seleccionada': fecha_seleccionada,
         'clases_detalle_dia': clases_detalle_dia,
         'hoy': ahora,
+        'clase_feedback_id': int(request.GET.get('clase_feedback_id', 0) or 0),
+        'pago_status': request.GET.get('pago_status', ''),
+        'pago_msg': request.GET.get('pago_msg', ''),
+        'exito': True,
     }
     if request.user.is_authenticated:
         cantidad_no_leidas = Notificacion.objects.filter(usuario=request.user, leida=False).count()
@@ -264,6 +270,7 @@ def inscribirse_clase(request, clase_id):
                 monto = precio
 
         # Guardar en sesión para Mercado Pago o Tarjeta
+        # Dentro de inscribirse_clase en views.py:
         request.session['inscripcion_pendiente'] = {
             'clase_id': clase.id,
             'fecha_clase': fecha_clase_str,
@@ -271,6 +278,10 @@ def inscribirse_clase(request, clase_id):
             'monto': str(monto),
             'medio_pago': medio_pago,
             'flujo_tipo': flujo_tipo,
+            # 🌟 GUARDAMOS ESTO: El año, mes y día exactos de la grilla actual para la vuelta
+            'grilla_anio': request.POST.get('grilla_anio', str(fecha_clase.year)),
+            'grilla_mes': request.POST.get('grilla_mes', str(fecha_clase.month)),
+            'grilla_dia': request.POST.get('grilla_dia', str(fecha_clase.day)),
         }
 
         if medio_pago == 'Tarjeta':
@@ -326,106 +337,190 @@ def pago_tarjeta(request):
     if not datos:
         return redirect('grilla_actividades')
 
+    # Recuperamos los datos de origen para la vuelta
+    g_anio = datos.get('grilla_anio')
+    g_mes = datos.get('grilla_mes')
+    g_dia = datos.get('grilla_dia')
+    clase_id = datos.get('clase_id')
+
+    # Diccionario base para inyectar al HTML si algo falla
+    contexto = {
+        'monto': datos['monto'],
+        'g_anio': g_anio,
+        'g_mes': g_mes,
+        'g_dia': g_dia,
+        'clase_id': clase_id,
+        'msg_feedback': None,
+        'msg_url_grilla': None
+    }
+
     if request.method == 'POST':
-        numero = request.POST.get('numero', '')
-        vto = request.POST.get('vto', '')
-        cvv = request.POST.get('cvv', '')
-        titular = request.POST.get('titular', '')
-        #VALIDAR CAMPOS VACIOS
+        # .strip() evita errores si el usuario mete espacios al final sin querer
+        numero = request.POST.get('numero', '').strip()
+        vto = request.POST.get('vto', '').strip()
+        cvv = request.POST.get('cvv', '').strip()
+        titular = request.POST.get('titular', '').strip()
 
+        # 1. VALIDACIÓN DE CAMPOS VACÍOS
         if not all([numero, vto, cvv, titular]):
-            messages.error(request, "Complete todos los campos de la tarjeta.")
-            return render(request, 'pago_tarjeta.html', {'monto': datos['monto']})
+            contexto['msg_feedback'] = "Complete todos los campos de la tarjeta."
+            contexto['msg_url_grilla'] = "Ocurrió un error con el pago"
+            return render(request, 'pago_tarjeta.html', contexto)
 
-        numero_limpio=numero.replace(' ','')
+        numero_limpio = numero.replace(' ', '')
+        resultado = "ok"
         
+        # 2. VALIDACIÓN DEL FORMATO Y VENCIMIENTO
         try:
-            mes_vto,anio_vto=vto.split('/')
-            mes_vto=int(mes_vto)
-            anio_vto=int(anio_vto)
-            hoy=datetime.now()
-            anio_actual=hoy.year %100
-            mes_actual=hoy.month
-            if(
-                anio_vto<anio_actual 
-                or(
-                    anio_vto==anio_actual and mes_vto<mes_actual
-                )
-            ):
-                resultado="tarjeta_vencida"
+            mes_vto, anio_vto = vto.split('/')
+            mes_vto = int(mes_vto.strip())
+            anio_vto = int(anio_vto.strip())
+            hoy = datetime.now()
+            anio_actual = hoy.year % 100
+            mes_actual = hoy.month
+            if anio_vto < anio_actual or (anio_vto == anio_actual and mes_vto < mes_actual):
+                resultado = "tarjeta_vencida"
         except:
-            resultado="tarjeta_vencida"
+            resultado = "tarjeta_vencida"
 
-
-        if len(numero_limpio)!=16:
-            resultado="tarjeta_corta"
-        elif len(cvv)!=3:
-            resultado="cvv_invalido"
+        # 3. CONTROL DE DÍGITOS BÁSICOS
+        if len(numero_limpio) != 16:
+            resultado = "tarjeta_corta"
+        elif len(cvv) != 3:
+            resultado = "cvv_invalido"
         else:
-            tarjetas_prueba={
-                "1234123412341234":{
-                    "titular":"Facundo Carbone",
-                    "cvv":"123",
-                    "vto":"12/30",
-                    "resultado":"ok"
-                },
-                "3456345634563456":{
-                    "titular":"Juan Perez",
-                    "cvv":"456",
-                    "vto":"11/29",
-                    "resultado":"tarjeta_inexistente"
-                },
-                "2134213421342134":{
-                    "titular":"Maria Lopez",
-                    "cvv":"789",
-                    "vto":"10/28",
-                    "resultado":"saldo_insuficiente"
-                }
+            # Simulador de tarjetas de prueba
+            tarjetas_prueba = {
+                "1234123412341234": {"titular": "Facundo Carbone", "cvv": "123", "vto": "12/30", "resultado": "ok"},
+                "3456345634563456": {"titular": "Juan Perez", "cvv": "456", "vto": "11/29", "resultado": "tarjeta_inexistente"},
+                "2134213421342134": {"titular": "Maria Lopez", "cvv": "789", "vto": "10/28", "resultado": "saldo_insuficiente"}
             }
-            tarjeta=tarjetas_prueba.get(numero_limpio)
-            if not tarjeta:
-                resultado="error_banco"
-            elif tarjeta["titular"].lower() != titular.lower():
-                resultado="titular_incorrecto"
-            elif tarjeta["cvv"] != cvv:
-                resultado="cvv_invalido"
-            elif tarjeta["vto"] != vto:
-                resultado="tarjeta_vencida"
-            else:
-                resultado=tarjeta["resultado"]
-        
-
-        
-        #MANEJO DE ESCENARIOS
-        if resultado=="titular_incorrecto":
-            messages.error(request,"El nombre del titular no coincide con el registrado en la tarjeta")
-            return render(request,'pago_tarjeta.html',{'monto':datos['monto']})
-        if resultado=="cvv_invalido":
-            messages.error(request,"El CVV ingresado es incorrecto")
-            return render(request,'pago_tarjeta.html',{'monto':datos['monto']})
-        if resultado=="tarjeta_vencida":
-            messages.error(request,"La tarjeta ingresada se encuentra vencida")
-            return render(request,'pago_tarjeta.html',{'monto':datos['monto']})
-        if resultado=="saldo_insuficiente":
-            messages.error(request,"La tarjeta no posee saldo suficiente para completar la operación")
-            return render(request,'pago_tarjeta.html',{'monto':datos['monto']})
-        if resultado == "tarjeta_inexistente":
-            messages.error(request,"La tarjeta no existe")
-            return render(request,'pago_tarjeta.html',{'monto':datos['monto']})
-        if resultado == "error_banco":
-            messages.error(request,"ERROR-No se pudo establecer conexión con el banco.")
-            return render(request,'pago_tarjeta.html',{'monto':datos['monto']})
-        if resultado=="tarjeta_corta":
-            messages.error(request,"La tarjeta ingresada debe tener 16 digitos.")
-            return render(request,'pago_tarjeta.html',{'monto':datos['monto']})
-        
-
-
-        # Pago exitoso -> crear reserva asociada a la clase
-        with transaction.atomic():
-            clase = get_object_or_404(Clase, id=datos['clase_id'])
             
-            # Determinamos el estado del pago. Si es mensualidad, el pago siempre es 'total'
+            tarjeta = tarjetas_prueba.get(numero_limpio)
+            if not tarjeta:
+                resultado = "error_banco"
+            # .lower().strip() garantiza coincidencia exacta aunque haya mayúsculas distintas
+            elif tarjeta["titular"].lower().strip() != titular.lower().strip():
+                resultado = "titular_incorrecto"
+            elif tarjeta["cvv"] != cvv:
+                resultado = "cvv_invalido"
+            elif tarjeta["vto"] != vto:
+                resultado = "tarjeta_vencida"
+            else:
+                resultado = tarjeta["resultado"]
+        
+        # 4. GESTIÓN DE RESPUESTAS DE ERROR LOCALES
+        if resultado != "ok":
+            if resultado == "saldo_insuficiente":
+                msg_pantalla = "Tarjeta sin fondos suficientes."
+            elif resultado in ["tarjeta_inexistente", "titular_incorrecto"]:
+                msg_pantalla = "Tarjeta no registrada o datos inválidos."
+            elif resultado == "tarjeta_vencida":
+                msg_pantalla = "La tarjeta se encuentra vencida."
+            elif resultado == "cvv_invalido":
+                msg_pantalla = "Código CVV incorrecto."
+            elif resultado == "tarjeta_corta":
+                msg_pantalla = "El número de tarjeta debe tener 16 dígitos."
+            else:
+                msg_pantalla = "Ocurrió un error con el pago."
+
+            contexto['msg_feedback'] = msg_pantalla
+            contexto['msg_url_grilla'] = "Ocurrió un error con el pago"
+            return render(request, 'pago_tarjeta.html', contexto)
+
+        # 5. CAMINO TRANSACCIONAL DE ÉXITO REAL
+        # =========================================================================
+        # 🌟 CAMINO DEL ÉXITO REAL (CORREGIDO Y BLINDADO)
+        # =========================================================================
+        try:
+            with transaction.atomic():
+                clase = get_object_or_404(Clase, id=clase_id)
+                estado_final = ('total' if datos['flujo_tipo'] == 'mensualidad' else ('seña' if datos['tipo_pago'] == 'senia' else 'total'))
+
+                reserva = Reserva.objects.create(
+                    usuario=request.user,
+                    clase=clase,
+                    fecha_clase=datos['fecha_clase'],
+                    monto_pagado=datos['monto'],
+                    estado_pago=estado_final,
+                    medio_pago='Tarjeta',
+                )
+                
+                if datos['flujo_tipo'] == 'mensualidad':
+                    fecha_obj = datetime.strptime(datos['fecha_clase'], '%Y-%m-%d').date()
+                    Mensualidad.objects.update_or_create(
+                        usuario=request.user, actividad=clase.actividad,
+                        mes=fecha_obj.month, anio=fecha_obj.year, defaults={'estado': 'pagada'}
+                    )
+
+            # 🌟 Volvemos a meter la notificación para que te aparezca en la campanita
+            Notificacion.objects.create(
+                usuario=request.user,
+                mensaje=f"Se realizó con éxito tu pago para la clase: {clase.actividad.nombre}"
+            )
+
+            # ❌ ELIMINADO EL ENVIAR_CONFIRMACION QUE TE ROMPÍA TODO EL VIAJE
+
+            # Armamos la URL para viajar derecho a la pantalla del tilde verde
+            url_retorno = f"/pago/confirmacion/{reserva.id}/?anio={g_anio}&mes={g_mes}&dia={g_dia}&clase_id={clase_id}"
+            
+            # Limpiamos la sesión una vez completado todo con éxito
+            if 'inscripcion_pendiente' in request.session:
+                del request.session['inscripcion_pendiente']
+                
+            return redirect(url_retorno)
+
+        except Exception as e:
+            # Si pasa acá es porque de verdad falló la base de datos
+            contexto['msg_feedback'] = f"Error al procesar la inscripción en el sistema."
+            contexto['msg_url_grilla'] = "Ocurrió un error con el pago"
+            return render(request, 'pago_tarjeta.html', contexto)
+    # Entrada normal vía GET (Limpia cualquier rastro previo)
+    return render(request, 'pago_tarjeta.html', contexto)
+
+@login_required
+def pago_mercadopago(request):
+    datos = request.session.get('inscripcion_pendiente')
+    if not datos:
+        return redirect('grilla_actividades')
+
+    sdk = mercadopago.SDK(settings.MERCADO_PAGO_ACCESS_TOKEN)
+    
+    # 🌟 VOLVEMOS AL DICCIONARIO EXACTO QUE TE ANDABA A VOS
+    preference_response = sdk.preference().create({
+        "items": [
+            {
+                "title": "Reserva Sportify",
+                "quantity": 1,
+                "currency_id": "ARS",
+                "unit_price": float(datos['monto'])
+            }
+        ],
+        "back_urls": {
+            "success": "http://127.0.0.1:8000/pago/exito/?status=approved",
+            "failure": "http://127.0.0.1:8000/pago/error/",
+            "pending": "http://127.0.0.1:8000/pago/pendiente/",
+        },
+    })
+    
+    preference = preference_response["response"]
+    return redirect(preference["init_point"])
+
+@login_required
+def pago_exito(request):
+    datos = request.session.get('inscripcion_pendiente')
+    if not datos:
+        return redirect('grilla_actividades')
+
+    g_anio = datos.get('grilla_anio')
+    g_mes = datos.get('grilla_mes')
+    g_dia = datos.get('grilla_dia')
+    clase_id = datos.get('clase_id')
+
+    # Guardamos en la base de datos de forma limpia
+    try:
+        with transaction.atomic():
+            clase = get_object_or_404(Clase, id=clase_id)
             estado_final = ('total' if datos['flujo_tipo'] == 'mensualidad' else ('seña' if datos['tipo_pago'] == 'senia' else 'total'))
 
             reserva = Reserva.objects.create(
@@ -434,80 +529,67 @@ def pago_tarjeta(request):
                 fecha_clase=datos['fecha_clase'],
                 monto_pagado=datos['monto'],
                 estado_pago=estado_final,
-                medio_pago='Tarjeta',
+                medio_pago='Mercado Pago',
             )
-            Notificacion.objects.create(
-                usuario=request.user,
-                mensaje=f"Se realizó con éxito tu pago para la clase: {clase.actividad.nombre}"
-            )
+            
+            if datos['flujo_tipo'] == 'mensualidad':
+                fecha_obj = datetime.strptime(datos['fecha_clase'], '%Y-%m-%d').date()
+                Mensualidad.objects.update_or_create(
+                    usuario=request.user, actividad=clase.actividad,
+                    mes=fecha_obj.month, anio=fecha_obj.year, defaults={'estado': 'pagada'}
+                )
 
+        # 🔔 Creamos la notificación para la campanita
+        Notificacion.objects.create(
+            usuario=request.user,
+            mensaje=f"Se realizó con éxito tu pago por Mercado Pago para la clase: {clase.actividad.nombre}"
+        )
 
-        enviar_confirmacion(request.user, clase, reserva)
+        # Limpiamos la sesión de la inscripción
         del request.session['inscripcion_pendiente']
-        return redirect('pago_confirmacion', reserva_id=reserva.id)
 
-    return render(request, 'pago_tarjeta.html', {'monto': datos['monto']})
+        # Redirigimos derecho al tilde verde que ya limpiamos
+        return redirect(f"/pago/confirmacion/{reserva.id}/?anio={g_anio}&mes={g_mes}&dia={g_dia}&clase_id={clase_id}")
 
-
-@login_required
-def pago_mercadopago(request):
-    
-    datos=request.session.get('inscripcion_pendiente')
-    if not datos:
-        return redirect ('grilla_actividades')
-    sdk=mercadopago.SDK(settings.MERCADO_PAGO_ACCESS_TOKEN)
-    
-    preference_response=sdk.preference().create({
-        "items": [
-            {
-                "title":"Reserva Sportify",
-                "quantity":1,
-                "currency_id":"ARS",
-                "unit_price":float(datos['monto'])
-            }
-        ],
-        "back_urls":{
-            "success": "http://127.0.0.1:8000/pago/exito/?status=approved",
-            "failure":"http://127.0.0.1:8000/pago/error/",
-            "pending": "http://127.0.0.1:8000/pago/pendiente/",
-        },
-    })
-    print(preference_response)
-    preference=preference_response["response"]
-    return redirect (preference["init_point"])
-@login_required
-def pago_exito(request):
-    print("ENTRO A PAGO EXITO")
-    datos=request.session.get('inscripcion_pendiente')
-    if not datos:
-        return redirect ('grilla_actividades')
-    clase=get_object_or_404(Clase,id=datos['clase_id'])
-    with transaction.atomic():
-        reserva=Reserva.objects.create(usuario=request.user,clase=clase,fecha_clase=datos['fecha_clase'],monto_pagado=datos['monto'],estado_pago='seña' if datos['tipo_pago']=='senia' else 'total',medio_pago='Mercado Pago')
-    enviar_confirmacion(request.user,clase,reserva)
-    del request.session['inscripcion_pendiente']
-    return redirect('pago_confirmacion',reserva_id=reserva.id)
-
+    except Exception:
+        return redirect(f"/?anio={g_anio}&mes={g_mes}&dia_sel={g_dia}&clase_feedback_id={clase_id}&pago_status=fallback&pago_msg=Ocurrió un error con el pago")
 @login_required
 def pago_error(request):
-    messages.error(request,'El pago fue cancelado')
-    return redirect('grilla_actividades'
-    )
+    datos = request.session.get('inscripcion_pendiente')
+    if not datos:
+        return redirect('grilla_actividades')
 
+    g_anio = datos.get('grilla_anio')
+    g_mes = datos.get('grilla_mes')
+    g_dia = datos.get('grilla_dia')
+    clase_id = datos.get('clase_id')
+
+    # Si el usuario vuelve porque falló o canceló, levanta el modal con el cartel rojo de error
+    return redirect(f"/?anio={g_anio}&mes={g_mes}&dia_sel={g_dia}&clase_feedback_id={clase_id}&pago_status=fallback&pago_msg=Ocurrió un error con el pago de Mercado Pago")
 @login_required
 def pago_pendiente(request):
     messages.warning(request,'El pago quedo pendiente')
     return redirect('grilla_actividades')
+
+# Buscá tu vista de confirmación (ej: pago_confirmacion) en views.py
 @login_required
 def pago_confirmacion(request, reserva_id):
-    if reserva_id == 0:
-        return render(request, 'pago_confirmacion.html', {'exito': False})
-    reserva = get_object_or_404(Reserva, id=reserva_id, usuario=request.user)
-    return render(request, 'pago_confirmacion.html', {
-        'exito': True,
+    reserva = get_object_or_404(Reserva, id=reserva_id)
+    
+    # Capturamos los datos de la URL que le pegamos desde pago_tarjeta
+    g_anio = request.GET.get('anio', '')
+    g_mes = request.GET.get('mes', '')
+    g_dia = request.GET.get('dia', '')
+    clase_id = request.GET.get('clase_id', '') # 🌟 Atravesamos el ID de la clase operada
+
+    context = {
         'reserva': reserva,
-        'clase': reserva.clase,
-    })
+        'g_anio': g_anio,
+        'g_mes': g_mes,
+        'g_dia': g_dia,
+        'clase_id': clase_id,
+    }
+    return render(request, 'pago_confirmacion.html', context)
 
 def detalle_clase_fecha(request, clase_id):
     clase = get_object_or_404(Clase, id=clase_id)
