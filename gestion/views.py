@@ -23,6 +23,7 @@ from .models import Notificacion
 import mercadopago
 from django.http import HttpResponse
 from gestion.models import Notificacion
+from django.db.models import Sum
 
 # 1. LA GRILLA REAL (Trae los datos que guardás en la BD)
 def grilla_actividades(request):
@@ -871,6 +872,33 @@ def panel_admin(request):
             except Exception as e:
                 messages.error(request, f"Error en los datos: {e}")
 
+        elif action == 'actualizar_precios_globales':
+            pestania_activa = 'pagos'  # Guardamos y nos quedamos parados en la solapa de pagos
+            actividades = Actividad.objects.all()
+            
+            try:
+                with transaction.atomic():
+                    for act in actividades:
+                        # Buscamos los inputs dinámicos por el ID de la actividad
+                        input_clase = f"precio_clase_{act.id}"
+                        if input_clase in request.POST:
+                            val_clase = request.POST.get(input_clase, '').strip()
+                            if val_clase != '':
+                                act.precio_clase = float(val_clase)
+
+                        input_mes = f"precio_mes_{act.id}"
+                        if input_mes in request.POST:
+                            val_mes = request.POST.get(input_mes, '').strip()
+                            if val_mes != '':
+                                act.precio_mensualidad = float(val_mes)
+                        
+                        act.save()
+                messages.success(request, "Tarifas actualizadas correctamente")
+            except Exception as e:
+                messages.error(request, f"Error al guardar tarifas: {e}")   
+
+
+
     # --- GENERACIÓN DEL CONTEXTO (GET) (Limpio y sin bucles duplicados) ---
     año = int(request.GET.get('anio', ahora.year))
     mes = int(request.GET.get('mes', ahora.month))
@@ -895,6 +923,13 @@ def panel_admin(request):
                         clase.cupos_mostrar = clase.cupos_para_fecha(fecha_casillero)
                         clases_por_dia[dia].append(clase)
 
+   # 🚀 CALCULO REAL DE GANANCIAS EN TIEMPO REAL
+    resultado_ganancias = Reserva.objects.aggregate(total=Sum('monto_pagado'))
+    print("👉 CONTENIDO DE RESULTADO_GANANCIAS:", resultado_ganancias) # 🔍 Diagnóstico 1
+    
+    total_ganancias = resultado_ganancias['total'] if resultado_ganancias['total'] is not None else 0.0
+    print("👉 VALOR FINAL EN TOTAL_GANANCIAS:", total_ganancias)       # 🔍 Diagnóstico 2
+   
     context = {
         'actividades': Actividad.objects.all(),
         'profesores': Profesor.objects.all(),
@@ -905,6 +940,7 @@ def panel_admin(request):
         'clases_por_dia': clases_por_dia,
         'hoy': ahora,
         'pestania_activa': pestania_activa,
+        'total_ganancias': total_ganancias,  # 🌟 REVISÁ ESTA LÍNEA EXACTA
     }
     return render(request, 'panel_admin.html', context)
 
@@ -1001,3 +1037,40 @@ def borrar_todas_notificaciones(request):
     Notificacion.objects.filter(usuario=request.user).delete()
 
     return redirect('ver_notificaciones')
+
+
+@login_required
+def guardar_precios_admin(request):
+    if request.method == 'POST':
+        # Traemos todas las disciplinas de la base de datos
+        actividades = Actividad.objects.all()
+        
+        try:
+            with transaction.atomic():
+                for act in actividades:
+                    # 1. Mapeamos y actualizamos el precio de la clase suelta
+                    input_clase = f"precio_clase_{act.id}"
+                    if input_clase in request.POST:
+                        val_clase = request.POST.get(input_clase, '').strip()
+                        if val_clase != '':
+                            act.precio_clase = float(val_clase)
+
+                    # 2. Mapeamos y actualizamos el precio de la mensualidad
+                    input_mes = f"precio_mes_{act.id}"
+                    if input_mes in request.POST:
+                        val_mes = request.POST.get(input_mes, '').strip()
+                        if val_mes != '':
+                            act.precio_mensualidad = float(val_mes)
+                    
+                    # Impactamos los cambios de la disciplina en la base de datos
+                    act.save()
+                    
+            messages.success(request, "Tarifas actualizadas correctamente")
+            
+        except Exception as e:
+            messages.error(request, f"Error al procesar el guardado de montos: {e}")
+
+        # Redirigimos de vuelta a tu vista del panel para ver los cambios aplicados
+        return redirect('panel_admin')
+        
+    return redirect('grilla_actividades')
