@@ -9,6 +9,7 @@ urlpatterns = [
     #path('clase/nueva/', views.crear_clase, name='crear_clase'),
     path('panel-admin/', views.panel_admin, name='panel_admin'),
     path('historial-pagos/', views.historial_pagos, name='historial_pagos'),
+    path('mis-reservas/', views.mis_reservas, name='mis_reservas'),
     path('clase/<int:clase_id>/datos/', views.detalle_clase_api, name='detalle_clase_api'),
     path('clase/<int:clase_id>/inscribirse/', views.inscribirse_clase, name='inscribirse_clase'),
     path('pago/tarjeta/', views.pago_tarjeta, name='pago_tarjeta'),
