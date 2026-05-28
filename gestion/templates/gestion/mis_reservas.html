@@ -4,172 +4,312 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sportify - Mis Reservas</title>
+    <title>Sportify - Mis Clases</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body {
+         body {
             background-color: #000000;
             color: #ffffff;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            position: relative;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden; /* Evita scrolls dobles raros a nivel global */
         }
 
-        .card-custom {
+        /* Tu estructura de Layout */
+        /* 🍏 COLUMNA 1: SIDEBAR IZQUIERDA */
+        .sidebar {
+            width: 240px;
             background-color: #1c1c1e;
-            border: 1px solid #2c2c2e;
-            border-radius: 12px;
+            border-right: 1px solid #2c2c2e;
+            padding: 20px 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100vh;
+            box-sizing: border-box;
+            flex-shrink: 0;
         }
 
-        .text-warning-custom {
-            color: #34c759 !important;
-            font-weight: 700;
-            letter-spacing: 0.5px;
+        /* 🌟 CONTENEDOR NUEVO DEL LOGO: Ajustado para que calce prolijo */
+        .sidebar-brand { 
+            width: 100%;                  /* Ocupa todo el ancho de la barra lateral */
+            height: 30px;                 /* ⚠️ CLAVE: Misma altura que el .top-header para que no sobresalga de la línea */
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 15px;              /* Aire a los costados */
+            margin-bottom: 25px;          /* Espacio con los botones del menú de abajo */
+            
+           
         }
-
-        .alert-custom {
-            background-color: #2c2c2e;
-            border: 1px solid #3a3a3c;
-            color: #aeaeae;
-        }
-
-        .btn-sportify {
-            background-color: #34c759;
-            color: #000000 !important;
-            border: none;
-            font-weight: 600;
-            border-radius: 50px;
-            padding: 8px 20px;
-            transition: background 0.2s, transform 0.1s;
-        }
-
-        .btn-sportify:hover {
-            background-color: #28a745;
-            color: #000000 !important;
-            transform: scale(1.02);
-        }
-
-        .badge-estado {
-            padding: 6px 12px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            border-radius: 20px;
-        }
-
-        .badge-pagada {
-            background-color: rgba(52, 199, 89, 0.2);
-            color: #34c759;
-            border: 1px solid #34c759;
-        }
-
-        .badge-pendiente {
-            background-color: rgba(255, 214, 10, 0.2);
-            color: #ffd60a;
-            border: 1px solid #ffd60a;
-        }
-
-        .badge-senia {
-            background-color: rgba(255, 159, 10, 0.2);
-            color: #ff9f0a;
-            border: 1px solid #ff9f0a;
-        }
-
-        .badge-espera {
-            background-color: rgba(90, 200, 250, 0.2);
-            color: #5ac8fa;
-            border: 1px solid #5ac8fa;
-        }
-
-        .brand-top {
-            position: absolute;
-            top: 24px;
-            left: 24px;
-            color: #00ff88;
-            font-size: 1.3rem;
-            font-weight: 700;
+        .sidebar-brand-link {
+            display: block;
+            width: 100%;
+            text-align: center;
             text-decoration: none;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            z-index: 10;
         }
+        
+        .logo-sidebar {
+            height: 150px;                 /* Controla qué tan alta es la mancuerna por dentro */
+            width: auto;                  /* Deja que se estire horizontalmente sola */
+            object-fit: contain;          /* Evita que la imagen se rompa o deforme */
+        }
+
+        .sidebar-brand-link:hover .logo-sidebar {
+            transform: scale(1.03);
+        }
+
+        .menu-item { display: block; padding: 12px 16px; color: #8e8e93; text-decoration: none; font-weight: 500; border-radius: 8px; margin-bottom: 5px; transition: all 0.15s; }
+        .menu-item.active { background-color: #2c2c2e; color: #ffffff; font-weight: 600; }
+        .menu-item:hover:not(.active) { background-color: rgba(255, 255, 255, 0.04); color: #ffffff; }
+        
+        .sidebar-footer { border-top: 1px solid #2c2c2e; padding-top: 20px; }
+        .user-tag { font-size: 0.8rem; color: #8e8e93; margin-bottom: 10px; padding-left: 10px; }
+        
+        /* Botón de Cerrar Sesión Fino estilo Apple */
+        .btn-danger {
+            display: block; text-align: center; text-decoration: none; padding: 9px 18px; border-radius: 8px; font-size: 0.85rem; font-weight: 600;
+            background-color: transparent; color: #ff453a; border: 1px solid rgba(255, 69, 58, 0.2); transition: all 0.15s;
+        }
+        .btn-danger:hover { background-color: rgba(255, 69, 58, 0.08); border-color: #ff453a; }
+
+        /* CONTENEDOR DERECHO QUE AGRUPA EL MARCO SUPERIOR Y EL CONTENIDO */
+        .right-area {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            height: 100vh;
+        }
+
+        /* 🍏 MARCO SUPERIOR (HEADER GLOBAL) */
+        .top-header {
+            height: 65px;
+            background-color: #1c1c1e;
+            border-bottom: 1px solid #2c2c2e;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end; /* Tira el botón de login todo a la derecha */
+            padding: 0 40px;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        }
+
+        /* Botón de Login/Acceso en el Header Superior */
+        .btn-header-login {
+            background-color: #00ff88;
+            color: #000000;
+            text-decoration: none;
+            padding: 8px 18px;
+            border-radius: 50px; /* Estilo píldora nativa de Apple */
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.15s ease;
+            box-shadow: 0 2px 8px rgba(0, 255, 136, 0.1);
+        }
+        .btn-header-login:hover {
+            background-color: #12ff93;
+            transform: translateY(-1px);
+        }
+
+        /* WORKSPACE DE DOS COLUMNAS (Calendario + Detalles) */
+        .app-container {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            height: calc(100vh - 65px); /* Resta el espacio exacto del header */
+            width: 100%;
+        }
+
+        /* COLUMNA 2: CALENDARIO CENTRAL */
+        .calendar-section {
+            padding: 40px;
+            overflow-y: auto;
+            border-right: 1px solid #2c2c2e;
+        }
+        .calendar-header h1 { margin: 0; font-size: 1.8rem; font-weight: 700; letter-spacing: -0.5px; }
+        
+        .calendar-grid {
+            display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px;
+            background-color: #2c2c2e; border: 1px solid #2c2c2e; border-radius: 12px; overflow: hidden; margin-top: 25px;
+        }
+        .weekday-label { background-color: #1c1c1e; padding: 12px; text-align: center; font-size: 0.8rem; font-weight: 600; color: #8e8e93; text-transform: uppercase; }
+        .calendar-day { background-color: #1c1c1e; min-height: 110px; padding: 8px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; transition: background-color 0.15s; }
+        .calendar-day:hover { background-color: #252528; }
+        .calendar-day.empty { background-color: #0b0b0c; cursor: default; }
+        .calendar-day.selected { background-color: #2c2c2e; border: 1px solid #00ff88; box-sizing: border-box; }
+        .day-number { font-weight: 600; font-size: 0.95rem; color: #aeaea3; }
+        .calendar-day.is-hoy .day-number { color: #00ff88; }
+
+        /* Tus pastillas mapeadas */
+        .day-classes-container { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+        .class-pill { font-size: 0.7rem; padding: 3px 6px; border-radius: 4px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #000; }
+        .pill-funcional { background-color: #ff9f0a; }
+        .pill-yoga { background-color: #bf5af2; }
+        .pill-spinning { background-color: #0a84ff; }
+        .pill-default { background-color: #34c759; }
+        .pill-pasada { background-color: #3a3a3c !important; color: #8e8e93 !important; font-weight: 500; }
+
+        /* Sección de Detalles derecha */
+        .details-section { background-color: #1c1c1e; border: 1px solid #2c2c2e; border-radius: 14px; padding: 25px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+        .day-detail-box h2 { font-size: 1.1rem; font-weight: 600; margin: 0 0 4px 0; color: #8e8e93; text-transform: uppercase; }
+        .day-detail-subtitle { font-size: 1.2rem; font-weight: 700; color: #ffffff; margin-bottom: 20px; border-bottom: 1px solid #2c2c2e; padding-bottom: 10px; }
+        
+        /* Tus tarjetas de detalle adaptadas sin botones de pago */
+        .detail-card { background-color: #2c2c2e; border-radius: 10px; padding: 15px; border-left: 4px solid #34c759; margin-bottom: 12px; }
+        .detail-card-header { display: flex; justify-content: space-between; font-weight: 600; font-size: 0.95rem; margin-bottom: 4px; }
+        .detail-profesor { font-size: 0.82rem; color: #8e8e93; }
+        
+        /* 🌟 BADGES DE TIEMPO REQUERIDOS */
+        .badge-tiempo { font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 5px; text-transform: uppercase; }
+        .badge-proxima { background-color: rgba(10, 132, 255, 0.15); color: #0a84ff; border: 1px solid rgba(10, 132, 255, 0.3); }
+        .badge-pasada { background-color: rgba(142, 142, 147, 0.15); color: #8e8e93; border: 1px solid rgba(142, 142, 147, 0.3); }
+        
+        /* 🔮 Estados a futuro para asistencias */
+        .badge-asistio { background-color: rgba(52, 199, 89, 0.15); color: #34c759; border: 1px solid rgba(52, 199, 89, 0.3); }
+        .badge-cancelada { background-color: rgba(255, 69, 58, 0.15); color: #ff453a; border: 1px solid rgba(255, 69, 58, 0.3); }
+
+        .no-classes { color: #636366; font-style: italic; font-size: 0.9rem; text-align: center; padding: 20px 0; }
+        .sidebar-footer { padding: 15px 0 0 0; border-top: 1px solid #2c2c2e; }
+        .user-tag { font-size: 0.85rem; color: #8e8e93; margin-bottom: 8px; }
+        .btn-danger { display: block; text-align: center; background-color: rgba(255,69,58,0.1); color: #ff453a; text-decoration: none; padding: 8px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; }
     </style>
 </head>
 <body>
 
-<a href="/" class="brand-top">Sportify</a>
-
-<div class="container my-5">
-    <div class="card card-custom text-white shadow-lg p-4">
-
-        <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3" style="border-color: #2c2c2e !important;">
-            <div>
-                <h2 class="h3 text-uppercase text-warning-custom m-0">Mis Reservas</h2>
-                <small class="text-white-50">Clases en las que estás inscripto</small>
+    <div class="sidebar">
+        <div>
+            <div class="sidebar-brand" style="justify-content: center; padding: 10px 0;">
+                <a href="{% url 'grilla_actividades' %}" class="sidebar-brand-link">
+                    <img src="{% static 'img/logo_Sportify_name.png' %}" class="logo-sidebar" alt="Sportify Logo">
+                </a>
             </div>
-            <div class="d-flex gap-2">
-                <a href="/" class="btn btn-outline-secondary btn-sm rounded-pill">Volver al Inicio</a>
+            <div class="sidebar-menu">
+                <a href="{% url 'grilla_actividades' %}" class="menu-item">Cronograma</a>
+                <a href="{% url 'perfil' %}" class="menu-item">Mi Perfil</a>
+                {% if request.user.rol == 'admin' %}
+                    <a href="{% url 'panel_admin' %}" class="menu-item">Panel Admin</a>
+                {% endif %}
+                <a href="#" class="menu-item active">Mis Reservas</a>
+                <a href="{% url 'historial_pagos' %}" class="menu-item">Mis Pagos</a>
             </div>
         </div>
 
-        {% if not reservas %}
-            <div class="alert alert-custom text-center py-5 my-3" role="alert">
-                <h4 class="text-white mb-2" style="font-weight: 500;">Sin reservas</h4>
-                <p class="m-0 text-white-50">No tenés ninguna clase reservada. ¡Anotate en alguna desde el cronograma!</p>
-            </div>
-        {% else %}
-            <div class="table-responsive">
-                <table class="table table-dark table-hover align-middle m-0" style="--bs-table-bg: #1c1c1e;">
-                    <thead>
-                        <tr>
-                            <th>Actividad</th>
-                            <th>Profesor</th>
-                            <th>Fecha</th>
-                            <th>Horario</th>
-                            <th>Estado</th>
-                            <th>Comprobante</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for reserva in reservas %}
-                        <tr>
-                            <td>{{ reserva.clase.actividad.nombre }}</td>
-                            <td>
-                                {% if reserva.clase.profesor %}
-                                    {{ reserva.clase.profesor.apellido }}, {{ reserva.clase.profesor.nombre }}
-                                {% else %}
-                                    <span class="text-white-50">Sin asignar</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ reserva.fecha_clase|date:"d/m/Y" }}</td>
-                            <td>{{ reserva.clase.horario|time:"H:i" }}</td>
-                            <td>
-                                {% if reserva.en_lista_de_espera %}
-                                    <span class="badge-estado badge-espera">Lista de espera</span>
-                                {% elif reserva.estado_pago == 'total' %}
-                                    <span class="badge-estado badge-pagada">Pagado</span>
-                                {% elif reserva.estado_pago == 'seña' %}
-                                    <span class="badge-estado badge-senia">Seña</span>
-                                {% else %}
-                                    <span class="badge-estado badge-pendiente">{{ reserva.estado_pago }}</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <a href="{% url 'comprobante_pdf' reserva.id %}"
-                                   class="btn btn-sportify btn-sm">
-                                    Descargar
-                                </a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        {% endif %}
-
+        <div class="sidebar-footer">
+            <div class="user-tag">Usuario: {{ request.user.first_name }}</div>
+            <a href="{% url 'logout' %}" class="btn-danger">Cerrar Sesión</a>
+        </div>
     </div>
 
+    <div class="right-area">
+        
+        <div class="top-header">
+            <div style="display:flex; align-items:center; gap:15px;">
+                <a href="{% url 'ver_notificaciones' %}" style="position:relative; text-decoration:none; font-size:26px; display:inline-block;">
+                    🔔
+                    {% if cantidad_no_leidas > 0 %}
+                        <span style="position:absolute; top:-8px; right:-10px; background:red; color:white; border-radius:50%; min-width:18px; height:18px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:bold; padding:2px;">
+                            {{ cantidad_no_leidas }}
+                        </span>
+                    {% endif %}
+                </a>
+                <span style="font-size:0.85rem; color:#8e8e93; font-weight:500;">
+                    Hola, {{ request.user.first_name }} 👋
+                </span>
+            </div>
+        </div>
 
-</div>
+        <div class="app-container">
+            
+            <div class="calendar-section">
+                <div class="calendar-header">
+                    <h1>Mis Clases: {{ mes_nombre }} {{ anio_actual }}</h1>
+                </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+                <div class="calendar-grid">
+                    <div class="weekday-label">Lun</div>
+                    <div class="weekday-label">Mar</div>
+                    <div class="weekday-label">Mié</div>
+                    <div class="weekday-label">Jue</div>
+                    <div class="weekday-label">Vie</div>
+                    <div class="weekday-label">Sáb</div>
+                    <div class="weekday-label">Dom</div>
+
+                    {% for semana in semanas_matriz %}
+                        {% for dia in semana %}
+                            {% if dia == 0 %}
+                                <div class="calendar-day empty"></div>
+                            {% else %}
+                                <div class="calendar-day 
+                                    {% if fecha_seleccionada.day == dia %}selected{% endif %}
+                                    {% if hoy.day == dia and hoy.month == mes_actual and hoy.year == anio_actual %}is-hoy{% endif %}"
+                                    onclick="location.href='?anio={{ anio_actual }}&mes={{ mes_actual }}&dia_sel={{ dia }}'">
+                                    
+                                    <div class="day-number">{{ dia }}</div>
+                                    
+                                    <div class="day-classes-container">
+                                        {% for key, clases in mis_clases_por_dia.items %}
+                                            {% if key == dia %}
+                                                {% for r in clases %}
+                                                    <div class="class-pill 
+                                                        {% if r.fecha_clase < hoy %}pill-pasada
+                                                        {% elif 'Funcional' in r.clase.actividad.nombre %}pill-funcional
+                                                        {% elif 'Yoga' in r.clase.actividad.nombre %}pill-yoga
+                                                        {% elif 'Spinning' in r.clase.actividad.nombre %}pill-spinning
+                                                        {% else %}pill-default{% endif %}">
+                                                        
+                                                        {{ r.clase.horario|time:"H:i" }} {{ r.clase.actividad.nombre }}
+                                                    </div>
+                                                {% endfor %}
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="details-section">
+                <div class="day-detail-box">
+                    <h2>Mis Entrenamientos</h2>
+                    <div class="day-detail-subtitle">{{ fecha_seleccionada|date:"l d \d\e F" }}</div>
+
+                    {% if mis_clases_detalle_dia %}
+                        {% for r in mis_clases_detalle_dia %}
+                            <div class="detail-card" style="border-left-color: {% if r.fecha_clase < hoy %}#3a3a3c{% elif 'Funcional' in r.clase.actividad.nombre %}#ff9f0a{% elif 'Yoga' in r.clase.actividad.nombre %}#bf5af2{% else %}#0a84ff{% endif %};">
+                                <div class="detail-card-header">
+                                    <span>{{ r.clase.actividad.nombre }}</span>
+                                    <span style="color: #ffffff;">{{ r.clase.horario|time:"H:i" }} hs</span>
+                                </div>
+                                <div class="detail-profesor">
+                                    Prof: {% if r.clase.profesor %}{{ r.clase.profesor.nombre }} {{ r.clase.profesor.apellido }}{% else %}<span style="color:#636366; font-style:italic;">Sin asignar</span>{% endif %}
+                                </div>
+                                
+                                <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+                                    {% if r.fecha_clase < hoy %}
+                                        <span class="badge-tiempo badge-pasada">✅ Clase Pasada</span>
+                                        {% else %}
+                                        {% if r.en_lista_de_espera %}
+                                            <span class="badge-tiempo badge-pasada" style="color: #ff9f0a; background: rgba(255,159,10,0.15); border: 1px solid rgba(255,159,10,0.3);">⏳ En Espera</span>
+                                        {% else %}
+                                            <span class="badge-tiempo badge-proxima">⏳ Por darse</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="no-classes">No tenés entrenamientos agendados para este día.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

@@ -1094,6 +1094,7 @@ def detalle_clase_fecha(request, clase_id):
     # Si es un usuario común, va al HTML de usuario
     context = {'clase': clase, 'fecha_clase': fecha_str}
     return render(request, 'gestion/detalle_clase_usuario.html', context)
+'''
 @login_required
 def mis_reservas(request):
     from datetime import date
@@ -1101,7 +1102,7 @@ def mis_reservas(request):
         .select_related('clase__actividad', 'clase__profesor')\
         .order_by('-fecha_clase', '-clase__horario')
     return render(request, 'gestion/mis_reservas.html', {'reservas': reservas})
-    
+'''    
 @login_required
 def ver_notificaciones(request):
     notificaciones=Notificacion.objects.filter(usuario=request.user).order_by('-fecha')
@@ -1223,3 +1224,47 @@ def comprobante_pdf(request,reserva_id):
     pdf.drawCentredString(width/2,40,"GRACIAS POR SER PARTE DE SPORTIFY!")
     pdf.save()
     return response
+
+@login_required
+def mis_reservas(request):
+    hoy = date.today()
+    anio = int(request.GET.get('anio', hoy.year))
+    mes = int(request.GET.get('mes', hoy.month))
+    dia_sel = int(request.GET.get('dia_sel', hoy.day))
+    
+    fecha_seleccionada = date(anio, mes, dia_sel)
+    
+    # 1. Matriz de semanas básica
+    cal = calendar.Calendar(firstweekday=0)
+    semanas_matriz = cal.monthdayscalendar(anio, mes)
+    
+    # 2. Obtenemos todas las reservas de ESTE alumno para ESTE mes
+    reservas_mes = Reserva.objects.filter(
+        usuario=request.user,
+        fecha_clase__year=anio,
+        fecha_clase__month=mes
+    ).select_related('clase__actividad', 'clase__profesor')
+    
+    # 3. Armamos el diccionario clases_por_dia exclusivo de sus reservas
+    mis_clases_por_dia = {}
+    for r in reservas_mes:
+        dia_reserva = int(r.fecha_clase.day)  # 🌟 CLAVE: Forzamos que sea un entero
+        if dia_reserva not in mis_clases_por_dia:
+            mis_clases_por_dia[dia_reserva] = []
+        mis_clases_por_dia[dia_reserva].append(r)
+    # 4. Filtramos las reservas del día seleccionado para el panel derecho
+    mis_clases_detalle_dia = [r for r in reservas_mes if r.fecha_clase.day == dia_sel]
+    
+    meses_nombres = {1:"Enero", 2:"Febrero", 3:"Marzo", 4:"Abril", 5:"Mayo", 6:"Junio", 7:"Julio", 8:"Agosto", 9:"Septiembre", 10:"Octubre", 11:"Noviembre", 12:"Diciembre"}
+    
+    context = {
+        'semanas_matriz': semanas_matriz,
+        'anio_actual': anio,
+        'mes_actual': mes,
+        'fecha_seleccionada': fecha_seleccionada,
+        'mes_nombre': meses_nombres[mes],
+        'hoy': hoy,
+        'mis_clases_por_dia': mis_clases_por_dia,
+        'mis_clases_detalle_dia': mis_clases_detalle_dia,
+    }
+    return render(request, 'gestion/mis_reservas.html', context)
