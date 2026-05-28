@@ -43,9 +43,7 @@
             justify-content: center;
             padding: 0 15px;              
             margin-bottom: 25px;          
-            border: 2px solid #00ff88;    
-            border-radius: 40px;          
-            background-color: rgba(0, 255, 136, 0.03); 
+
         }
 
         .sidebar-brand-link {
@@ -389,24 +387,20 @@
                     </div>
                 </form>
 
-
                 <div class="ganancias-box">
                     <div>
                         <p style="font-size: 0.8rem; font-weight: 700; color: #8e8e93; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px;">
                             Ganancias Registradas del Gimnasio
                         </p>
-                        
                         <h2 class="ganancias-monto">
                             ${{ total_ganancias|floatformat:2 }}
                         </h2>
-                        
                         <p style="font-size: 0.78rem; color: #636366; margin-top: 15px;">
                             * Estimación automática calculada en tiempo real a partir de los pagos confirmados en el sistema.
                         </p>
                     </div>
                 </div>
-
-            <div id="pane-profesores" class="tab-pane">
+            </div> <div id="pane-profesores" class="tab-pane">
                 <div class="card-panel" style="max-width: 650px; margin: 0 auto;">
                     <h3>Registrar Nuevo Profesor</h3>
                     <p style="font-size: 0.85rem; color:#8e8e93; margin-bottom:25px;">Al dar de alta a un docente desde este formulario, se le otorgará de forma automática el rol y credenciales de "Profesor" en la plataforma.</p>
@@ -428,7 +422,7 @@
 
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                             <div class="input-group">
-                                <label for="prof-dni">DNI / Nombre de Usuario</label>
+                                <label for="prof-dni">DNI </label>
                                 <input type="text" id="prof-dni" name="dni" class="input-field" placeholder="Ej: 42333444" required>
                             </div>
                             <div class="input-group">
@@ -457,12 +451,9 @@
                         <button type="submit" class="btn-action">Dar de Alta Profesor</button>
                     </form>
                 </div>
-            </div>
+            </div> </div> </div> <script>
 
-        </div>
-    </div>
 
-    <script>
         function switchTab(tabId) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));

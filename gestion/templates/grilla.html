@@ -44,10 +44,7 @@
             padding: 0 15px;              /* Aire a los costados */
             margin-bottom: 25px;          /* Espacio con los botones del menú de abajo */
             
-            /* El borde verde ovalado */
-            border: 2px solid #00ff88;    
-            border-radius: 40px;          /* 🌟 CLAVE: Al ser más ancho que alto, este radio lo hace OVALADO */
-            background-color: rgba(0, 255, 136, 0.03); /* Un fondo sutil opcional */
+           
         }
         .sidebar-brand-link {
             display: block;
@@ -509,15 +506,6 @@
 
         // 🍏 VISTA EXCLUSIVA PARA EL ADMINISTRADOR
         if (modalData.rol === 'admin') {
-            let opcionesProfesores = `<option value="">--- Sin Profesor Asignado ---</option>`;
-            if (modalData.todos_los_profesores) {
-                modalData.todos_los_profesores.forEach(p => {
-                    let seleccionado = modalData.profesor_id == p.id ? 'selected' : '';
-                    optionsProfesores = ''; // Limpieza de murguita vieja
-                    opcionesProfesores += `<option value="${p.id}" ${seleccionado}>${p.apellido}, ${p.nombre}</option>`;
-                });
-            }
-
             let listaEsperaHTML = '';
             if (modalData.cola_espera && modalData.cola_espera.length > 0) {
                 modalData.cola_espera.forEach(u => {
@@ -538,25 +526,12 @@
                 listaEsperaHTML = `<li style="font-size:0.9rem; color:#636366; font-style:italic;">No hay alumnos en espera</li>`;
             }
 
+            // 🌟 REMOVIDO EL FORMULARIO DE PROFESORES: Solo ve la lista y el botón de cerrar
             acciones.innerHTML = `
                 <div style="background:#2c2c2e; padding:15px; border-radius:10px; margin-bottom:20px;">
                     <h3 style="font-size:1rem; margin:0 0 10px 0; color:#ff9f0a;">📋 Lista de Espera del Día</h3>
                     <ul style="padding-left:15px; margin:0;">${listaEsperaHTML}</ul>
                 </div>
-
-                <form method="POST" action="/clase/${modalData.id}/asignar-profesor/">
-                    <input type="hidden" name="csrfmiddlewaretoken" value="${getCSRFToken()}">
-                    <input type="hidden" name="fecha_clase" value="${modalFecha}">
-                    
-                    <div style="margin-bottom:15px;">
-                        <label style="font-size:0.85rem; color:#8e8e93; display:block; margin-bottom:6px;">Reasignar Personal:</label>
-                        <select name="profesor_id" style="width:100%; padding:10px; background:#2c2c2e; border:1px solid #3a3a3c; color:#fff; border-radius:8px; font-size:0.95rem;">
-                            ${opcionesProfesores}
-                        </select>
-                    </div>
-                    
-                    <button type="submit" class="modal-btn primary">Guardar Profesor</button>
-                </form>
             `;
             document.getElementById('modalDetalle').classList.add('active');
             return;
@@ -566,96 +541,65 @@
         if (paso === '') {
             let contenidoHtml = '';
 
-            // 👥 EVALUAMOS SEGÚN EL ROL QUE VIENE DEL BACKEND
-            if (modalData.rol === 'admin' || modalData.rol === 'profesor') {
-                // ... (Lógica de Admin/Profesores con su botón Cerrar al final) ...
+            // 👥 EVALUAMOS SI ES PROFESOR (El Admin ya entró en el atajo de arriba)
+            if (modalData.rol === 'profesor') {
                 let listaEsperaHtml = '';
                 if (modalData.cola_espera && modalData.cola_espera.length > 0) {
                     modalData.cola_espera.forEach(function(alumno) {
-                        let badgePase = alumno.pase_mensual ? `<span>...</span>` : '';
-                        listaEsperaHtml += `<li>${alumno.last_name}...</li>`;
+                        listaEsperaHtml += `<li>${alumno.last_name}, ${alumno.first_name}</li>`;
                     });
                 } else {
                     listaEsperaHtml = '<li>No hay alumnos en espera.</li>';
                 }
 
-                let opcionesProfesores = '';
-                if (modalData.todos_los_profesores) {
-                    modalData.todos_los_profesores.forEach(function(p) {
-                        let selected = (p.id == modalData.profesor_id) ? 'selected' : '';
-                        opcionesProfesores += `<option value="${p.id}" ${selected}>${p.apellido}, ${p.nombre}</option>`;
-                    });
-                }
-
+                // 🌟 LIMPIEZA TOTAL: Volamos el select y el botón de actualizar profesor
                 contenidoHtml = `
                     <div style="margin-top:15px; background:#1c1c1e; padding:12px; border-radius:8px; border:1px solid #2c2c2e;">
-                        <h4 style="margin:0 0 8px 0; color:#ff9f0a; font-size:14px;">🛠️ Panel de Gestión (${modalData.rol.toUpperCase()})</h4>
-                        <label style="font-size:12px; color:#aeaeae; display:block; margin-bottom:4px;">Profesor Asignado:</label>
-                        <select id="select-profesor-modal" class="modal-input" style="margin-bottom:12px; background:#2c2c2e; color:#fff; border:1px solid #3a3a3c; width:100%; padding:6px; border-radius:4px;">
-                            ${opcionesProfesores}
-                        </select>
-                        <button class="modal-btn primary" style="padding:6px 12px; font-size:13px; margin-bottom:12px;" onclick="guardarCambiosAdmin(${modalData.id})">Actualizar Profesor</button>
+                        <h4 style="margin:0 0 8px 0; color:#ff9f0a; font-size:14px;">📋 Panel de Gestión (PROFESOR)</h4>
                         <p style="margin:8px 0 4px 0; font-size:12px; font-weight:600; color:#aeaeae;">Lista de Espera:</p>
                         <ul style="margin:0; padding-left:15px; font-size:12px; color:#e5e5ea; max-height:80px; overflow-y:auto;">
                             ${listaEsperaHtml}
                         </ul>
                     </div>
-                    <button class="modal-btn secondary" style="margin-top:15px;" onclick="cerrarModal()">Cerrar</button>
+                    <button class="modal-btn secondary" style="margin-top:15px; width:100%;" onclick="cerrarModal()">Cerrar</button>
                 `;
 
             } else {
                 // ==========================================================
-                // 🍏 FLUJO DE ALUMNOS (SIN EL BOTÓN "VOLVER AL CRONOGRAMA")
+                // 🍏 FLUJO DE ALUMNOS SIN RESIDUOS VISUALES
                 // ==========================================================
-                let botonInscripcion = '';
-                let botonMensualidad = '';
-
-                // 1️⃣ Inscripción Individual / Choque de horarios
-                if (modalData.choque_horario) {
-                    botonInscripcion = `
+                
+                // ESCENARIO 1: SI YA ESTÁ INSCRIPTO (Frena acá y no dibuja el botón de mensualidad viejo)
+                if (modalData.ya_inscripto) {
+                    contenidoHtml = `
+                        <div style="text-align: center; padding: 10px 0;">
+                            <p style="color: #30d158; font-weight: 600; margin-bottom: 20px; font-size: 1.1rem; letter-spacing: -0.3px;">
+                                ✓ Ya estás registrado en esta clase
+                            </p>
+                        </div>
+                    `;
+                }
+                // ESCENARIO 2: TIENE CHOQUE DE HORARIOS
+                else if (modalData.choque_horario) {
+                    contenidoHtml = `
                         <button class="modal-btn" disabled style="background-color: #2c2c2e; color: #8e8e93; cursor: not-allowed; opacity: 0.5; margin-bottom: 4px;">Inscribirse a esta clase</button>
                         <p style="color: #8e8e93; font-size: 0.85rem; text-align: center; margin: 0 0 15px 0; font-weight: 500; padding: 0 10px; line-height: 1.3;">
                             ⚠️ Ya tenés una reserva para <strong style="color: #ff9f0a;">${modalData.actividad_choque_nombre}</strong> a las ${modalData.horario}.
                         </p>
+                        <button class="modal-btn" disabled style="background-color: #2c2c2e; color: #545456; cursor: not-allowed; opacity: 0.3; margin-bottom: 12px;">Contratar mensualidad</button>
                     `;
-                } else if (modalData.ya_inscripto) {
-                    botonInscripcion = `
-                        <p style="color: #30d158; text-align: center; font-weight: 600; margin-bottom: 15px; font-size: 1.05rem;">✓ Ya estás registrado en esta clase</p>
-                    `;
-                } else {
-                    botonInscripcion = `
+                } 
+                // ESCENARIO 3: CASILLERO LIBRE PARA OPERAR
+                else {
+                    contenidoHtml = `
                         <button class="modal-btn primary" style="margin-bottom: 12px;" onclick="mostrarPasoSel('inscribir')">Inscribirse a esta clase</button>
-                    `;
-                }
-
-                // 2️⃣ Botón de Mensualidad
-                if (modalData.choque_horario) {
-                    botonMensualidad = `
-                        <button class="modal-btn" disabled style="background-color: #2c2c2e; color: #545456; cursor: not-allowed; opacity: 0.3;">Contratar mensualidad</button>
-                    `;
-                } else if (modalData.ya_inscripto) {
-                    botonMensualidad = `
-                        <button class="modal-btn" disabled style="background-color: #2c2c2e; color: #8e8e93; cursor: not-allowed; opacity: 0.4; margin-top: 5px;">Contratar mensualidad</button>
-                        <p style="color: #aeaeae; font-size: 0.8rem; text-align: center; margin: 6px 0 12px 0; font-weight: 400;">ℹ️ Ya tenés una reserva para este día.</p>
-                    `;
-                } else {
-                    botonMensualidad = `
                         <button class="modal-btn secondary" style="margin-bottom: 12px;" onclick="mostrarPasoSel('validar_mensualidad')">Contratar mensualidad</button>
                     `;
                 }
-
-                
-                contenidoHtml = `
-                    ${botonInscripcion}
-                    ${botonMensualidad}
-                `;
             }
 
             acciones.innerHTML = contenidoHtml;
 
-        // ==========================================================
-        // 🔒 ESTOS "VOLVER" NO SE TOCARON, SIGUEN ACÁ ABAJO FUNCIANDO PERFECTO:
-        // ==========================================================
         } else if (paso === 'validar_mensualidad') {
             if (modalData.ya_mensualizado) {
                 acciones.innerHTML = `
@@ -686,7 +630,7 @@
                     `;
                 } else {
                     acciones.innerHTML = `
-                        <p style="color:#30d158; text-align:center; margin-bottom:20px; font-weight:600;"> Ya estás inscripto en esta clase para esta fecha</p>
+                        <p style="color:#30d158; text-align:center; margin-bottom:20px; font-weight:600;">Ya estás inscripto en esta clase para esta fecha</p>
                         <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver</button>
                     `;
                 }
@@ -710,17 +654,17 @@
                         <input type="hidden" name="grilla_dia" value="{{ fecha_seleccionada.day }}">
                         <button type="submit" class="modal-btn primary">Anotarme en lista de espera</button>
                     </form>
-                    <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver</button>
+                    <button class="modal-btn secondary" style="margin-top:12px;" onclick="mostrarPasoSel('')">Volver</button>
                 `;
                 return;
             }
 
             acciones.innerHTML = `
                 <p style="color:#8e8e93; text-align:center; margin-bottom:15px;">Seleccioná cómo querés pagar</p>
-                <button class="modal-btn primary" onclick="mostrarPasoSel('pago', 'senia')">
+                <button class="modal-btn primary" style="margin-bottom:12px;" onclick="mostrarPasoSel('pago', 'senia')">
                     Pagar seña (50%) — $${(modalData.precio_clase * 0.5).toFixed(2)}
                 </button>
-                <button class="modal-btn primary" onclick="mostrarPasoSel('pago', 'total')">
+                <button class="modal-btn primary" style="margin-bottom:12px;" onclick="mostrarPasoSel('pago', 'total')">
                     Pagar completo — $${modalData.precio_clase.toFixed(2)}
                 </button>
                 <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver</button>
@@ -741,10 +685,10 @@
                     <input type="hidden" name="fecha_clase" value="${modalFecha}">
                     <input type="hidden" name="flujo_tipo" value="${flujoTipo}">
                 </form>
-                <button class="modal-btn primary" onclick="enviarForm('Tarjeta')">
+                <button class="modal-btn primary" style="margin-bottom:12px;" onclick="enviarForm('Tarjeta')">
                     💳 Tarjeta de crédito/débito
                 </button>
-                <button class="modal-btn primary" onclick="enviarForm('Mercado Pago')">
+                <button class="modal-btn primary" style="margin-bottom:12px;" onclick="enviarForm('Mercado Pago')">
                     <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#00BFFF; margin-right:6px; vertical-align:middle;"></span> Mercado Pago
                 </button>
                 <button class="modal-btn secondary" onclick="mostrarPasoSel('${pasoVolver}')">Volver</button>
