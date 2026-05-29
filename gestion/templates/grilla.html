@@ -226,7 +226,7 @@
                     <a href="{% url 'panel_admin' %}" class="menu-item">Panel Admin</a>
                 {% endif %}
                 
-                <a href="{% if request.user.is_authenticated %}#{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Reservas</a>
+                <a href="{% if request.user.is_authenticated %}{% url 'mis_reservas' %}{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Reservas</a>
                 <a href="{% if request.user.is_authenticated %}{% url 'historial_pagos' %}{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Pagos</a>
             </div>
         </div>

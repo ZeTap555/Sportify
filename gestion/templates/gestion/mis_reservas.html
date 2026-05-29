@@ -1,0 +1,175 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sportify - Mis Reservas</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #000000;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            position: relative;
+        }
+
+        .card-custom {
+            background-color: #1c1c1e;
+            border: 1px solid #2c2c2e;
+            border-radius: 12px;
+        }
+
+        .text-warning-custom {
+            color: #34c759 !important;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .alert-custom {
+            background-color: #2c2c2e;
+            border: 1px solid #3a3a3c;
+            color: #aeaeae;
+        }
+
+        .btn-sportify {
+            background-color: #34c759;
+            color: #000000 !important;
+            border: none;
+            font-weight: 600;
+            border-radius: 50px;
+            padding: 8px 20px;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .btn-sportify:hover {
+            background-color: #28a745;
+            color: #000000 !important;
+            transform: scale(1.02);
+        }
+
+        .badge-estado {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border-radius: 20px;
+        }
+
+        .badge-pagada {
+            background-color: rgba(52, 199, 89, 0.2);
+            color: #34c759;
+            border: 1px solid #34c759;
+        }
+
+        .badge-pendiente {
+            background-color: rgba(255, 214, 10, 0.2);
+            color: #ffd60a;
+            border: 1px solid #ffd60a;
+        }
+
+        .badge-senia {
+            background-color: rgba(255, 159, 10, 0.2);
+            color: #ff9f0a;
+            border: 1px solid #ff9f0a;
+        }
+
+        .badge-espera {
+            background-color: rgba(90, 200, 250, 0.2);
+            color: #5ac8fa;
+            border: 1px solid #5ac8fa;
+        }
+
+        .brand-top {
+            position: absolute;
+            top: 24px;
+            left: 24px;
+            color: #00ff88;
+            font-size: 1.3rem;
+            font-weight: 700;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+<a href="/" class="brand-top">Sportify</a>
+
+<div class="container my-5">
+    <div class="card card-custom text-white shadow-lg p-4">
+
+        <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3" style="border-color: #2c2c2e !important;">
+            <div>
+                <h2 class="h3 text-uppercase text-warning-custom m-0">Mis Reservas</h2>
+                <small class="text-white-50">Clases en las que estás inscripto</small>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="/" class="btn btn-outline-secondary btn-sm rounded-pill">Volver al Inicio</a>
+            </div>
+        </div>
+
+        {% if not reservas %}
+            <div class="alert alert-custom text-center py-5 my-3" role="alert">
+                <h4 class="text-white mb-2" style="font-weight: 500;">Sin reservas</h4>
+                <p class="m-0 text-white-50">No tenés ninguna clase reservada. ¡Anotate en alguna desde el cronograma!</p>
+            </div>
+        {% else %}
+            <div class="table-responsive">
+                <table class="table table-dark table-hover align-middle m-0" style="--bs-table-bg: #1c1c1e;">
+                    <thead>
+                        <tr>
+                            <th>Actividad</th>
+                            <th>Profesor</th>
+                            <th>Fecha</th>
+                            <th>Horario</th>
+                            <th>Estado</th>
+                            <th>Comprobante</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for reserva in reservas %}
+                        <tr>
+                            <td>{{ reserva.clase.actividad.nombre }}</td>
+                            <td>
+                                {% if reserva.clase.profesor %}
+                                    {{ reserva.clase.profesor.apellido }}, {{ reserva.clase.profesor.nombre }}
+                                {% else %}
+                                    <span class="text-white-50">Sin asignar</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ reserva.fecha_clase|date:"d/m/Y" }}</td>
+                            <td>{{ reserva.clase.horario|time:"H:i" }}</td>
+                            <td>
+                                {% if reserva.en_lista_de_espera %}
+                                    <span class="badge-estado badge-espera">Lista de espera</span>
+                                {% elif reserva.estado_pago == 'total' %}
+                                    <span class="badge-estado badge-pagada">Pagado</span>
+                                {% elif reserva.estado_pago == 'seña' %}
+                                    <span class="badge-estado badge-senia">Seña</span>
+                                {% else %}
+                                    <span class="badge-estado badge-pendiente">{{ reserva.estado_pago }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'comprobante_pdf' reserva.id %}"
+                                   class="btn btn-sportify btn-sm">
+                                    Descargar
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+
+    </div>
+
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
