@@ -1,24 +1,20 @@
 from pathlib import Path
 import os
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# Directorio Base de Django
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# CONFIGURACIÓN DE SEGURIDAD PARA NGROK (DIRECTA Y FIJA)
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '.ngrok-free.app']
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
+CSRF_TRUSTED_ORIGINS = [
+    'https://d86c-84-17-45-159.ngrok-free.app',
+]
 
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-!f*mkadok9skd&xtb1zgi=#+4q5)$0$0hns3mpl0h^qwb%w@g)'
-
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
-
 # Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -44,14 +40,10 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'sportify_project.urls'
 
-# Reemplaza el bloque actual por este completo:
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        # LA LÍNEA CRÍTICA CORREGIDA:
         'DIRS': [os.path.join(BASE_DIR, 'templates')], 
-        # (Esto le dice a Django: Busca plantillas en la carpeta 'templates' de la raíz)
-        
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -65,10 +57,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'sportify_project.wsgi.application'
 
-
 # Database
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -76,62 +65,39 @@ DATABASES = {
     }
 }
 
-
 # Password validation
-# https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-
 # Internationalization
-# https://docs.djangoproject.com/en/6.0/topics/i18n/
-
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'America/Argentina/Buenos_Aires'
-
 USE_I18N = True
-
 USE_TZ = True
 
-
 # Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
-
 STATIC_URL = 'static/'
-
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-
-AUTH_USER_MODEL = 'usuarios.Usuario'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
-# Configuración para archivos subidos por los usuarios (Aptos médicos, fotos, etc.)
+
+# Media files
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Configuración de tu modelo personalizado de usuario (CRUCIAL)
+AUTH_USER_MODEL = 'usuarios.Usuario'
+
+# Configuración de Emails
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-
 EMAIL_HOST = 'smtp.gmail.com'
-
 EMAIL_PORT = 587
-
 EMAIL_USE_TLS = True
-
 EMAIL_HOST_USER = 'sportifygymapp@gmail.com'
-
 EMAIL_HOST_PASSWORD = 'tzld pnbu rime agqp'
 
-MERCADO_PAGO_ACCESS_TOKEN='APP_USR-1191378015015096-052421-decb977a309fc71a0e6f82bd01bb20a5-3423210053'
-
-MERCADO_PAGO_PUBLIC_KEY='APP_USR-b4c892d6-5b01-4645-948a-e20b484f8f62'
+# Mercado Pago Credenciales
+MERCADO_PAGO_ACCESS_TOKEN = 'APP_USR-1191378015015096-052421-decb977a309fc71a0e6f82bd01bb20a5-3423210053'
+MERCADO_PAGO_PUBLIC_KEY = 'APP_USR-b4c892d6-5b01-4645-948a-e20b484f8f62'

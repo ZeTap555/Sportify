@@ -11,6 +11,7 @@ from django.contrib.auth.hashers import make_password
 from decimal import Decimal
 from django.db import transaction
 from django.core.mail import send_mail
+from django.shortcuts import redirect
 from django.conf import settings
 from requests import request
 from urllib3 import request
@@ -31,6 +32,8 @@ from django.utils.timezone import localtime
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from django.utils import timezone
 import os
+from django.contrib.auth import get_user_model  # <-- IMPORTANTE: Trae tu modelo personalizado
+Usuario = get_user_model()
 # 1. LA GRILLA REAL (Trae los datos que guardás en la BD)
 def grilla_actividades(request):
     ahora = timezone.now().date()
@@ -609,56 +612,137 @@ def pago_tarjeta(request):
 
     return render(request, 'pago_tarjeta.html', {'monto': datos['monto']})
 
-
 @login_required
 def pago_mercadopago(request):
-    
-    datos=request.session.get('inscripcion_pendiente')
+    """
+    Prepara la transacción y redirige al usuario a la pasarela de Mercado Pago.
+    Usa la URL fija y contiene control de errores de conexión.
+    """
+    datos = request.session.get('inscripcion_pendiente')
     if not datos:
-        return redirect ('grilla_actividades')
-    sdk=mercadopago.SDK(settings.MERCADO_PAGO_ACCESS_TOKEN)
+        messages.error(request, 'No hay ninguna inscripción pendiente.')
+        return redirect('grilla_actividades')
+        
+    # Guardamos el ID del usuario en la sesión para recuperarlo al volver
+    request.session['inscripcion_pendiente']['usuario_id'] = request.user.id
+    request.session.modified = True
     
-    preference_response=sdk.preference().create({
+    # Usa el token del settings
+    sdk = mercadopago.SDK(settings.MERCADO_PAGO_ACCESS_TOKEN)
+    
+    # URL FIJA DE TU TÚNEL NGROK (Directa, sin depender de environ)
+    BASE_URL = "https://d86c-84-17-45-159.ngrok-free.app" 
+    
+    preference_data = {
         "items": [
             {
-                "title":"Reserva Sportify",
-                "quantity":1,
-                "currency_id":"ARS",
-                "unit_price":float(datos['monto'])
+                "title": "Reserva Sportify",
+                "quantity": 1,
+                "currency_id": "ARS",
+                "unit_price": float(datos['monto'])
             }
         ],
-        "back_urls":{
-            "success": "http://127.0.0.1:8000/pago/exito/?status=approved",
-            "failure":"http://127.0.0.1:8000/pago/error/",
-            "pending": "http://127.0.0.1:8000/pago/pendiente/",
+        "back_urls": {
+            "success": f"{BASE_URL}/pago/exito/",
+            "failure": f"{BASE_URL}/pago/error/",     # <-- Destino si se usa tarjeta sin saldo
+            "pending": f"{BASE_URL}/pago/pendiente/",
         },
-    })
-    print(preference_response)
-    preference=preference_response["response"]
-    return redirect (preference["init_point"])
-@login_required
+        "auto_return": "approved"
+    }
+    
+    # ESCENARIO: CONTROL DE ERROR DE CONEXIÓN
+    try:
+        preference_response = sdk.preference().create(preference_data)
+    except Exception as e:
+        print(f"❌ Error de conexión crítico con Mercado Pago: {e}")
+        messages.error(request, 'No se pudo establecer conexión con el servidor de pagos. Intenta más tarde.')
+        return redirect('grilla_actividades')
+    
+    if preference_response.get("status") not in [200, 201]:
+        error_detalle = preference_response.get("response", "Error desconocido")
+        print(f"❌ Error interno en la pasarela: {error_detalle}")
+        messages.error(request, 'Ocurrió un error interno al generar la orden de pago.')
+        return redirect('grilla_actividades')
+        
+    preference = preference_response["response"]
+    return redirect(preference["init_point"])
+
+
 def pago_exito(request):
-    print("ENTRO A PAGO EXITO")
-    datos=request.session.get('inscripcion_pendiente')
+    """
+    Destino cuando el pago es aprobado. Usa get_or_create y el modelo 
+    de usuario personalizado para evitar colisiones en la base de datos.
+    """
+    print("🟢 ENTRÓ A PAGO ÉXITO - PROCESANDO RESERVA")
+    datos = request.session.get('inscripcion_pendiente')
+    
     if not datos:
-        return redirect ('grilla_actividades')
-    clase=get_object_or_404(Clase,id=datos['clase_id'])
+        messages.warning(request, 'La sesión de tu pago expiró o ya fue procesada.')
+        return redirect('grilla_actividades')
+        
+    from .models import Clase, Reserva  # Importación local para evitar cruces
+    
+    clase = get_object_or_404(Clase, id=datos['clase_id'])
+    usuario_id = datos.get('usuario_id')
+    
+    # CORREGIDO: Busca en tu modelo real 'Usuario' en vez del 'User' de Django
+    usuario_reserva = get_object_or_404(Usuario, id=usuario_id) if usuario_id else request.user
+    
     with transaction.atomic():
-        reserva=Reserva.objects.create(usuario=request.user,clase=clase,fecha_clase=datos['fecha_clase'],monto_pagado=datos['monto'],estado_pago='seña' if datos['tipo_pago']=='senia' else 'total',medio_pago='Mercado Pago')
-    enviar_confirmacion(request.user,clase,reserva)
-    del request.session['inscripcion_pendiente']
-    return redirect('pago_confirmacion',reserva_id=reserva.id)
+        # Evita duplicados si recargan la página
+        reserva, creado = Reserva.objects.get_or_create(
+            usuario=usuario_reserva,
+            clase=clase,
+            fecha_clase=datos['fecha_clase'],
+            defaults={
+                'monto_pagado': datos['monto'],
+                'estado_pago': 'seña' if datos['tipo_pago'] == 'senia' else 'total',
+                'medio_pago': 'Mercado Pago'
+            }
+        )
+        
+    if creado:
+        print(f"✅ Reserva {reserva.id} creada con éxito en la base de datos.")
+    else:
+        print(f"ℹ️ La reserva {reserva.id} ya existía. Se evitó el IntegrityError.")
 
-@login_required
+    # Limpiamos la sesión
+    if 'inscripcion_pendiente' in request.session:
+        del request.session['inscripcion_pendiente']
+        
+    response = redirect('pago_confirmacion', reserva_id=reserva.id)
+    response["ngrok-skip-browser-warning"] = "true"
+    return response
+
+
 def pago_error(request):
-    messages.error(request,'El pago fue cancelado')
-    return redirect('grilla_actividades'
-    )
+    """
+    ESCENARIO: PAGO FALLIDO / RECHAZADO (Sin saldo, tarjeta inválida, etc.)
+    Muestra el mensaje de error pero mantiene los datos de inscripción para reintentar.
+    """
+    print("❌ EL PAGO FUE RECHAZADO POR MERCADO PAGO")
+    
+    datos = request.session.get('inscripcion_pendiente')
+    if datos:
+        messages.error(
+            request, 
+            'Tu pago no pudo ser procesado (Fondos insuficientes o tarjeta rechazada). '
+            'Por favor, intenta nuevamente con otra tarjeta u otro medio.'
+        )
+    else:
+        messages.error(request, 'El pago fue cancelado por el usuario o expiró.')
+        
+    response = redirect('grilla_actividades')
+    response["ngrok-skip-browser-warning"] = "true"
+    return response
 
-@login_required
+
+# 👇 SIN @login_required para evitar rebotes
 def pago_pendiente(request):
-    messages.warning(request,'El pago quedo pendiente')
-    return redirect('grilla_actividades')
+    messages.warning(request, 'El pago quedó pendiente')
+    return redirect('http://127.0.0.1:8000/grilla/')
+
+
 @login_required
 def pago_confirmacion(request, reserva_id):
     if reserva_id == 0:
