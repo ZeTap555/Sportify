@@ -23,5 +23,7 @@ urlpatterns = [
     path('notificaciones/marcar/<int:notificacion_id>/',views.marcar_leida,name='marcar_leida'),
     path('notificaciones/borrar/<int:notificacion_id>/',views.borrar_notificacion,name='borrar_notificacion'),
     path('notificaciones/borrar-todas/',views.borrar_todas_notificaciones,name='borrar_todas_notificaciones'),
+    path('panel-admin/guardar-precios/', views.guardar_precios_admin, name='guardar_precios_admin'),
+
     path('comprobante/pdf/<int:reserva_id>',views.comprobante_pdf,name='comprobante_pdf')
 ]
