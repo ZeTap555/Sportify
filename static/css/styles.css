@@ -321,3 +321,15 @@ button:hover{
 
     font-weight: 700;
 }
+
+.success-message{
+    background-color: rgba(0,255,136,0.12);
+    border: 1px solid #00ff88;
+    color: #00ff88;
+    padding: 12px;
+    border-radius: 10px;
+    text-align: center;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 20px;
+}

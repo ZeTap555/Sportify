@@ -1,0 +1,254 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sportify - Mi Historial de Pagos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { 
+            background-color: #000000; 
+            color: #ffffff; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        
+        .card-custom { 
+            background-color: #1c1c1e; 
+            border: 1px solid #2c2c2e; 
+            border-radius: 12px;
+        }
+
+        .text-warning-custom {
+            color: #34c759 !important;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .alert-custom {
+            background-color: #2c2c2e;
+            border: 1px solid #3a3a3c;
+            color: #aeaeae;
+        }
+
+        .btn-sportify {
+            background-color: #34c759;
+            color: #000000 !important;
+            border: none;
+            font-weight: 600;
+            border-radius: 50px;
+            padding: 8px 20px;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .btn-sportify:hover {
+            background-color: #28a745;
+            color: #000000 !important;
+            transform: scale(1.02);
+        }
+
+        /* Modal oscuro */
+        .modal-custom .modal-content {
+            background-color: #1c1c1e;
+            border: 1px solid #2c2c2e;
+            color: #ffffff;
+            border-radius: 14px;
+        }
+
+        .modal-custom .modal-header {
+            border-bottom: 1px solid #2c2c2e;
+        }
+
+        .modal-custom .modal-footer {
+            border-top: 1px solid #2c2c2e;
+        }
+
+        /* Tarjetas de resultado dentro del modal */
+        .resultado-card {
+            background-color: #2c2c2e;
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin-bottom: 10px;
+            border-left: 4px solid #3a3a3c;
+        }
+
+        .resultado-card.pagada    { border-left-color: #34c759; }
+        .resultado-card.pendiente { border-left-color: #ffd60a; }
+        .resultado-card.vencida   { border-left-color: #ff453a; }
+        .resultado-card.sin_mensualidad { border-left-color: #636366; }
+
+        .logo-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-top: 35px;
+            margin-bottom: 20px;
+        }
+
+        .logo-img {
+            max-width: 160px;
+            height: auto;
+            opacity: 0.85;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container my-5">
+    <div class="card card-custom text-white shadow-lg p-4">
+
+        <!-- HEADER -->
+        <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3" style="border-color: #2c2c2e !important;">
+            <div>
+                <h2 class="h3 text-uppercase text-warning-custom m-0">Historial de Pagos</h2>
+                <small class="text-white-50">Control de tus transacciones en Sportify</small>
+            </div>
+            <div class="d-flex gap-2">
+                <!-- BOTÓN CONSULTAR MENSUALIDAD -->
+                <button 
+                    type="button" 
+                    class="btn btn-sportify btn-sm" 
+                    data-bs-toggle="modal" 
+                    data-bs-target="#modalMensualidad">
+                    Consultar Mensualidades
+                </button>
+                <a href="/" class="btn btn-outline-secondary btn-sm rounded-pill">Volver al Inicio</a>
+            </div>
+        </div>
+
+        <!-- TABLA DE PAGOS O MENSAJE VACÍO -->
+        {% if not pagos %}
+            <div class="alert alert-custom text-center py-5 my-3" role="alert">
+                <h4 class="text-white mb-2" style="font-weight: 500;">Sin movimientos</h4>
+                <p class="m-0 text-white-50">No has realizado ningún pago en el sistema hasta el momento.</p>
+            </div>
+        {% else %}
+            <div class="table-responsive">
+                <table class="table table-dark table-hover align-middle m-0" style="--bs-table-bg: #1c1c1e;">
+                    <thead>
+                        <tr>
+                            <th>Actividad</th>
+                            <th>Fecha</th>
+                            <th>Estado</th>
+                            <th>Comprobante</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pago in pagos %}
+                        <tr>
+                            <td>{{ pago.clase.actividad.nombre }}</td>
+                            <td>{{ pago.fecha_reserva|date:"d/m/Y" }}</td>
+                            <td>{{ pago.estado_pago }}</td>
+                            <td>
+                                <a href="{% url 'comprobante_pdf' pago.id %}" 
+                                   class="btn  btn-success" 
+                                   onclick="mostrarMensajeDescarga()">
+                                    Descargar comprobante
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+            </div>
+        {% endif %}
+        <div id="mensaje-descarga"
+             class="alert alert-success"
+             style="
+                display: none; 
+                position:fixed;
+                top:70px;
+                left:50%;
+                transform: translateX(-50%);
+                z-index:9999;
+                background-color:#00c853;
+                color:white;
+                font-weight:bold;
+                padding: 20px 40px;
+                border-radius:12px;
+                box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
+                font-size:18px
+                ">
+                ✅Descargando el comprobante de pago
+        </div>
+        <script>
+            function mostrarMensajeDescarga() {
+                const mensaje = document.getElementById("mensaje-descarga");
+                mensaje.style.display = "block";
+                setTimeout(function() {
+                    mensaje.style.display = "none";
+                }, 5000);
+            }
+        </script>
+    </div>
+
+    <!-- LOGO -->
+    <div class="logo-container">
+        <img src="{% static 'img/logo_Sportify.png' %}" alt="Sportify Logo" class="logo-img">
+    </div>
+</div>
+
+ <!-- ===================== MODAL CONSULTAR MENSUALIDAD ===================== -->
+<div class="modal fade modal-custom" id="modalMensualidad" tabindex="-1" aria-labelledby="modalMensualidadLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title text-warning-custom" id="modalMensualidadLabel">Estado de tus Mensualidades</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+
+            <div class="modal-body">
+                {% for resultado in resultados_mensualidad %}
+                    <div class="resultado-card {{ resultado.estado }}" style="margin-bottom: 15px;">
+
+                        {% if resultado.actividad %}
+                            <p class="mb-1 text-white-50" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
+                                🏅 {{ resultado.actividad }}
+                            </p>
+                        {% endif %}
+
+                        <p class="mb-0 text-white" style="font-size: 0.95rem; line-height: 1.4;">
+                            {{ resultado.mensaje }}
+                        </p>
+
+                        <!-- Íconos de estado con colores dinámicos sincronizados -->
+                        <div class="mt-3">
+                            {% if resultado.estado == 'pagada' %}
+                                <span class="badge" style="background-color: rgba(52, 199, 89, 0.2); color: #34c759; border: 1px solid #34c759; padding: 6px 12px; font-size: 0.8rem; font-weight: 600;">
+                                    ✓ VIGENTE / PAGADA
+                                </span>
+                            {% elif resultado.estado == 'pendiente' %}
+                                <span class="badge" style="background-color: rgba(255, 214, 10, 0.2); color: #ffd60a; border: 1px solid #ffd60a; padding: 6px 12px; font-size: 0.8rem; font-weight: 600;">
+                                    ⏳ PENDIENTE
+                                </span>
+                            {% elif resultado.estado == 'vencida' %}
+                                <span class="badge" style="background-color: rgba(255, 69, 58, 0.2); color: #ff453a; border: 1px solid #ff453a; padding: 6px 12px; font-size: 0.8rem; font-weight: 600;">
+                                    ✕ VENCIDA / SUSPENDIDA
+                                </span>
+                            {% elif resultado.estado == 'sin_mensualidad' %}
+                                <span class="badge" style="background-color: rgba(99, 99, 102, 0.2); color: #aeaeae; border: 1px solid #636366; padding: 6px 12px; font-size: 0.8rem; font-weight: 600;">
+                                    — SIN PASO MENSUAL
+                                </span>
+                            {% endif %}
+                        </div>
+
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sportify btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

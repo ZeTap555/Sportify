@@ -19,12 +19,12 @@
             overflow: hidden;
         }
 
-        /* COLUMNA 1: SIDEBAR IZQUIERDA */
+        /* 🍏 COLUMNA 1: SIDEBAR IZQUIERDA - Con tus paddings y medidas reales */
         .sidebar {
             width: 240px;
             background-color: #1c1c1e;
             border-right: 1px solid #2c2c2e;
-            padding: 30px 20px;
+            padding: 20px 15px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -32,7 +32,45 @@
             box-sizing: border-box;
             flex-shrink: 0;
         }
-        .sidebar-brand { font-size: 1.3rem; font-weight: 700; color: #00ff88; margin-bottom: 30px; text-transform: uppercase;}
+
+        /* TUS MEDIDAS EXACTAS DEL LOGO OVALADO */
+        .sidebar-brand { 
+            width: 100%;                  
+            height: 30px;                 
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 15px;              
+            margin-bottom: 25px;          
+            border: 2px solid #00ff88;    
+            border-radius: 40px;          
+            background-color: rgba(0, 255, 136, 0.03); 
+        }
+
+        .sidebar-brand-link {
+            display: block;
+            width: 100%;
+            text-align: center;
+            text-decoration: none;
+        }
+        
+        .logo-sidebar {
+            height: 150px;                 
+            width: auto;                  
+            object-fit: contain;          
+        }
+
+        .sidebar-brand-link:hover .logo-sidebar {
+            transform: scale(1.03);
+        }
+
+        .sidebar-menu { 
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex-grow: 1;
+        }
         .menu-item { display: block; padding: 12px 16px; color: #8e8e93; text-decoration: none; font-weight: 500; border-radius: 8px; margin-bottom: 5px; transition: all 0.15s; }
         .menu-item.active { background-color: #2c2c2e; color: #ffffff; font-weight: 600; }
         .menu-item:hover:not(.active) { background-color: rgba(255, 255, 255, 0.04); color: #ffffff; }
@@ -134,14 +172,18 @@
 
     <div class="sidebar">
         <div>
-            <div class="sidebar-brand">Sportify</div>
+            <div class="sidebar-brand" style="justify-content: center; padding: 10px 0;">
+                <a href="{% url 'grilla_actividades' %}" class="sidebar-brand-link">
+                    <img src="{% static 'img/logo_Sportify_name.png' %}" class="logo-sidebar" alt="Sportify Logo">
+                </a>
+            </div>
+            
             <div class="sidebar-menu">
                 <a href="{% url 'grilla_actividades' %}" class="menu-item">Cronograma</a>
                 <a href="{% url 'perfil' %}" class="menu-item">Mi Perfil</a>
                 <a href="{% url 'panel_admin' %}" class="menu-item active">Panel Admin</a>
-                <a href="#" class="menu-item">Mis Reservas</a>
-                <a href="#" class="menu-item">Mis Pagos</a>
-                <a href="#" class="menu-item">Novedades</a>
+                <a href="{% if request.user.is_authenticated %}#{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Reservas</a>
+                <a href="{% if request.user.is_authenticated %}{% url 'historial_pagos' %}{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Pagos</a>
             </div>
         </div>
 
@@ -167,17 +209,18 @@
 
         <div class="panel-content">
             
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert-toast" style="
-                        border-left-color: {% if message.tags == 'error' %}#ff453a{% else %}#00ff88{% endif %};
-                        color: {% if message.tags == 'error' %}#ff453a{% else %}#00ff88{% endif %};
-                    ">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-
+            <div id="contenedor-mensajes-gym">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert-toast" style="
+                            border-left-color: {% if message.tags == 'error' %}#ff453a{% else %}#00ff88{% endif %};
+                            color: {% if message.tags == 'error' %}#ff453a{% else %}#00ff88{% endif %};
+                        ">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
             <div id="pane-clases" class="tab-pane active">
                 <div class="bento-grid-two">
                     <div class="card-panel">
@@ -194,16 +237,16 @@
                         </form>
                     </div>
 
-                    <div class="card-panel">
-                        <h3>Programar Clase</h3>
-                        <form method="POST">
+                   <div class="card-panel">
+                        <h3>Crear Clase</h3>
+                        <form method="POST" id="form-crear-clase">
                             {% csrf_token %}
                             <input type="hidden" name="action" value="crear_clase">
                             
                             <div class="input-group">
                                 <label>Seleccionar Actividad</label>
-                                <select name="actividad" class="select-field" required>
-                                    <option value="">-- Seleccione disciplina --</option>
+                                <select name="actividad" id="id_actividad" class="select-field">
+                                    <option value="" selected>-- Seleccione disciplina --</option>
                                     {% for act in actividades %}
                                         <option value="{{ act.id }}">{{ act.nombre }}</option>
                                     {% endfor %}
@@ -212,8 +255,8 @@
 
                             <div class="input-group">
                                 <label>Asignar Profesor</label>
-                                <select name="profesor" class="select-field">
-                                    <option value="">-- Sin asignar (Opcional) --</option>
+                                <select name="profesor" id="id_profesor" class="select-field">
+                                    <option value="" selected>-- Seleccione un Profesor Obligatoriamente --</option>
                                     {% for prof in profesores %}
                                         <option value="{{ prof.id }}">{{ prof.apellido }}, {{ prof.nombre }}</option>
                                     {% endfor %}
@@ -223,16 +266,33 @@
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                                 <div class="input-group">
                                     <label>Fecha de Inicio de la Clase</label>
-                                    <input type="date" name="fecha" class="input-field" required>
+                                    <input type="date" name="fecha" id="id_fecha" class="input-field">
                                 </div>
                                 <div class="input-group">
-                                    <label>Horario (Formato 24hs)</label>
-                                    <input type="time" name="horario" class="input-field" step="3600" placeholder="Ej: 19:00" required>
+                                    <label>Horario (Horas en punto)</label>
+                                    <select name="horario" id="id_horario" class="select-field">
+                                        <option value="" selected>-- Seleccione Hora --</option>
+                                        <option value="08:00">08:00 hs</option>
+                                        <option value="09:00">09:00 hs</option>
+                                        <option value="10:00">10:00 hs</option>
+                                        <option value="11:00">11:00 hs</option>
+                                        <option value="12:00">12:00 hs</option>
+                                        <option value="13:00">13:00 hs</option>
+                                        <option value="14:00">14:00 hs</option>
+                                        <option value="15:00">15:00 hs</option>
+                                        <option value="16:00">16:00 hs</option>
+                                        <option value="17:00">17:00 hs</option>
+                                        <option value="18:00">18:00 hs</option>
+                                        <option value="19:00">19:00 hs</option>
+                                        <option value="20:00">20:00 hs</option>
+                                    </select>
                                 </div>
                             </div>
                             <button type="submit" class="btn-action">Añadir al Cronograma</button>
                         </form>
                     </div>
+
+
                 </div>
 
                 <div class="card-panel">
@@ -378,16 +438,66 @@
 
     <script>
         function switchTab(tabId) {
-            // 1. Quitar estado activo de todos los botones
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            // 2. Ocultar todos los paneles de contenido
             document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
-            
-            // 3. Activar el botón seleccionado
             event.currentTarget.classList.add('active');
-            // 4. Mostrar el panel correspondiente
             document.getElementById('pane-' + tabId).classList.add('active');
         }
+
+        function mostrarErrorGym(mensaje) {
+            const contenedor = document.getElementById('contenedor-mensajes-gym');
+            contenedor.innerHTML = `
+                <div class="alert-toast" style="border-left-color: #ff453a; color: #ff453a;">
+                    ${mensaje}
+                </div>
+            `;
+            document.querySelector('.panel-content').scrollTop = 0;
+        }
+
+        document.getElementById('form-crear-clase').addEventListener('submit', function(event) {
+            const actividad = document.getElementById('id_actividad').value;
+            const profesor = document.getElementById('id_profesor').value;
+            const fechaStr = document.getElementById('id_fecha').value;
+            const horarioStr = document.getElementById('id_horario').value;
+
+            if (!actividad || !fechaStr || !horarioStr) {
+                event.preventDefault();
+                mostrarErrorGym("Error: Por favor, complete todos los campos obligatorios del formulario.");
+                return;
+            }
+
+            if (!profesor || profesor === "") {
+                event.preventDefault();
+                mostrarErrorGym("Error: Debe seleccionar obligatoriamente un profesor para poder dictar la clase.");
+                return;
+            }
+
+            const ahora = new Date();
+            const hoySoloFecha = new Date(ahora.getTime());
+            hoySoloFecha.setHours(0, 0, 0, 0);
+            const fechaSeleccionada = new Date(fechaStr + 'T00:00:00');
+            
+            if (fechaSeleccionada < hoySoloFecha) {
+                event.preventDefault();
+                mostrarErrorGym("Error: No se pueden programar clases en una fecha que ya pasó.");
+                return;
+            }
+
+            if (fechaSeleccionada.getTime() === hoySoloFecha.getTime()) {
+                const horaSeleccionada = parseInt(horarioStr.split(':')[0], 10);
+                if (horaSeleccionada <= ahora.getHours()) {
+                    event.preventDefault();
+                    mostrarErrorGym(`Error: El horario seleccionado (${horarioStr} hs) ya pasó para el día de hoy.`);
+                    return;
+                }
+            }
+
+            if (fechaSeleccionada.getDay() === 0) {
+                event.preventDefault();
+                mostrarErrorGym("Error: El gimnasio permanece cerrado los domingos. Por favor, elija un día de lunes a sábado.");
+                return;
+            }
+        });
     </script>
 </body>
 </html>

@@ -1,0 +1,174 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sportify - Pago con Tarjeta</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            background-color: #000; color: #fff;
+            font-family: 'Poppins', sans-serif;
+            margin: 0; min-height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            position: relative;
+        }
+        .brand-top {
+            position: absolute;
+            top: 24px;
+            left: 24px;
+            color: #00ff88;
+            font-size: 1.3rem;
+            font-weight: 700;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            z-index: 10;
+        }
+        .card {
+            background: #1c1c1e; border: 1px solid #2c2c2e;
+            border-radius: 16px; padding: 40px;
+            max-width: 440px; width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            position: relative;
+        }
+        .close-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            color: #8e8e93;
+            text-decoration: none;
+            font-size: 1.5rem;
+            line-height: 1;
+        }
+        .close-btn:hover { color: #fff; }
+        h1 { color: #00ff88; font-size: 1.4rem; margin: 0 0 5px 0; }
+        .sub { color: #8e8e93; font-size: 0.85rem; margin-bottom: 30px; }
+        .input-group { margin-bottom: 20px; }
+        .input-group label {
+            display: block; font-size: 0.75rem; font-weight: 600;
+            color: #8e8e93; text-transform: uppercase; margin-bottom: 6px;
+        }
+        .input-group input {
+            width: 100%; padding: 12px 14px;
+            background: #2c2c2e; border: 1px solid #3a3a3c;
+            border-radius: 8px; color: #fff; font-size: 0.95rem;
+            font-family: inherit; outline: none;
+        }
+        .input-group input:focus { border-color: #00ff88; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .monto-box {
+            background: #2c2c2e; border-radius: 8px; padding: 12px 16px;
+            text-align: center; margin-bottom: 25px;
+        }
+        .monto-box span { color: #00ff88; font-size: 1.3rem; font-weight: 700; }
+        .btn-pagar {
+            width: 100%; padding: 14px; border: none; border-radius: 10px;
+            background: #00ff88; color: #000; font-size: 1rem;
+            font-weight: 600; cursor: pointer; font-family: inherit;
+            transition: background 0.15s;
+        }
+        .btn-pagar:hover { background: #12ff93; }
+        .btn-volver {
+            display: block; text-align: center; margin-top: 15px;
+            color: #8e8e93; text-decoration: none; font-size: 0.85rem;
+        }
+        .btn-volver:hover { color: #fff; }
+        .error-msg {
+            background: #ff453a20; border: 1px solid #ff453a40;
+            color: #ff453a; padding: 10px; border-radius: 8px;
+            margin-bottom: 20px; text-align: center; font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="brand-top">Sportify</a>
+    <div class="card">
+        <a href="/" class="close-btn">×</a>
+        <h1>Pago con tarjeta</h1>
+        <div class="sub">Completá los datos para finalizar la inscripción</div>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="error-msg">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="monto-box">
+            Total a pagar: <span>${{ monto }}</span>
+        </div>
+
+        <form method="POST" id="form-pago">
+            {% csrf_token %}
+
+            <div class="input-group">
+                <label>Número de tarjeta</label>
+                <input type="text" name="numero" placeholder="1234 5678 9012 3456" maxlength="19" >
+            </div>
+
+            <div class="grid-2">
+                <div class="input-group">
+                    <label>Vencimiento</label>
+                    <input type="text" name="vto" placeholder="MM/AA" maxlength="5"  oninput="if(this.value.length==2&&!this.value.includes('/')) this.value+='/';">
+                </div>
+                <div class="input-group">
+                    <label>CVV</label>
+                    <input type="text" name="cvv" placeholder="123" maxlength="4" >
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>Titular</label>
+                <input type="text" name="titular" placeholder="Nombre como figura en la tarjeta" >
+            </div>
+
+            <button type="submit" class="btn-pagar">Pagar e inscribirse</button>
+        </form>
+
+        <a href="/" class="btn-volver">Volver al cronograma</a>
+    </div>
+    <div id="loading-pago" style="
+    display: none;
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.75); z-index:9999; justify-content:center;align-items:center;
+    flex-direction:column;
+    backdrop-filter:blur(4px);">
+        <div style="
+             width:70px;
+             height:70px;
+             border: 7px solid #2c2c2e;
+             border-top: 7px solid #00ff88;
+             border-radius: 50%;
+             animation: spin 1s linear infinite;
+        ">
+        </div>
+        <p style="
+            color:white;
+            margin-top:25px;
+            font-size:1.2rem;
+            font-weight:600;
+        ">
+            Procesando el pago...</p>
+        </p>
+    </div>
+    <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    <script>
+        document.getElementById('form-pago').addEventListener('submit', function(event) {
+            event.preventDefault();
+            document.getElementById('loading-pago').style.display = 'flex';
+            setTimeout(() => {
+                this.submit();
+            }, 3000); // Simula un retraso de  segundo para mostrar el loader
+        });
+    </script>
+
+
+</body>
+</html>

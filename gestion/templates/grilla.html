@@ -24,7 +24,7 @@
             width: 240px;
             background-color: #1c1c1e;
             border-right: 1px solid #2c2c2e;
-            padding: 30px 20px;
+            padding: 20px 15px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -32,7 +32,40 @@
             box-sizing: border-box;
             flex-shrink: 0;
         }
-        .sidebar-brand { font-size: 1.3rem; font-weight: 700; color: #00ff88; margin-bottom: 30px; text-transform: uppercase;}
+
+        /* 🌟 CONTENEDOR NUEVO DEL LOGO: Ajustado para que calce prolijo */
+        .sidebar-brand { 
+            width: 100%;                  /* Ocupa todo el ancho de la barra lateral */
+            height: 30px;                 /* ⚠️ CLAVE: Misma altura que el .top-header para que no sobresalga de la línea */
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 15px;              /* Aire a los costados */
+            margin-bottom: 25px;          /* Espacio con los botones del menú de abajo */
+            
+            /* El borde verde ovalado */
+            border: 2px solid #00ff88;    
+            border-radius: 40px;          /* 🌟 CLAVE: Al ser más ancho que alto, este radio lo hace OVALADO */
+            background-color: rgba(0, 255, 136, 0.03); /* Un fondo sutil opcional */
+        }
+        .sidebar-brand-link {
+            display: block;
+            width: 100%;
+            text-align: center;
+            text-decoration: none;
+        }
+        
+        .logo-sidebar {
+            height: 150px;                 /* Controla qué tan alta es la mancuerna por dentro */
+            width: auto;                  /* Deja que se estire horizontalmente sola */
+            object-fit: contain;          /* Evita que la imagen se rompa o deforme */
+        }
+
+        .sidebar-brand-link:hover .logo-sidebar {
+            transform: scale(1.03);
+        }
+
         .menu-item { display: block; padding: 12px 16px; color: #8e8e93; text-decoration: none; font-weight: 500; border-radius: 8px; margin-bottom: 5px; transition: all 0.15s; }
         .menu-item.active { background-color: #2c2c2e; color: #ffffff; font-weight: 600; }
         .menu-item:hover:not(.active) { background-color: rgba(255, 255, 255, 0.04); color: #ffffff; }
@@ -136,13 +169,54 @@
         .cupos-badge { color: #00ff88; font-weight: 600; }
         .btn-ver-detalle { background-color: rgba(255, 255, 255, 0.05); color: #ffffff; border: 1px solid #3a3a3c; padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 0.75rem; }
         .no-classes { color: #636366; font-size: 0.9rem; font-style: italic; text-align: center; margin-top: 30px; }
+
+        /* MODAL VER DETALLE */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); z-index: 1000;
+            display: none; align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-card {
+            background: #1c1c1e; border: 1px solid #2c2c2e; border-radius: 16px;
+            padding: 35px; max-width: 420px; width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        .modal-card h2 { margin: 0 0 5px 0; font-size: 1.5rem; font-weight: 700; }
+        .modal-subtitle { color: #8e8e93; font-size: 0.85rem; margin-bottom: 25px; }
+        .modal-divider { border: none; border-top: 1px solid #2c2c2e; margin: 20px 0; }
+        .modal-info-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 0.95rem; }
+        .modal-info-label { color: #8e8e93; }
+        .modal-info-value { color: #fff; font-weight: 500; }
+        .cupos-verde { color: #00ff88; font-weight: 600; }
+        .cupos-rojo { color: #ff453a; font-weight: 600; }
+        .modal-btn {
+            display: block; width: 100%; padding: 14px; border: none; border-radius: 10px;
+            font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.15s;
+            margin-bottom: 10px; text-align: center; text-decoration: none;
+        }
+        .modal-btn.primary { background: #00ff88; color: #000; }
+        .modal-btn.primary:hover { background: #12ff93; }
+        .modal-btn.secondary { background: #2c2c2e; color: #fff; }
+        .modal-btn.secondary:hover { background: #3a3a3c; }
+        .modal-btn.danger { background: #ff453a20; color: #ff453a; border: 1px solid #ff453a40; }
+        .modal-btn.danger:hover { background: #ff453a40; }
+        .modal-cerrar {
+            float: right; background: none; border: none; color: #636366;
+            font-size: 1.5rem; cursor: pointer; padding: 0; line-height: 1;
+        }
+        .modal-cerrar:hover { color: #fff; }
     </style>
 </head>
 <body>
-
     <div class="sidebar">
         <div>
-            <div class="sidebar-brand">Sportify</div>
+            <div class="sidebar-brand" style="justify-content: center; padding: 10px 0;">
+                <a href="{% url 'grilla_actividades' %}" class="sidebar-brand-link">
+                    <img src="{% static 'img/logo_Sportify_name.png' %}" class="logo-sidebar" alt="Sportify Logo">
+                </a>
+            </div>
+            
             <div class="sidebar-menu">
                 <a href="{% url 'grilla_actividades' %}" class="menu-item active">Cronograma</a>
                 
@@ -152,9 +226,8 @@
                     <a href="{% url 'panel_admin' %}" class="menu-item">Panel Admin</a>
                 {% endif %}
                 
-                <a href="{% if request.user.is_authenticated %}#{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Reservas</a>
-                <a href="{% if request.user.is_authenticated %}#{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Pagos</a>
-                <a href="{% if request.user.is_authenticated %}#{% else %}{% url 'login' %}{% endif %}" class="menu-item">Novedades</a>
+                <a href="{% if request.user.is_authenticated %}{% url 'mis_reservas' %}{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Reservas</a>
+                <a href="{% if request.user.is_authenticated %}{% url 'historial_pagos' %}{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Pagos</a>
             </div>
         </div>
 
@@ -169,12 +242,86 @@
     <div class="right-area">
         
         <div class="top-header">
-            {% if not request.user.is_authenticated %}
-                <a href="{% url 'login' %}" class="btn-header-login">Iniciar Sesión</a>
-            {% else %}
-                <span style="font-size: 0.85rem; color: #8e8e93; font-weight: 500;">Hola, {{ request.user.first_name }} 👋</span>
-            {% endif %}
+    {% if not request.user.is_authenticated %}
+        <a href="{% url 'login' %}" class="btn-header-login">
+            Iniciar Sesión
+        </a>
+    {% else %}
+        <div style="display:flex; align-items:center; gap:15px;">
+
+            <a href="{% url 'ver_notificaciones' %}"
+               style="
+                    position:relative;
+                    text-decoration:none;
+                    font-size:26px;
+                    display:inline-block;
+               ">
+
+                🔔
+
+                {% if cantidad_no_leidas > 0 %}
+                    <span style="
+                        position:absolute;
+                        top:-8px;
+                        right:-10px;
+                        background:red;
+                        color:white;
+                        border-radius:50%;
+                        min-width:18px;
+                        height:18px;
+                        display:flex;
+                        align-items:center;
+                        justify-content:center;
+                        font-size:11px;
+                        font-weight:bold;
+                        padding:2px;
+                    ">
+                        {{ cantidad_no_leidas }}
+                    </span>
+                {% endif %}
+
+            </a>
+
+            <span style="
+                font-size:0.85rem;
+                color:#8e8e93;
+                font-weight:500;
+            ">
+                Hola, {{ request.user.first_name }} 👋
+            </span>
+
         </div>
+    {% endif %}
+</div>
+
+        {% if messages %}
+            <div style="padding: 20px 40px 0 40px; box-sizing: border-box;">
+                {% for message in messages %}
+                    <div style="
+                        padding: 12px 20px; 
+                        border-radius: 8px; 
+                        margin-bottom: 10px; 
+                        font-size: 0.9rem; 
+                        font-weight: 500;
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        {% if message.tags == 'success' %}
+                            background-color: rgba(48, 209, 88, 0.15); 
+                            color: #30d158; 
+                            border: 1px solid rgba(48, 209, 88, 0.3);
+                        {% else %}
+                            background-color: rgba(255, 69, 58, 0.15); 
+                            color: #ff453a; 
+                            border: 1px solid rgba(255, 69, 58, 0.3);
+                        {% endif %}
+                    ">
+                        <span>{{ message }}</span>
+                        <button onclick="this.parentElement.remove()" style="background:none; border:none; color:inherit; font-size:1.2rem; cursor:pointer; line-height:1; padding:0 0 0 15px;">&times;</button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
 
         <div class="app-container">
             
@@ -253,8 +400,8 @@
                                     Prof: {% if clase.profesor %}{{ clase.profesor.nombre }} {{ clase.profesor.apellido }}{% else %}<span style="color:#636366; font-style:italic;">Sin asignar</span>{% endif %}
                                 </div>
                                 <div class="detail-footer">
-                                    <span class="cupos-badge">Cupos disp: {{ clase.cupos_disponibles }}</span>
-                                    <a href="#" class="btn-ver-detalle">Ver detalle</a>
+                                    <span class="cupos-badge">Cupos disp: {{ clase.cupos_mostrar }}</span>
+                                    <button onclick="abrirModalDetalle({{ clase.id }}, '{{ fecha_seleccionada|date:"Y-m-d" }}')" class="btn-ver-detalle" style="cursor:pointer;">Ver detalle</button>
                                 </div>
                             </div>
                         {% endfor %}
@@ -267,6 +414,337 @@
 
         </div>
     </div>
+
+<div class="modal-overlay" id="modalDetalle" onclick="cerrarModal(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+        <button class="modal-cerrar" onclick="cerrarModal()">&times;</button>
+        <h2 id="modal-actividad"></h2>
+        <div class="modal-subtitle">
+            <div id="modal-fecha"></div>
+            <div id="modal-horario"></div>
+        </div>
+
+        <hr class="modal-divider">
+
+        <div class="modal-info-row">
+            <span class="modal-info-label">Profesor</span>
+            <span class="modal-info-value" id="modal-profesor"></span>
+        </div>
+        <div class="modal-info-row">
+            <span class="modal-info-label">Cupos disponibles</span>
+            <span class="modal-info-value" id="modal-cupos"></span>
+        </div>
+
+        <hr class="modal-divider">
+
+        <div id="modal-acciones"></div>
+    </div>
+</div>
+
+<script>
+    var modalData = null;
+    var modalFecha = null;
+
+    function abrirModalDetalle(claseId, fecha) {
+        modalFecha = fecha;
+        fetch('/clase/' + claseId + '/datos/?fecha=' + fecha)
+            .then(r => r.json())
+            .then(data => {
+                modalData = data;
+                document.getElementById('modal-actividad').textContent = data.actividad;
+                document.getElementById('modal-fecha').textContent = data.fecha;
+                document.getElementById('modal-horario').textContent = data.horario + ' hs';
+                document.getElementById('modal-profesor').textContent = data.profesor || 'Sin asignar';
+
+                const cuposEl = document.getElementById('modal-cupos');
+                cuposEl.textContent = data.cupos_disponibles;
+                cuposEl.className = 'modal-info-value ' + (data.cupos_disponibles > 0 ? 'cupos-verde' : 'cupos-rojo');
+
+                mostrarPasoSel('');
+            });
+    }
+
+    function mostrarPasoSel(paso) {
+        const acciones = document.getElementById('modal-acciones');
+        acciones.innerHTML = '';
+
+        if (!modalData.logueado) {
+            acciones.innerHTML = `
+                <p style="color:#8e8e93; text-align:center; margin-bottom:20px;">Necesita registrarse para asistir a una clase</p>
+                <a href="/login/" class="modal-btn primary">Iniciar sesión</a>
+            `;
+            document.getElementById('modalDetalle').classList.add('active');
+            return;
+        }
+
+        // 🍏 VISTA EXCLUSIVA PARA EL ADMINISTRADOR
+        if (modalData.rol === 'admin') {
+            let opcionesProfesores = `<option value="">--- Sin Profesor Asignado ---</option>`;
+            if (modalData.todos_los_profesores) {
+                modalData.todos_los_profesores.forEach(p => {
+                    let seleccionado = modalData.profesor_id == p.id ? 'selected' : '';
+                    optionsProfesores = ''; // Limpieza de murguita vieja
+                    opcionesProfesores += `<option value="${p.id}" ${seleccionado}>${p.apellido}, ${p.nombre}</option>`;
+                });
+            }
+
+            let listaEsperaHTML = '';
+            if (modalData.cola_espera && modalData.cola_espera.length > 0) {
+                modalData.cola_espera.forEach(u => {
+                    let badgeMensualidad = u.pase_mensual 
+                        ? `<span style="background: rgba(48, 209, 88, 0.2); color: #30d158; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; margin-left: 8px;">Mensualidad</span>`
+                        : `<span style="background: rgba(255, 159, 10, 0.2); color: #ff9f0a; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; margin-left: 8px;">Por Clase</span>`;
+
+                    listaEsperaHTML += `
+                        <li style="font-size:0.9rem; color:#fff; margin-bottom:8px; display: flex; align-items: center; justify-content: space-between;">
+                            <div>
+                                ⏳ <strong>${u.last_name}, ${u.first_name}</strong> 
+                                <span style="color:#8e8e93; font-size:0.85rem;">(DNI: ${u.username})</span>
+                            </div>
+                            ${badgeMensualidad}
+                        </li>`;
+                });
+            } else {
+                listaEsperaHTML = `<li style="font-size:0.9rem; color:#636366; font-style:italic;">No hay alumnos en espera</li>`;
+            }
+
+            acciones.innerHTML = `
+                <div style="background:#2c2c2e; padding:15px; border-radius:10px; margin-bottom:20px;">
+                    <h3 style="font-size:1rem; margin:0 0 10px 0; color:#ff9f0a;">📋 Lista de Espera del Día</h3>
+                    <ul style="padding-left:15px; margin:0;">${listaEsperaHTML}</ul>
+                </div>
+
+                <form method="POST" action="/clase/${modalData.id}/asignar-profesor/">
+                    <input type="hidden" name="csrfmiddlewaretoken" value="${getCSRFToken()}">
+                    <input type="hidden" name="fecha_clase" value="${modalFecha}">
+                    
+                    <div style="margin-bottom:15px;">
+                        <label style="font-size:0.85rem; color:#8e8e93; display:block; margin-bottom:6px;">Reasignar Personal:</label>
+                        <select name="profesor_id" style="width:100%; padding:10px; background:#2c2c2e; border:1px solid #3a3a3c; color:#fff; border-radius:8px; font-size:0.95rem;">
+                            ${opcionesProfesores}
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="modal-btn primary">Guardar Profesor</button>
+                </form>
+            `;
+            document.getElementById('modalDetalle').classList.add('active');
+            return;
+        }
+
+        // 🍏 PASO INICIAL: DETALLE DE LA CLASE
+        if (paso === '') {
+            let contenidoHtml = '';
+
+            // 👥 EVALUAMOS SEGÚN EL ROL QUE VIENE DEL BACKEND
+            if (modalData.rol === 'admin' || modalData.rol === 'profesor') {
+                // ... (Lógica de Admin/Profesores con su botón Cerrar al final) ...
+                let listaEsperaHtml = '';
+                if (modalData.cola_espera && modalData.cola_espera.length > 0) {
+                    modalData.cola_espera.forEach(function(alumno) {
+                        let badgePase = alumno.pase_mensual ? `<span>...</span>` : '';
+                        listaEsperaHtml += `<li>${alumno.last_name}...</li>`;
+                    });
+                } else {
+                    listaEsperaHtml = '<li>No hay alumnos en espera.</li>';
+                }
+
+                let opcionesProfesores = '';
+                if (modalData.todos_los_profesores) {
+                    modalData.todos_los_profesores.forEach(function(p) {
+                        let selected = (p.id == modalData.profesor_id) ? 'selected' : '';
+                        opcionesProfesores += `<option value="${p.id}" ${selected}>${p.apellido}, ${p.nombre}</option>`;
+                    });
+                }
+
+                contenidoHtml = `
+                    <div style="margin-top:15px; background:#1c1c1e; padding:12px; border-radius:8px; border:1px solid #2c2c2e;">
+                        <h4 style="margin:0 0 8px 0; color:#ff9f0a; font-size:14px;">🛠️ Panel de Gestión (${modalData.rol.toUpperCase()})</h4>
+                        <label style="font-size:12px; color:#aeaeae; display:block; margin-bottom:4px;">Profesor Asignado:</label>
+                        <select id="select-profesor-modal" class="modal-input" style="margin-bottom:12px; background:#2c2c2e; color:#fff; border:1px solid #3a3a3c; width:100%; padding:6px; border-radius:4px;">
+                            ${opcionesProfesores}
+                        </select>
+                        <button class="modal-btn primary" style="padding:6px 12px; font-size:13px; margin-bottom:12px;" onclick="guardarCambiosAdmin(${modalData.id})">Actualizar Profesor</button>
+                        <p style="margin:8px 0 4px 0; font-size:12px; font-weight:600; color:#aeaeae;">Lista de Espera:</p>
+                        <ul style="margin:0; padding-left:15px; font-size:12px; color:#e5e5ea; max-height:80px; overflow-y:auto;">
+                            ${listaEsperaHtml}
+                        </ul>
+                    </div>
+                    <button class="modal-btn secondary" style="margin-top:15px;" onclick="cerrarModal()">Cerrar</button>
+                `;
+
+            } else {
+                // ==========================================================
+                // 🍏 FLUJO DE ALUMNOS (SIN EL BOTÓN "VOLVER AL CRONOGRAMA")
+                // ==========================================================
+                let botonInscripcion = '';
+                let botonMensualidad = '';
+
+                // 1️⃣ Inscripción Individual / Choque de horarios
+                if (modalData.choque_horario) {
+                    botonInscripcion = `
+                        <button class="modal-btn" disabled style="background-color: #2c2c2e; color: #8e8e93; cursor: not-allowed; opacity: 0.5; margin-bottom: 4px;">Inscribirse a esta clase</button>
+                        <p style="color: #8e8e93; font-size: 0.85rem; text-align: center; margin: 0 0 15px 0; font-weight: 500; padding: 0 10px; line-height: 1.3;">
+                            ⚠️ Ya tenés una reserva para <strong style="color: #ff9f0a;">${modalData.actividad_choque_nombre}</strong> a las ${modalData.horario}.
+                        </p>
+                    `;
+                } else if (modalData.ya_inscripto) {
+                    botonInscripcion = `
+                        <p style="color: #30d158; text-align: center; font-weight: 600; margin-bottom: 15px; font-size: 1.05rem;">✓ Ya estás registrado en esta clase</p>
+                    `;
+                } else {
+                    botonInscripcion = `
+                        <button class="modal-btn primary" style="margin-bottom: 12px;" onclick="mostrarPasoSel('inscribir')">Inscribirse a esta clase</button>
+                    `;
+                }
+
+                // 2️⃣ Botón de Mensualidad
+                if (modalData.choque_horario) {
+                    botonMensualidad = `
+                        <button class="modal-btn" disabled style="background-color: #2c2c2e; color: #545456; cursor: not-allowed; opacity: 0.3;">Contratar mensualidad</button>
+                    `;
+                } else if (modalData.ya_inscripto) {
+                    botonMensualidad = `
+                        <button class="modal-btn" disabled style="background-color: #2c2c2e; color: #8e8e93; cursor: not-allowed; opacity: 0.4; margin-top: 5px;">Contratar mensualidad</button>
+                        <p style="color: #aeaeae; font-size: 0.8rem; text-align: center; margin: 6px 0 12px 0; font-weight: 400;">ℹ️ Ya tenés una reserva para este día.</p>
+                    `;
+                } else {
+                    botonMensualidad = `
+                        <button class="modal-btn secondary" style="margin-bottom: 12px;" onclick="mostrarPasoSel('validar_mensualidad')">Contratar mensualidad</button>
+                    `;
+                }
+
+                
+                contenidoHtml = `
+                    ${botonInscripcion}
+                    ${botonMensualidad}
+                `;
+            }
+
+            acciones.innerHTML = contenidoHtml;
+
+        // ==========================================================
+        // 🔒 ESTOS "VOLVER" NO SE TOCARON, SIGUEN ACÁ ABAJO FUNCIANDO PERFECTO:
+        // ==========================================================
+        } else if (paso === 'validar_mensualidad') {
+            if (modalData.ya_mensualizado) {
+                acciones.innerHTML = `
+                    <div style="text-align: center; margin: 20px 0;">
+                        <p style="color: #30d158; font-weight: 600; font-size: 1.1rem; margin-bottom: 15px; line-height: 1.4;">Ya tenés una mensualidad activa de esta actividad.</p>
+                        <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver al detalle</button> </div>
+                `;
+            } else if (modalData.choque_horario) {
+                acciones.innerHTML = `
+                    <div style="text-align: center; margin: 20px 0;">
+                        <p style="color: #ff453a; font-weight: 600; font-size: 1rem; margin-bottom: 15px; line-height: 1.4;">
+                            ⚠️ No podés contratar la mensualidad desde esta clase.<br>
+                            <span style="font-size: 0.85rem; font-weight: 400; color: #aeaeae;">Choca con tu reserva de <strong style="color: #ff9f0a;">${modalData.actividad_choque_nombre}</strong> hoy a las ${modalData.horario}.</span>
+                        </p>
+                        <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver al detalle</button> </div>
+                `;
+            } else {
+                mostrarPasoSel('pago', 'total', 'mensualidad');
+            }
+        
+        } else if (paso === 'inscribir') {
+            if (modalData.ya_inscripto) {
+                if (modalData.en_espera) {
+                    acciones.innerHTML = `
+                        <p style="color:#ff9f0a; text-align:center; margin-bottom:20px; font-weight:600;">⏳ Estás en lista de espera</p>
+                        <p style="color:#8e8e93; text-align:center; margin-bottom:20px;">Te avisaremos si se libera un cupo.</p>
+                        <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver</button>
+                    `;
+                } else {
+                    acciones.innerHTML = `
+                        <p style="color:#30d158; text-align:center; margin-bottom:20px; font-weight:600;"> Ya estás inscripto en esta clase para esta fecha</p>
+                        <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver</button>
+                    `;
+                }
+                return;
+            }
+            if (modalData.cupos_disponibles <= 0) {
+                acciones.innerHTML = `
+                    <p style="color:#ff453a; text-align:center; margin-bottom:20px;">
+                        Lo sentimos, la clase a la que quiere asistir no tiene más cupos.
+                    </p>
+                    <p style="color:#8e8e93; text-align:center; margin-bottom:20px;">
+                        ¿Querés anotarte en lista de espera? Te avisaremos si se libera un cupo.
+                    </p>
+                    <form method="POST" action="/clase/${modalData.id}/inscribirse/" id="form-espera">
+                        <input type="hidden" name="csrfmiddlewaretoken" value="${getCSRFToken()}">
+                        <input type="hidden" name="tipo_pago" value="total">
+                        <input type="hidden" name="medio_pago" value="Tarjeta">
+                        <input type="hidden" name="fecha_clase" value="${modalFecha}">
+                        <button type="submit" class="modal-btn primary">Anotarme en lista de espera</button>
+                    </form>
+                    <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver</button>
+                `;
+                return;
+            }
+
+            acciones.innerHTML = `
+                <p style="color:#8e8e93; text-align:center; margin-bottom:15px;">Seleccioná cómo querés pagar</p>
+                <button class="modal-btn primary" onclick="mostrarPasoSel('pago', 'senia')">
+                    Pagar seña (50%) — $${(modalData.precio_clase * 0.5).toFixed(2)}
+                </button>
+                <button class="modal-btn primary" onclick="mostrarPasoSel('pago', 'total')">
+                    Pagar completo — $${modalData.precio_clase.toFixed(2)}
+                </button>
+                <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver</button>
+            `;
+
+         } else if (paso === 'pago') {
+            var tipoPago = arguments[1] || 'total';
+            var flujoTipo = arguments[2] || 'clase'; 
+
+            var pasoVolver = (flujoTipo === 'mensualidad') ? '' : 'inscribir';
+
+            acciones.innerHTML = `
+                <p style="color:#8e8e93; text-align:center; margin-bottom:15px;">Medio de pago</p>
+                <form method="POST" action="/clase/${modalData.id}/inscribirse/" id="form-pago">
+                    <input type="hidden" name="csrfmiddlewaretoken" value="${getCSRFToken()}">
+                    <input type="hidden" name="tipo_pago" value="${tipoPago}">
+                    <input type="hidden" name="medio_pago" value="" id="input-medio-pago">
+                    <input type="hidden" name="fecha_clase" value="${modalFecha}">
+                    <input type="hidden" name="flujo_tipo" value="${flujoTipo}">
+                </form>
+                <button class="modal-btn primary" onclick="enviarForm('Tarjeta')">
+                    💳 Tarjeta de crédito/débito
+                </button>
+                <button class="modal-btn primary" onclick="enviarForm('Mercado Pago')">
+                    <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#00BFFF; margin-right:6px; vertical-align:middle;"></span> Mercado Pago
+                </button>
+                <button class="modal-btn secondary" onclick="mostrarPasoSel('${pasoVolver}')">Volver</button>
+            `;
+        }
+
+        document.getElementById('modalDetalle').classList.add('active');
+    }
+
+    function enviarForm(medioPago) {
+        document.getElementById('input-medio-pago').value = medioPago;
+        document.getElementById('form-pago').submit();
+    }
+
+    function cerrarModal(e) {
+        if (!e || e.target === e.currentTarget) {
+            document.getElementById('modalDetalle').classList.remove('active');
+        }
+    }
+
+    function getCSRFToken() {
+        var cookies = document.cookie.split(';');
+        for (var i = 0; i < cookies.length; i++) {
+            var c = cookies[i].trim();
+            if (c.startsWith('csrftoken=')) return c.substring(10);
+        }
+        return '';
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') cerrarModal();
+    });
+</script>
 
 </body>
 </html>

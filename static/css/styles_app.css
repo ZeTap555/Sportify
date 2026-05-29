@@ -119,3 +119,32 @@ button[type="submit"] {
 
     transform: scale(1.05);
 }
+
+.notificacion-card{
+    padding:20px;
+    border-radius:14px;
+    margin-bottom:18px;
+    transition:0.3s;
+}
+
+.notificacion-card.no-leida{
+    background:#1f1f1f !important;
+    border-left:5px solid #63ff63;
+    box-shadow:0 0 18px rgba(99,255,99,0.45);
+    opacity:1;
+}
+
+.notificacion-card.leida{
+    background:red !important;
+    border-left:5px solid #1b1b1b !important;
+    opacity:0.25;
+    filter:grayscale(100%);
+    transform:scale(0.98);
+}
+.notificacion-card.leida h5{
+    color:#777 !important;
+
+}
+.notificacion-card.leida .fecha{
+    color:#555 !important;
+}

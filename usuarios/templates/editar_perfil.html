@@ -170,6 +170,12 @@
 <body>
 
     <div class="container">
+        
+        <div style="margin-bottom: 15px; text-align: left;">
+            <a href="/" style="color: #aeaeae; text-decoration: none; font-size: 0.9rem; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; transition: color 0.2s;" onmouseover="this.style.color='#34c759'" onmouseout="this.style.color='#aeaeae'">
+                ← Volver al Inicio
+            </a>
+        </div>
 
         <div class="card">
 
@@ -233,15 +239,17 @@
                 <!-- TELEFONO -->
 
                 <div class="input-group">
-
                     <label>Teléfono</label>
-
                     <input
                         type="text"
                         name="telefono"
-                        value="{{ request.user.telefono }}"
+                        value="{{ valores.telefono|default:request.user.telefono }}"
                     >
-
+                    {% if errores.telefono %}
+                        <div class="error">
+                            {{ errores.telefono }}
+                        </div>
+                    {% endif %}
                 </div>
 
                 <!-- FECHA -->

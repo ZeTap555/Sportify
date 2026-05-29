@@ -4,14 +4,32 @@ from django.utils import timezone
 
 class Actividad(models.Model):
     nombre = models.CharField(max_length=100, unique=True)
+    precio_clase = models.DecimalField(max_digits=10, decimal_places=2, default=2500.00)
+    precio_mensualidad = models.DecimalField(max_digits=10, decimal_places=2, default=15000.00)
 
     def __str__(self):
         return self.nombre
 
-class Profesor(models.Model):
+"""
+    class Profesor(models.Model):
     nombre = models.CharField(max_length=50)
     apellido = models.CharField(max_length=50)
     especialidad = models.CharField(max_length=100, blank=True)
+
+    def __str__(self):
+        return f"{self.apellido}, {self.nombre}"
+"""
+        
+class Profesor(models.Model):
+    # Relación directa con el Usuario que creamos en la otra app
+    usuario = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    nombre = models.CharField(max_length=50)
+    apellido = models.CharField(max_length=50)
+    especialidad = models.CharField(max_length=100, blank=True)
+    dni = models.CharField(max_length=20, unique=True, null=True, blank=True) # Agregamos el DNI
+    telefono = models.CharField(max_length=30, blank=True, null=True)
+    correo = models.EmailField(blank=True, null=True)
+    fecha_nacimiento = models.DateField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.apellido}, {self.nombre}"
@@ -46,13 +64,14 @@ class Clase(models.Model):
         )
         return ahora > clase_datetime
 
-    # 👥 Mantenemos tus cupos compartidos intactos por ahora
-    @property
-    def cupos_disponibles(self):
+    def cupos_para_fecha(self, fecha):
         CAPACIDAD_MAXIMA_GIMNASIO = 30
+        
+        # 🌟 FILTRADO GLOBAL: Contamos las reservas de CUALQUIER clase 
+        # que coincida en la misma fecha y en el mismo horario.
         total_reservas_franja = Reserva.objects.filter(
-            clase__fecha=self.fecha,
-            clase__horario=self.horario
+            fecha_clase=fecha,
+            clase__horario=self.horario  # <-- Mapea por el horario compartido
         ).count()
         
         disponibles = CAPACIDAD_MAXIMA_GIMNASIO - total_reservas_franja
@@ -105,16 +124,29 @@ class Reserva(models.Model):
     # Tabla intermedia para conectar los usuarios con las clases específicas
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     clase = models.ForeignKey(Clase, on_delete=models.CASCADE, related_name='reservas')
+    fecha_clase = models.DateField(null=True, blank=True)
     fecha_reserva = models.DateTimeField(auto_now_add=True)
     
     # 📋 LISTA DE ESPERA INTERNA
     # Si al crearse la reserva los cupos de la clase eran 0, pasa automáticamente a True
     en_lista_de_espera = models.BooleanField(default=False)
+    
+    monto_pagado = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    estado_pago = models.CharField(max_length=20, default='pendiente') # 'seña', 'total', 'pendiente'
+    medio_pago = models.CharField(max_length=30, blank=True, null=True)  # 'Tarjeta', 'Mercado Pago'
 
     class Meta:
         # Evita que un mismo usuario se anote dos veces a la misma clase exacta
-        unique_together = ('usuario', 'clase')
+        unique_together = ('usuario', 'clase', 'fecha_clase')
 
     def __str__(self):
         estado = "Lista de Espera" if self.en_lista_de_espera else "Confirmado"
         return f"{self.usuario.first_name} en {self.clase.actividad.nombre} ({estado})"
+    
+class Notificacion(models.Model):
+    usuario=models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    mensaje=models.TextField()
+    leida=models.BooleanField(default=False)
+    fecha=models.DateTimeField(auto_now_add=True)
+    def __str__(self):
+        return f"Notificación para {self.usuario.username} - {self.mensaje[:50]}..."

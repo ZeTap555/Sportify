@@ -101,7 +101,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Argentina/Buenos_Aires'
 
 USE_I18N = True
 
@@ -112,12 +112,26 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
-# Static files (CSS, Images, JavaScript)
 
-# sportify_project/settings.py
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 AUTH_USER_MODEL = 'usuarios.Usuario'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 # Configuración para archivos subidos por los usuarios (Aptos médicos, fotos, etc.)
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+
+EMAIL_HOST = 'smtp.gmail.com'
+
+EMAIL_PORT = 587
+
+EMAIL_USE_TLS = True
+
+EMAIL_HOST_USER = 'sportifygymapp@gmail.com'
+
+EMAIL_HOST_PASSWORD = 'tzld pnbu rime agqp'
+
+MERCADO_PAGO_ACCESS_TOKEN='APP_USR-1191378015015096-052421-decb977a309fc71a0e6f82bd01bb20a5-3423210053'
+
+MERCADO_PAGO_PUBLIC_KEY='APP_USR-b4c892d6-5b01-4645-948a-e20b484f8f62'
