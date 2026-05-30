@@ -371,28 +371,29 @@ def pago_tarjeta(request):
             else:
                 resultado = tarjeta["resultado"]
 
-        # Manejo de escenarios
-        if resultado == "titular_incorrecto":
-            messages.error(request, "El nombre del titular no coincide con el registrado en la tarjeta")
-            return render(request, 'pago_tarjeta.html', {'monto': datos['monto']})
-        if resultado == "cvv_invalido":
-            messages.error(request, "El CVV ingresado es incorrecto")
-            return render(request, 'pago_tarjeta.html', {'monto': datos['monto']})
-        if resultado == "tarjeta_vencida":
-            messages.error(request, "La tarjeta ingresada se encuentra vencida")
-            return render(request, 'pago_tarjeta.html', {'monto': datos['monto']})
-        if resultado == "saldo_insuficiente":
-            messages.error(request, "La tarjeta no posee saldo suficiente para completar la operación")
-            return render(request, 'pago_tarjeta.html', {'monto': datos['monto']})
-        if resultado == "tarjeta_inexistente":
-            messages.error(request, "La tarjeta no existe")
-            return render(request, 'pago_tarjeta.html', {'monto': datos['monto']})
-        if resultado == "error_banco":
-            messages.error(request, "ERROR-No se pudo establecer conexión con el banco.")
-            return render(request, 'pago_tarjeta.html', {'monto': datos['monto']})
-        if resultado == "tarjeta_corta":
-            messages.error(request, "La tarjeta ingresada debe tener 16 digitos.")
-            return render(request, 'pago_tarjeta.html', {'monto': datos['monto']})
+        # =========================================================
+        # MANEJO DE ESCENARIOS UNIFICADO (UX MEJORADA)
+        # =========================================================
+        if resultado != "ok":
+            # 1. Errores de Tipeo (El usuario se queda en la pantalla para corregir)
+            errores_tipeo = ["titular_incorrecto", "cvv_invalido", "tarjeta_vencida", "tarjeta_corta"]
+            
+            if resultado in errores_tipeo:
+                if resultado == "titular_incorrecto":
+                    messages.error(request, "El nombre del titular no coincide con el registrado en la tarjeta.")
+                elif resultado == "cvv_invalido":
+                    messages.error(request, "El CVV ingresado es incorrecto.")
+                elif resultado == "tarjeta_vencida":
+                    messages.error(request, "La tarjeta ingresada se encuentra vencida.")
+                elif resultado == "tarjeta_corta":
+                    messages.error(request, "La tarjeta ingresada debe tener 16 dígitos.")
+                
+                return render(request, 'pago_tarjeta.html', {'monto': datos['monto']})
+            
+            # 2. Errores Duros / Rechazos (Lo mandamos a la cruz roja)
+            else:
+                # saldo_insuficiente, tarjeta_inexistente, error_banco
+                return redirect('pago_confirmacion', reserva_id=0)
 
         # Pago exitoso -> crear reservas asociadas y registrar la mensualidad vigente
         with transaction.atomic():
@@ -506,7 +507,7 @@ def pago_mercadopago(request):
     request.session.modified = True
     
     sdk = mercadopago.SDK(settings.MERCADO_PAGO_ACCESS_TOKEN)
-    BASE_URL = "https://5ca0-89-187-170-169.ngrok-free.app" 
+    BASE_URL = "https://outsider-statue-entwine.ngrok-free.dev"
     
     preference_data = {
         "items": [
@@ -587,22 +588,12 @@ def pago_exito(request):
 
 def pago_error(request):
     """
-    ESCENARIO: PAGO FALLIDO / RECHAZADO (Sin saldo, tarjeta inválida, etc.)
-    Muestra el mensaje de error pero mantiene los datos de inscripción para reintentar.
+    ESCENARIO: PAGO FALLIDO / RECHAZADO (Mercado Pago)
+    Redirige a la pantalla de confirmación con la Cruz Roja.
     """
     print("❌ EL PAGO FUE RECHAZADO POR MERCADO PAGO")
     
-    datos = request.session.get('inscripcion_pendiente')
-    if datos:
-        messages.error(
-            request, 
-            'Tu pago no pudo ser procesado (Fondos insuficientes o tarjeta rechazada). '
-            'Por favor, intenta nuevamente con otra tarjeta u otro medio.'
-        )
-    else:
-        messages.error(request, 'El pago fue cancelado por el usuario o expiró.')
-        
-    response = redirect('grilla_actividades')
+    response = redirect('pago_confirmacion', reserva_id=0)
     response["ngrok-skip-browser-warning"] = "true"
     return response
 
@@ -643,8 +634,6 @@ def enviar_confirmacion(usuario, clase, reserva):
         )
     except Exception as e:
         print(f"[EMAIL ERROR] {e}")
-
-
 # =========================================================================
 # 4. PANEL DE ADMINISTRACIÓN Y PROFESORES
 # =========================================================================

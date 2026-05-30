@@ -22,63 +22,120 @@
             text-align: center;
         }
         .icono {
-            font-size: 3rem; margin-bottom: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
         }
         h1 { font-size: 1.5rem; margin: 0 0 10px 0; }
         .exito h1 { color: #00ff88; }
         .error h1 { color: #ff453a; }
         p { color: #8e8e93; margin: 5px 0; font-size: 0.95rem; }
+        
         .detalle {
-            background: #2c2c2e; border-radius: 10px; padding: 15px;
+            background: #2c2c2e; border-radius: 10px; padding: 20px;
             margin: 25px 0; text-align: left;
         }
         .detalle .row {
-            display: flex; justify-content: space-between; margin-bottom: 8px;
-            font-size: 0.9rem;
+            display: flex; justify-content: space-between; margin-bottom: 12px;
+            font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding-bottom: 12px;
         }
-        .detalle .row:last-child { margin-bottom: 0; }
-        .detalle .label { color: #8e8e93; }
-        .detalle .value { color: #fff; font-weight: 500; }
+        .detalle .row:last-child { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
+        .detalle .label { color: #8e8e93; font-weight: 500;}
+        .detalle .value { color: #fff; font-weight: 600; text-align: right;}
+        
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 25px;
+        }
         .btn-inicio {
-            display: inline-block; padding: 12px 30px; border-radius: 10px;
+            display: inline-block; padding: 14px 30px; border-radius: 10px;
             background: #00ff88; color: #000; text-decoration: none;
-            font-weight: 600; transition: background 0.15s;
+            font-weight: 600; transition: background 0.15s; width: 100%;
         }
         .btn-inicio:hover { background: #12ff93; }
+        
+        .btn-pdf {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 12px 30px; border-radius: 10px;
+            background: transparent; color: #00ff88; border: 1px solid rgba(0,255,136,0.3);
+            text-decoration: none; font-weight: 600; transition: all 0.15s; width: 100%;
+        }
+        .btn-pdf:hover { background: rgba(0,255,136,0.1); border-color: #00ff88; }
+        
+        /* Ajuste de colores para la vista de error */
+        .error .btn-inicio {
+            background: transparent; color: #ff453a; border: 1px solid rgba(255,69,58,0.3);
+        }
+        .error .btn-inicio:hover {
+            background: rgba(255,69,58,0.1); border-color: #ff453a;
+        }
     </style>
 </head>
 <body>
     <div class="card {% if exito %}exito{% else %}error{% endif %}">
         {% if exito %}
-            <div class="icono">&#10004;</div>
-            <h1>Inscripción realizada con éxito</h1>
-            <p>Te confirmamos tu lugar en la clase.</p>
+            <div class="icono">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#00ff88" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+            </div>
+            <h1>Inscripción Exitosa</h1>
+            <p>Tu lugar en la clase ya está asegurado.</p>
 
             <div class="detalle">
+                <div class="row">
+                    <span class="label">Operación N°</span>
+                    <span class="value">#{{ reserva.id }}</span>
+                </div>
                 <div class="row">
                     <span class="label">Actividad</span>
                     <span class="value">{{ reserva.clase.actividad.nombre }}</span>
                 </div>
                 <div class="row">
-                    <span class="label">Horario</span>
-                    <span class="value">{{ reserva.clase.fecha }} {{ reserva.clase.horario }}</span>
+                    <span class="label">Fecha y Horario</span>
+                    <span class="value">{{ reserva.fecha_clase|date:"d/m/Y" }} - {{ reserva.clase.horario|time:"H:i" }} hs</span>
                 </div>
                 <div class="row">
                     <span class="label">Monto pagado</span>
-                    <span class="value">${{ reserva.monto_pagado }}</span>
+                    <span class="value" style="color: #00ff88;">${{ reserva.monto_pagado }}</span>
                 </div>
                 <div class="row">
                     <span class="label">Medio de pago</span>
                     <span class="value">{{ reserva.medio_pago }}</span>
                 </div>
             </div>
+            
+            <div class="btn-group">
+                <a href="{% url 'comprobante_pdf' reserva.id %}" class="btn-pdf" target="_blank">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Descargar Comprobante PDF
+                </a>
+                <a href="/" class="btn-inicio">Volver al Cronograma</a>
+            </div>
+            
         {% else %}
-            <div class="icono">&#10008;</div>
-            <h1>La inscripción no puede hacerse</h1>
-            <p>Se rechazó el pago. Verificá los datos e intentá de nuevo.</p>
+            <div class="icono">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff453a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="15" y1="9" x2="9" y2="15"></line>
+                    <line x1="9" y1="9" x2="15" y2="15"></line>
+                </svg>
+            </div>
+            <h1>Pago Rechazado</h1>
+            <p>La operación no pudo ser procesada o fue cancelada. Por favor, verificá tus datos e intentá nuevamente.</p>
+            
+            <div class="btn-group" style="margin-top: 40px;">
+                <a href="/" class="btn-inicio">Volver al Cronograma</a>
+            </div>
         {% endif %}
-
-        <a href="/" class="btn-inicio">Volver al cronograma</a>
     </div>
 </body>
 </html>

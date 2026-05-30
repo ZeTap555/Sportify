@@ -5,10 +5,12 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # CONFIGURACIÓN DE SEGURIDAD PARA NGROK (DIRECTA Y FIJA)
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '.ngrok-free.app']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '.ngrok-free.app','.ngrok-free.dev']
 
 CSRF_TRUSTED_ORIGINS = [
     'https://5ca0-89-187-170-169.ngrok-free.app',
+    'https://*.ngrok-free.dev',
+    'https://*.ngrok-free.app'
 ]
 
 SECRET_KEY = 'django-insecure-!f*mkadok9skd&xtb1zgi=#+4q5)$0$0hns3mpl0h^qwb%w@g)'
