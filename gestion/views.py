@@ -1,6 +1,8 @@
 import calendar
 from datetime import datetime, date
 from multiprocessing import context
+from django.core.mail import EmailMultiAlternatives  
+import uuid      # Para enviar correos con formato HTML
 from dateutil.relativedelta import relativedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -635,7 +637,7 @@ def pago_mercadopago(request):
     sdk = mercadopago.SDK(settings.MERCADO_PAGO_ACCESS_TOKEN)
     
     # URL FIJA DE TU TÚNEL NGROK (Directa, sin depender de environ)
-    BASE_URL = "https://d86c-84-17-45-159.ngrok-free.app" 
+    BASE_URL = "https://5ca0-89-187-170-169.ngrok-free.app" 
     
     preference_data = {
         "items": [
@@ -1114,18 +1116,97 @@ def panel_admin(request):
         # --- C. PROCESAR REGISTRAR PROFESOR ---
         elif action == 'registrar_profesor':
             pestania_activa = 'profesores'
-            dni = request.POST.get('dni')
-            nombre = request.POST.get('nombre')
-            apellido = request.POST.get('apellido')
-            fecha_nac = request.POST.get('fecha_nacimiento')
-            telefono = request.POST.get('telefono')
-            correo = request.POST.get('correo')
-            contrasenia = request.POST.get('contrasenia')
+            dni = request.POST.get('dni', '').strip()
+            nombre = request.POST.get('nombre', '').strip()
+            apellido = request.POST.get('apellido', '').strip()
+            fecha_nac = request.POST.get('fecha_nacimiento', '').strip()
+            telefono = request.POST.get('telefono', '').strip()
+            correo = request.POST.get('correo', '').strip()
+            contrasenia = request.POST.get('contrasenia', '')
+
+            import re
+            import uuid
 
             try:
+                # ---------------------------------------------------------------------
+                # VALIDACIÓN DE CAMPOS VACÍOS
+                # ---------------------------------------------------------------------
+                if not all([dni, nombre, apellido, fecha_nac, telefono, correo, contrasenia]):
+                    messages.error(request, 'Registro fallido. Por favor, complete todos los campos obligatorios.')
+                    return redirect('panel_admin')
+
+                # ---------------------------------------------------------------------
+                # VALIDACIONES DE FORMATO (ESCENARIOS 6 AL 10)
+                # ---------------------------------------------------------------------
+                
+                # Escenario 8 y 9: Formato de nombre y apellido (Solo letras y espacios)
+                if not re.match(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$', nombre):
+                    messages.error(request, 'El nombre y apellido solo pueden contener letras y espacios.')
+                    return redirect('panel_admin')
+
+                if not re.match(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$', apellido):
+                    messages.error(request, 'El nombre y apellido solo pueden contener letras y espacios.')
+                    return redirect('panel_admin')
+
+                # Escenario 10: Formato de DNI (Solo números)
+                if not dni.isdigit():
+                    messages.error(request, 'El DNI solo puede contener números.')
+                    return redirect('panel_admin')
+
+                # Escenario 6: Formato de Email (Debe seguir el formato: ejemplo@gmail.com)
+                if "@" not in correo or ".com" not in correo:
+                    messages.error(request, 'Registro fallido. El email debe seguir el formato: ejemplo@gmail.com')
+                    return redirect('panel_admin')
+
+                # Escenario 4: Validación de Edad adaptada al input nativo del navegador
+                if fecha_nac:
+                    try:
+                        # 1. Intenta con el formato nativo que manda el navegador (YYYY-MM-DD)
+                        fecha_nac_dt = datetime.strptime(fecha_nac, '%Y-%m-%d').date()
+                    except ValueError:
+                        try:
+                            # 2. Por si viene de un test con barras e idioma latino (DD/MM/YYYY)
+                            fecha_nac_dt = datetime.strptime(fecha_nac, '%d/%m/%Y').date()
+                        except ValueError:
+                            # 3. Por si viene con formato e idioma norteamericano (MM/DD/YYYY)
+                            fecha_nac_dt = datetime.strptime(fecha_nac, '%m/%d/%Y').date()
+                    
+                    # Ahora que se parseó correctamente, calcula la edad sin romperse
+                    edad = relativedelta(date.today(), fecha_nac_dt).years
+                    if edad < 18:
+                        messages.error(request, 'Registro fallido. El profesor debe ser mayor de 18 años')
+                        return redirect('panel_admin')
+
+                # Escenario 7: Formato de Teléfono (Solo números y largo entre 8 y 12 dígitos)
+                if not telefono.isdigit() or len(telefono) < 8 or len(telefono) > 12:
+                    messages.error(request, 'El teléfono debe contener solo números y tener entre 8 y 12 dígitos (Ej: 2216423692).')
+                    return redirect('panel_admin')
+
+                # Escenario 5: Requisito de Contraseña (Al menos 4 caracteres)
+                if len(contrasenia) < 4:
+                    messages.error(request, 'Registro fallido. La contraseña debe tener al menos 4 caracteres')
+                    return redirect('panel_admin')
+
+                # ---------------------------------------------------------------------
+                # CONTROL DE DUPLICADOS (ESCENARIOS 2 Y 3)
+                # ---------------------------------------------------------------------
+                
+                # Escenario 2: Chequeo de Email duplicado
+                if Usuario.objects.filter(email=correo).exists():
+                    messages.error(request, "Registro fallido. El mail ya se encuentra registrado.")
+                    return redirect('panel_admin')
+
+                # Escenario 3: Chequeo de DNI duplicado
                 if Usuario.objects.filter(username=dni).exists():
-                    messages.error(request, "Error: Ya existe un usuario registrado con ese DNI.")
-                else:
+                    messages.error(request, "Registro fallido. El dni ya se encuentra registrado.")
+                    return redirect('panel_admin')
+
+                # ---------------------------------------------------------------------
+                # ESCENARIO 1: Registro Exitoso e Inserciones Transaccionales
+                # ---------------------------------------------------------------------
+                with transaction.atomic():
+                    token_unico = str(uuid.uuid4())
+
                     user = Usuario.objects.create(
                         username=dni,
                         dni=dni,
@@ -1133,11 +1214,13 @@ def panel_admin(request):
                         first_name=nombre,
                         last_name=apellido,
                         telefono=telefono,
-                        fecha_nacimiento=fecha_nac,
+                        fecha_nacimiento=fecha_nac_dt, # Se guarda el objeto date correcto de Django
                         rol='profesor',
                         is_active=True,
+                        reset_token=token_unico,
                         password=make_password(contrasenia)
                     )
+                    
                     Profesor.objects.create(
                         usuario=user,
                         nombre=nombre,
@@ -1145,12 +1228,64 @@ def panel_admin(request):
                         dni=dni,                    
                         telefono=telefono,           
                         correo=correo,              
-                        fecha_nacimiento=fecha_nac,  
+                        fecha_nacimiento=fecha_nac_dt,  
                         especialidad=""              
                     )
-                    messages.success(request, f"Profesor {apellido}, {nombre} dado de alta con éxito.")
+                    
+                    Notificacion.objects.create(
+                        usuario=user,
+                        mensaje=f"¡Bienvenido a Sportify, {nombre}! Tu perfil de profesor ha sido configurado con éxito. Ya podés revisar tus datos.",
+                        leida=False,
+                    )
+                    
+                    base_url = request.build_absolute_uri('/')[:-1] 
+                    reset_link = f"{base_url}/reset-password/{token_unico}/"
+                    
+                    asunto = "¡Bienvenido a Sportify! Configura tu cuenta de Profesor"
+                    
+                    mensaje_texto = f"""
+Hola {nombre},
+Te damos la bienvenida a Sportify. El administrador te ha dado de alta exitosamente.
+Ya podés iniciar sesión utilizando tu DNI como usuario. Si lo deseás, podés modificar tu clave ingresando aquí:
+{reset_link}
+Tu usuario de ingreso es tu DNI: {dni}
+"""
+
+                    mensaje_html = f"""
+                    <div style="background-color:#000000; padding:40px; font-family:Poppins,sans-serif; text-align:center;">
+                        <h1 style="color:#00ff88; margin-bottom:10px;">SPORTIFY</h1>
+                        <h2 style="color:white; margin-bottom:25px;">¡Bienvenido al Equipo!</h2>
+                        <p style="color:#cccccc; margin-bottom:20px; font-size:15px;">
+                            Hola {nombre} {apellido}, has sido registrado con éxito como <b>Profesor</b>.
+                        </p>
+                        <p style="color:#cccccc; margin-bottom:35px; font-size:15px;">
+                            Tu usuario de ingreso es tu DNI: {dni}.<br>
+                            Podés ingresar de inmediato. Si querés modificar tu clave de acceso seguro, hacé clic abajo:
+                        </p>
+                        <a href="{reset_link}" style="background-color:#00ff88; color:black; padding:14px 28px; border-radius:10px; text-decoration:none; font-weight:700; display:inline-block; font-size:15px;">
+                            Cambiar contraseña
+                        </a>
+                        <p style="color:#777777; margin-top:35px; font-size:13px;">
+                            Si este correo no te corresponde, por favor comunícate con la administración.
+                        </p>
+                    </div>
+                    """
+
+                    email_message = EmailMultiAlternatives(
+                        asunto,
+                        mensaje_texto,
+                        settings.EMAIL_HOST_USER,
+                        [correo]
+                    )
+                    email_message.attach_alternative(mensaje_html, "text/html")
+                    email_message.send()
+
+                    messages.success(request, f"Profesor {apellido},{nombre} dado de alta con éxito.")
+                    return redirect('panel_admin')
+
             except Exception as e:
-                messages.error(request, f"Error en los datos: {e}")
+                messages.error(request, f"Registro fallido. Ocurrió un error inesperado: {e}")
+                return redirect('panel_admin')
 
     # --- GENERACIÓN DEL CONTEXTO (GET) (Limpio y sin bucles duplicados) ---
     año = int(request.GET.get('anio', ahora.year))

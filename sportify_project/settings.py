@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '.ngrok-free.app']
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://d86c-84-17-45-159.ngrok-free.app',
+    'https://5ca0-89-187-170-169.ngrok-free.app',
 ]
 
 SECRET_KEY = 'django-insecure-!f*mkadok9skd&xtb1zgi=#+4q5)$0$0hns3mpl0h^qwb%w@g)'
