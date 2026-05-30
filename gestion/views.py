@@ -543,6 +543,7 @@ def pago_mercadopago(request):
     return redirect(preference["init_point"])
 
 
+@login_required
 def pago_exito(request):
     """
     Destino cuando el pago es aprobado. Usa get_or_create y el modelo 
@@ -555,7 +556,8 @@ def pago_exito(request):
         messages.warning(request, 'La sesión de tu pago expiró o ya fue procesada.')
         return redirect('grilla_actividades')
         
-    from .models import Clase, Reserva
+    # Sumamos Notificacion al import local
+    from .models import Clase, Reserva, Notificacion 
     
     clase = get_object_or_404(Clase, id=datos['clase_id'])
     usuario_id = datos.get('usuario_id')
@@ -575,6 +577,24 @@ def pago_exito(request):
         
     if creado:
         print(f"✅ Reserva {reserva.id} creada con éxito en la base de datos.")
+        
+        # =========================================================
+        # 🔔 LOGICA DE NOTIFICACIÓN IDÉNTICA A LA TARJETA
+        # =========================================================
+        if datos.get('flujo_tipo') == 'mensualidad':
+            mensaje_notificacion = f"Se realizó con éxito el pago de tu MENSUALIDAD para: {clase.actividad.nombre}. Cupos reservados hasta el día 10 del próximo mes."
+        else:
+            mensaje_notificacion = f"Se realizó con éxito tu pago para la clase: {clase.actividad.nombre}"
+
+        # Guardamos la notificación para la campanita de la interfaz
+        Notificacion.objects.create(
+            usuario=usuario_reserva,
+            mensaje=mensaje_notificacion
+        )
+        
+        # Disparamos el mail automático usando tus datos procesados
+        enviar_confirmacion(usuario_reserva, clase, reserva)
+        
     else:
         print(f"ℹ️ La reserva {reserva.id} ya existía. Se evitó el IntegrityError.")
 
