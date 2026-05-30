@@ -680,14 +680,12 @@ def detalle_clase_fecha(request, clase_id):
 
     # Si es Admin, ve el panel de control de la clase para esa fecha
     if request.user.is_authenticated and request.user.rol == 'admin':
-        # 1. Traemos a todos los usuarios que quedaron atrapados en la lista de espera para esta fecha
         cola_espera = Reserva.objects.filter(
             clase=clase, 
             fecha_clase=fecha_str, 
             en_lista_de_espera=True
         ).select_related('usuario')
 
-        # 2. Traemos la lista completa de profesores para el elemento <select>
         lista_profesores = Profesor.objects.all()
 
         context = {
@@ -697,10 +695,6 @@ def detalle_clase_fecha(request, clase_id):
             'lista_profesores': lista_profesores,
         }
         return render(request, 'gestion/detalle_clase_admin.html', context)
-    
-    # Si es un usuario común, lo mandás al HTML genial que armó tu equipo
-    context = {'clase': clase, 'fecha_clase': fecha_str}
-    return render(request, 'gestion/detalle_clase_usuario.html', context)
 
 @login_required
 def asignar_profesor_clase(request, clase_id):
