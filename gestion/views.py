@@ -38,6 +38,7 @@ from django.utils.timezone import localtime
 from django.db import transaction
 from django.db.models import Sum
 from django.core.mail import send_mail, EmailMultiAlternatives
+from django.utils import translation
 
 # =========================================================================
 # MODELOS LOCALES
@@ -56,7 +57,7 @@ Usuario = get_user_model()
 
 def grilla_actividades(request):
     ahora = timezone.now().date()
-    
+    translation.activate('es')
     # 1. Capturar mes y año seleccionados (por defecto el mes actual)
     año = int(request.GET.get('anio', ahora.year))
     mes = int(request.GET.get('mes', ahora.month))
