@@ -172,8 +172,8 @@
     <div class="container">
         
         <div style="margin-bottom: 15px; text-align: left;">
-            <a href="/" style="color: #aeaeae; text-decoration: none; font-size: 0.9rem; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; transition: color 0.2s;" onmouseover="this.style.color='#34c759'" onmouseout="this.style.color='#aeaeae'">
-                ← Volver al Inicio
+            <a href="/perfil" style="color: #aeaeae; text-decoration: none; font-size: 0.9rem; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; transition: color 0.2s;" onmouseover="this.style.color='#34c759'" onmouseout="this.style.color='#aeaeae'">
+                ← Volver
             </a>
         </div>
 
@@ -344,13 +344,7 @@
                         Modificar Perfil
                     </button>
 
-                    <button
-                        type="button"
-                        class="btn-cancelar"
-                        onclick="window.location.href='{% url 'perfil' %}'"
-                    >
-                        Cancelar Modificación
-                    </button>
+                    
 
                 </div>
 
@@ -390,6 +384,28 @@
                 passwordInput.type = "password";
             }
         }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            // 1. Busca el primer mensaje de error en la pantalla
+            const primerError = document.querySelector('.error');
+            
+            if (primerError) {
+                // 2. Busca la "caja" (input-group) que contiene ese error
+                const contenedor = primerError.closest('.input-group');
+                
+                if (contenedor) {
+                    // 3. Hace un scroll súper suave hasta centrar ese campo en la pantalla
+                    contenedor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    // 4. Busca el input adentro de esa caja y le hace "focus" (pone el cursor titilando)
+                    const input = contenedor.querySelector('input');
+                    if (input) {
+                        // Le damos medio segundo de respiro para que termine el scroll antes de hacer el focus
+                        setTimeout(() => input.focus(), 500);
+                    }
+                }
+            }
+        });
 
     </script>
 

@@ -472,16 +472,19 @@ def editar_perfil_view(request):
             errores['fecha_nacimiento'] = "Fecha inválida. Use el formato DD/MM/AAAA."
 
         # =================================================================
-        # VALIDAR PASSWORD
+        # VALIDAR PASSWORD (CORREGIDO)
         # =================================================================
-        if password_nueva:
-            if not user.check_password(password_actual):
+        if password_actual or password_nueva:
+            if password_actual and not password_nueva:
+                errores['password'] = "Modificación fallida - Es obligatorio ingresar una nueva contraseña."
+            elif password_nueva and not password_actual:
+                errores['password'] = "Modificación fallida - Para cambiar tu contraseña, primero debés confirmar la actual."
+            elif not user.check_password(password_actual):
                 errores['password'] = "Contraseña incorrecta - Volver a intentar."
             elif len(password_nueva) < 4:
                 errores['password'] = "La contraseña debe tener como mínimo 4 caracteres - Volver a intentar."
             elif user.check_password(password_nueva):
                 errores['password'] = "La contraseña nueva debe ser diferente a la actual - Volver a intentar."
-
         # =================================================================
         # SI HAY ERRORES RETORNA CON EL CONTEXTO
         # =================================================================
