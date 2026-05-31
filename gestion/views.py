@@ -39,6 +39,7 @@ from django.db import transaction
 from django.db.models import Sum
 from django.core.mail import send_mail, EmailMultiAlternatives
 from django.utils import translation
+from django.core.exceptions import ValidationError
 
 # =========================================================================
 # MODELOS LOCALES
@@ -898,6 +899,7 @@ Tu usuario de ingreso es tu DNI: {dni}
                 return redirect('panel_admin')
 
         # --- D. ACTUALIZAR PRECIOS GLOBALES (Reincorporado) ---
+        # --- D. ACTUALIZAR PRECIOS GLOBALES (Reincorporado) ---
         elif action == 'actualizar_precios_globales':
             pestania_activa = 'pagos'
             actividades = Actividad.objects.all()
@@ -918,9 +920,22 @@ Tu usuario de ingreso es tu DNI: {dni}
                         
                         act.save()
                 messages.success(request, "Tarifas actualizadas correctamente")
+                
+            except ValidationError as e:
+                # ACÁ DESARMAMOS EL ERROR FEO
+                if hasattr(e, 'message_dict'):
+                    for campo, errores in e.message_dict.items():
+                        for error in errores:
+                            messages.error(request, f"Error en {act.nombre}: {error}")
+                else:
+                    for error in e.messages:
+                        messages.error(request, f"Error en {act.nombre}: {error}")
+                        
+            except ValueError:
+                messages.error(request, f"Error en {act.nombre}: Ingresaste un valor numérico inválido.")
+                
             except Exception as e:
-                messages.error(request, f"Error al guardar tarifas: {e}")
-
+                messages.error(request, f"Error inesperado al guardar tarifas: {e}")
     # Generación de contexto para el panel admin GET
     año = int(request.GET.get('anio', ahora.year))
     mes = int(request.GET.get('mes', ahora.month))
@@ -982,10 +997,24 @@ def guardar_precios_admin(request):
                         if val_mes != '':
                             act.precio_mensualidad = float(val_mes)
                     
+                    # Al hacer save(), salta al models.py y verifica las reglas
                     act.save()
+            
             messages.success(request, "Tarifas actualizadas correctamente")
+            
+        except ValidationError as e:
+            # ACÁ ES DONDE DESARMAMOS EL DICCIONARIO FEO
+            if hasattr(e, 'message_dict'):
+                for campo, errores in e.message_dict.items():
+                    for error in errores:
+                        messages.error(request, f"Revisá la actividad {act.nombre}: {error}")
+            else:
+                for error in e.messages:
+                    messages.error(request, f"Revisá la actividad {act.nombre}: {error}")
+                    
         except Exception as e:
-            messages.error(request, f"Error al procesar el guardado de montos: {e}")
+            # Si cae acá, es porque rompió otra cosa ajena a los precios
+            messages.error(request, "Ocurrió un error inesperado al procesar los montos.")
 
         return redirect('panel_admin')
         

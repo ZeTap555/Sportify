@@ -125,7 +125,7 @@
             background-color: #12ff93;
             transform: translateY(-1px);
         }
-
+        
         /* --- CONTENEDOR DERECHO COMPLETO --- */
         .right-area {
             display: flex;
@@ -358,9 +358,10 @@
                 {% if request.user.is_authenticated and request.user.rol == 'admin' %}
                     <a href="{% url 'panel_admin' %}" class="menu-item">Panel Admin</a>
                 {% endif %}
-                
+                {% if request.user.is_authenticated and request.user.rol != 'admin' %}
                 <a href="{% if request.user.is_authenticated %}{% url 'mis_reservas' %}{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Reservas</a>
                 <a href="{% if request.user.is_authenticated %}{% url 'historial_pagos' %}{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Pagos</a>
+                {% endif %}
             </div>
         </div>
 
