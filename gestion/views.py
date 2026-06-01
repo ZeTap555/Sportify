@@ -1615,7 +1615,7 @@ def comprobante_pdf(request,reserva_id):
         ("ESTADO:",reserva.estado_pago),
         (
             "FECHA Y HORA DE EMISIÓN:",
-            reserva.fecha_reserva.localtime().strftime("%d/%m/%Y %H:%M")
+            timezone.localtime(reserva.fecha_reserva).strftime("%d/%m/%Y %H:%M")
         )
     ]
     for titulo,valor in datos:

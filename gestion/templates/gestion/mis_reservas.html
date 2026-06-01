@@ -318,7 +318,6 @@
                                         <th>Fecha</th>
                                         <th>Horario</th>
                                         <th>Estado</th>
-                                        <th>Comprobante</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -344,12 +343,6 @@
                                             {% else %}
                                                 <span class="badge-estado badge-pendiente">{{ reserva.estado_pago }}</span>
                                             {% endif %}
-                                        </td>
-                                        <td>
-                                            <a href="{% url 'comprobante_pdf' reserva.id %}"
-                                               class="btn btn-sportify btn-sm">
-                                                Descargar
-                                            </a>
                                         </td>
                                     </tr>
                                     {% endfor %}
