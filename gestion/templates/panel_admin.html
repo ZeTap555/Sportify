@@ -414,7 +414,7 @@
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                             <div class="input-group">
                                 <label for="prof-dni">DNI</label>
-                                <input type="text" id="prof-dni" name="dni" class="input-field" placeholder="Ej: 42333444" value="{{ valores_profesor.dni|default:'' }}">
+                                <input type="text" id="prof-dni" name="dni" class="input-field" placeholder="Ej: 42333444" value="{{ valores_profesor.dni|default:'' }}" minlength="7" maxlength="9">
                                 {% if errores_profesor.dni %}
                                     <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.dni }}</span>
                                 {% endif %}

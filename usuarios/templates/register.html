@@ -43,7 +43,7 @@
 
             <div class="input-group">
                 <label>DNI</label>
-                <input type="text" name="dni" placeholder="Ingrese su DNI" value="{{ valores.dni|default:'' }}">
+                <input type="text" name="dni" placeholder="Ingrese su DNI" value="{{ valores.dni|default:'' }}" minlength="7" maxlength="9">
                 {% if errores.dni %}<span class="error-campo">{{ errores.dni }}</span>{% endif %}
             </div>
 

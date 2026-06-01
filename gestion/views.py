@@ -1164,6 +1164,8 @@ def panel_admin(request):
             if dni:
                 if not dni.isdigit():
                     errores['dni'] = 'El DNI solo puede contener números.'
+                elif len(dni) < 7 or len(dni) > 9:
+                    errores['dni'] = 'El DNI debe tener entre 7 y 9 dígitos.'
                 elif Usuario.objects.filter(username=dni).exists():
                     errores['dni'] = 'Este DNI ya se encuentra registrado en el sistema.'
 

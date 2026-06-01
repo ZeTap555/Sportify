@@ -46,11 +46,13 @@ def register_view(request):
         if nombre and not re.match(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$', nombre):
             errores['nombre_apellido'] = "El nombre y apellido solo puede contener letras y espacios."
 
-        # Validar DNI (solo números)
-        if dni and not dni.isdigit():
-            errores['dni'] = "El DNI solo puede contener números."
-        elif dni:
-            if Usuario.objects.filter(dni=dni).exists():
+        # Validar DNI (solo números, longitud y duplicados)
+        if dni:
+            if not dni.isdigit():
+                errores['dni'] = "El DNI solo puede contener números."
+            elif len(dni) < 7 or len(dni) > 9:
+                errores['dni'] = "El DNI debe tener entre 7 y 9 dígitos."
+            elif Usuario.objects.filter(dni=dni).exists():
                 errores['dni'] = "Ya existe un Usuario registrado con este DNI."
 
         # 🆕 Validar Teléfono (Solo números Y entre 8 y 12 dígitos)
