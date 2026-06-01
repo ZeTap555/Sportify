@@ -63,6 +63,8 @@ def grilla_actividades(request):
     año = int(request.GET.get('anio', ahora.year))
     mes = int(request.GET.get('mes', ahora.month))
     dia_seleccionado_str = request.GET.get('dia_sel', str(ahora.day))
+    actividad_id=request.GET.get('actividad')
+
     
     fecha_seleccionada = date(año, mes, int(dia_seleccionado_str))
 
@@ -80,6 +82,10 @@ def grilla_actividades(request):
 
     # 3. Traemos todas las clases del sistema para evaluar en qué casilleros se repiten
     todas_las_clases = Clase.objects.all()
+    if actividad_id:
+        todas_las_clases=todas_las_clases.filter(
+            actividad_id=actividad_id
+        )
     
     # 4. Construir las semanas del calendario usando el módulo de Python
     cal = calendar.Calendar(firstweekday=0) # 0 = Lunes
@@ -111,6 +117,28 @@ def grilla_actividades(request):
         
         # Las ordenamos por horario para que no queden mezcladas
         clases_detalle_dia.sort(key=lambda x: x.horario)
+    hay_clases_mes=False
+    for semana in semanas_matriz:
+        for dia in semana:
+            if dia !=0:
+                fecha_casillero=date(año,mes,dia)
+                for clase in todas_las_clases:
+                    if(
+                        clase.dia_semana_num==fecha_casillero.weekday()
+                        and fecha_casillero>=clase.fecha
+                    ):
+                        hay_clases_mes=True
+                        break
+                if hay_clases_mes:
+                    break
+        if hay_clases_mes:
+            break
+    actividades=Actividad.objects.all()
+    mensaje_filtro=None
+    if actividad_id and not hay_clases_mes:
+        mensaje_filtro=(
+            "No se encontraron clases disponibles para los filtros seleccionados"
+        )
 
     context = {
         'semanas_matriz': semanas_matriz,
@@ -122,6 +150,9 @@ def grilla_actividades(request):
         'fecha_seleccionada': fecha_seleccionada,
         'clases_detalle_dia': clases_detalle_dia,
         'hoy': ahora,
+        'actividades':actividades,
+        'actividad_seleccionada':actividad_id,
+        'mensaje_filtro':mensaje_filtro,
     }
     
     if request.user.is_authenticated:
@@ -222,42 +253,51 @@ def inscribirse_clase(request, clase_id):
                 messages.error(request, "Ya estás inscripto a una mensualidad de esta actividad.")
                 return redirect('grilla_actividades')
 
-        # Cálculo de costo de la mensualidad
+        # Cálculo de costo de la mensualidad (MODELO MES CALENDARIO)
         if flujo_tipo == 'mensualidad':
             hoy = datetime.now().date()
-            anio_actual = fecha_clase.year
-            mes_current = fecha_clase.month
+            
+            # Usamos el mes y año de la clase que seleccionó en la grilla
+            anio_solicitado = fecha_clase.year
+            mes_solicitado = fecha_clase.month
             
             dia_semana_objetivo = fecha_clase.weekday()
             clases_totales_restantes = 0
 
-            # Días que restan del mes actual
-            _, ultimo_dia_mes = monthrange(anio_actual, mes_current)
-            inicio_conteo = hoy if hoy.month == mes_current and hoy.year == anio_actual else date(anio_actual, mes_current, 1)
+            # Obtenemos cuántos días tiene ese mes (ej: 28, 30, 31)
+            _, ultimo_dia_mes = monthrange(anio_solicitado, mes_solicitado)
             
-            for d in range(inicio_conteo.day, ultimo_dia_mes + 1):
-                fecha_evaluar = date(anio_actual, mes_current, d)
+            # Si se está anotando para el mes EN CURSO, contamos desde hoy.
+            # Si está pagando por adelantado el MES QUE VIENE, contamos desde el día 1.
+            if hoy.month == mes_solicitado and hoy.year == anio_solicitado:
+                dia_inicio = hoy.day
+            else:
+                dia_inicio = 1
+            
+            # Contamos las clases EXACTAS que le quedan en este mes
+            for d in range(dia_inicio, ultimo_dia_mes + 1):
+                fecha_evaluar = date(anio_solicitado, mes_solicitado, d)
                 if fecha_evaluar.weekday() == dia_semana_objetivo:
                     clases_totales_restantes += 1
 
-            # Días del mes siguiente hasta el 10 inclusive
-            if mes_current == 12:
-                mes_siguiente = 1
-                anio_siguiente = anio_actual + 1
-            else:
-                mes_siguiente = mes_current + 1
-                anio_siguiente = anio_actual
-
-            for d in range(1, 11):
-                fecha_evaluar_sig = date(anio_siguiente, mes_siguiente, d)
-                if fecha_evaluar_sig.weekday() == dia_semana_objetivo:
-                    clases_totales_restantes += 1
-            
             if clases_totales_restantes == 0:
                 clases_totales_restantes = 1
                 
-            monto = clase.actividad.precio_clase * clases_totales_restantes
+            # =========================================================
+            # CÁLCULO PROPORCIONAL EXACTO DEL MES
+            # =========================================================
+            # El precio de la mensualidad toma como base 5 clases
+            clases_ideales = Decimal('5.0') 
             
+            precio_unitario_mensual = clase.actividad.precio_mensualidad / clases_ideales
+            monto = precio_unitario_mensual * Decimal(clases_totales_restantes)
+            
+            # TOPE MÁXIMO: Nunca cobra más que la mensualidad base
+            if monto > clase.actividad.precio_mensualidad:
+                monto = clase.actividad.precio_mensualidad
+            
+            monto = round(monto, 2)
+             
         else:
             # Flujo individual suelta
             if clase.cupos_para_fecha(fecha_clase) <= 0:
