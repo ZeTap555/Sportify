@@ -549,7 +549,7 @@ def pago_mercadopago(request):
     request.session.modified = True
     
     sdk = mercadopago.SDK(settings.MERCADO_PAGO_ACCESS_TOKEN)
-    BASE_URL = "https://outsider-statue-entwine.ngrok-free.dev"
+    BASE_URL = "https://pancake-energetic-preseason.ngrok-free.dev"
     
     preference_data = {
         "items": [
