@@ -551,21 +551,7 @@
                     });
                 }
 
-                contenidoHtml = `
-                    <div style="margin-top:15px; background:#1c1c1e; padding:12px; border-radius:8px; border:1px solid #2c2c2e;">
-                        <h4 style="margin:0 0 8px 0; color:#ff9f0a; font-size:14px;">🛠️ Panel de Gestión (${modalData.rol.toUpperCase()})</h4>
-                        <label style="font-size:12px; color:#aeaeae; display:block; margin-bottom:4px;">Profesor Asignado:</label>
-                        <select id="select-profesor-modal" class="modal-input" style="margin-bottom:12px; background:#2c2c2e; color:#fff; border:1px solid #3a3a3c; width:100%; padding:6px; border-radius:4px;">
-                            ${opcionesProfesores}
-                        </select>
-                        <button class="modal-btn primary" style="padding:6px 12px; font-size:13px; margin-bottom:12px;" onclick="guardarCambiosAdmin(${modalData.id})">Actualizar Profesor</button>
-                        <p style="margin:8px 0 4px 0; font-size:12px; font-weight:600; color:#aeaeae;">Lista de Espera:</p>
-                        <ul style="margin:0; padding-left:15px; font-size:12px; color:#e5e5ea; max-height:80px; overflow-y:auto;">
-                            ${listaEsperaHtml}
-                        </ul>
-                    </div>
-                    <button class="modal-btn secondary" style="margin-top:15px;" onclick="cerrarModal()">Cerrar</button>
-                `;
+                
 
             } else {
                 // ==========================================================

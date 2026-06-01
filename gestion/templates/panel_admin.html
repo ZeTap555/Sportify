@@ -388,50 +388,77 @@
                         {% csrf_token %}
                         <input type="hidden" name="action" value="registrar_profesor">
                         
+                        {% if errores_profesor.general %}
+                        <div style="background-color: rgba(255, 59, 48, 0.1); border-left: 4px solid #ff3b30; color: #ff3b30; padding: 10px; margin-bottom: 20px; border-radius: 4px; font-size: 0.9rem;">
+                            {{ errores_profesor.general }}
+                        </div>
+                        {% endif %}
+
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                             <div class="input-group">
                                 <label for="prof-nombre">Nombre</label>
-                                <input type="text" id="prof-nombre" name="nombre" class="input-field" >
+                                <input type="text" id="prof-nombre" name="nombre" class="input-field" value="{{ valores_profesor.nombre|default:'' }}">
+                                {% if errores_profesor.nombre %}
+                                    <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.nombre }}</span>
+                                {% endif %}
                             </div>
                             <div class="input-group">
                                 <label for="prof-apellido">Apellido</label>
-                                <input type="text" id="prof-apellido" name="apellido" class="input-field" >
+                                <input type="text" id="prof-apellido" name="apellido" class="input-field" value="{{ valores_profesor.apellido|default:'' }}">
+                                {% if errores_profesor.apellido %}
+                                    <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.apellido }}</span>
+                                {% endif %}
                             </div>
                         </div>
 
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                             <div class="input-group">
-                                <label for="prof-dni">DNI </label>
-                                <input type="text" id="prof-dni" name="dni" class="input-field" placeholder="Ej: 42333444" >
+                                <label for="prof-dni">DNI</label>
+                                <input type="text" id="prof-dni" name="dni" class="input-field" placeholder="Ej: 42333444" value="{{ valores_profesor.dni|default:'' }}">
+                                {% if errores_profesor.dni %}
+                                    <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.dni }}</span>
+                                {% endif %}
                             </div>
                             <div class="input-group">
                                 <label for="prof-nac">Fecha de Nacimiento</label>
-                                <input type="date" id="prof-nac" name="fecha_nacimiento" class="input-field" >
+                                <input type="date" id="prof-nac" name="fecha_nacimiento" class="input-field" value="{{ valores_profesor.fecha_nacimiento|default:'' }}">
+                                {% if errores_profesor.fecha_nacimiento %}
+                                    <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.fecha_nacimiento }}</span>
+                                {% endif %}
                             </div>
                         </div>
 
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                             <div class="input-group">
-                                <label for="prof-tel">Teléfono </label>
-                                <input type="tel" id="prof-tel" name="telefono" class="input-field" placeholder="Ej: 2215556677" >
+                                <label for="prof-tel">Teléfono</label>
+                                <input type="tel" id="prof-tel" name="telefono" class="input-field" placeholder="Ej: 2215556677" value="{{ valores_profesor.telefono|default:'' }}">
+                                {% if errores_profesor.telefono %}
+                                    <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.telefono }}</span>
+                                {% endif %}
                             </div>
                             <div class="input-group">
                                 <label for="prof-correo">Correo Electrónico</label>
-                                <input type="email" id="prof-correo" name="correo" class="input-field" placeholder="ejemplo@sportify.com" >
+                                <input type="email" id="prof-correo" name="correo" class="input-field" placeholder="ejemplo@sportify.com" value="{{ valores_profesor.correo|default:'' }}">
+                                {% if errores_profesor.correo %}
+                                    <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.correo }}</span>
+                                {% endif %}
                             </div>
                         </div>
 
                         <div class="input-group" style="margin-bottom: 30px;">
-                            <label for="prof-pass">Contraseña </label>
-                            <input type="password" id="prof-pass" name="contrasenia" class="input-field" placeholder="••••••••" >
-                            <span style="font-size:0.75rem; color:#636366; margin-top:4px;">* El profesor podrá actualizarla al iniciar sesión por primera vez.</span>
+                            <label for="prof-pass">Contraseña</label>
+                            <input type="password" id="prof-pass" name="contrasenia" class="input-field" placeholder="••••••••">
+                            {% if errores_profesor.contrasenia %}
+                                <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.contrasenia }}</span>
+                            {% else %}
+                                <span style="font-size:0.75rem; color:#636366; margin-top:4px; display: block;">* El profesor podrá actualizarla al iniciar sesión por primera vez.</span>
+                            {% endif %}
                         </div>
 
                         <button type="submit" class="btn-action">Dar de Alta Profesor</button>
                     </form>
                 </div>
             </div>
-
         </div>
     </div>
 
