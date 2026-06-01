@@ -366,6 +366,15 @@
                         >   
                             Filtrar clases por actividad
                         </button>
+                        {% if mensaje_filtro %}
+                            <div style="
+                                color:#ff453a;
+                                margin-top:10px;
+                                font-weight:600;
+                            ">
+                                {{mensaje_filtro}}
+                            </div>
+                        {% endif %}
                     </form>
 
                 </div>
