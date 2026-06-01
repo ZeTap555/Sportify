@@ -330,6 +330,53 @@
             <div class="calendar-section">
                 <div class="calendar-header">
                     <h1>{{ mes_nombre }} {{ anio_actual }}</h1>
+                    <form method ="GET" style="margin-top:15px;">
+                        <select
+                            name="actividad"
+                            style="
+                                padding:10px;
+                                border-radius:8px;
+                                background:#1c1c1e;
+                                color:white;
+                                border:1px solid #3a3a3c;"
+                        >
+                            <option value="">Todas las actividades</option>
+                            {% for actividad in actividades %}
+                                <option value ="{{actividad.id}}"
+                                   {% if actividad_seleccionada == actividad.id|stringformat:"s" %}
+                                       selected
+                                   {% endif %}
+                                >
+                                    {{actividad.nombre}}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <button 
+                            type="submit"
+                            style="
+                                padding:10px 15px;
+                                border:none;
+                                border-radius:8px;
+                                background:#00ff88;
+                                color:black;
+                                font-weight:600;
+                                cursor:pointer;
+                                margin-left:10px;
+                            "
+                        >   
+                            Filtrar clases por actividad
+                        </button>
+                        {% if mensaje_filtro %}
+                            <div style="
+                                color:#ff453a;
+                                margin-top:10px;
+                                font-weight:600;
+                            ">
+                                {{mensaje_filtro}}
+                            </div>
+                        {% endif %}
+                    </form>
+
                 </div>
 
                 <div class="calendar-grid">
@@ -349,7 +396,7 @@
                                 <div class="calendar-day 
                                     {% if fecha_seleccionada.day == dia %}selected{% endif %}
                                     {% if hoy.day == dia and hoy.month == mes_actual and hoy.year == anio_actual %}is-hoy{% endif %}"
-                                    onclick="location.href='?anio={{ anio_actual }}&mes={{ mes_actual }}&dia_sel={{ dia }}'">
+                                    onclick="location.href='?anio={{ anio_actual }}&mes={{ mes_actual }}&dia_sel={{ dia }}&actividad={{actividad_seleccionada}}'">
                                     
                                     <div class="day-number">{{ dia }}</div>
                                     
@@ -380,7 +427,7 @@
                     <p style="font-size: 0.78rem; font-weight: 600; color: #8e8e93; text-transform: uppercase; margin-bottom: 10px;">Próximos Meses</p>
                     <div class="months-selector">
                         {% for m in proximos_meses %}
-                            <a href="?anio={{ m.anio }}&mes={{ m.mes }}&dia_sel=1" class="month-btn {% if m.activo %}active{% endif %}">
+                            <a href="?anio={{ m.anio }}&mes={{ m.mes }}&dia_sel=1&actividad={{ actividad_seleccionada }}" class="month-btn {% if m.activo %}active{% endif %}">
                                 {{ m.nombre }}
                             </a>
                         {% endfor %}

@@ -63,6 +63,8 @@ def grilla_actividades(request):
     año = int(request.GET.get('anio', ahora.year))
     mes = int(request.GET.get('mes', ahora.month))
     dia_seleccionado_str = request.GET.get('dia_sel', str(ahora.day))
+    actividad_id=request.GET.get('actividad')
+
     
     fecha_seleccionada = date(año, mes, int(dia_seleccionado_str))
 
@@ -80,6 +82,10 @@ def grilla_actividades(request):
 
     # 3. Traemos todas las clases del sistema para evaluar en qué casilleros se repiten
     todas_las_clases = Clase.objects.all()
+    if actividad_id:
+        todas_las_clases=todas_las_clases.filter(
+            actividad_id=actividad_id
+        )
     
     # 4. Construir las semanas del calendario usando el módulo de Python
     cal = calendar.Calendar(firstweekday=0) # 0 = Lunes
@@ -111,6 +117,28 @@ def grilla_actividades(request):
         
         # Las ordenamos por horario para que no queden mezcladas
         clases_detalle_dia.sort(key=lambda x: x.horario)
+    hay_clases_mes=False
+    for semana in semanas_matriz:
+        for dia in semana:
+            if dia !=0:
+                fecha_casillero=date(año,mes,dia)
+                for clase in todas_las_clases:
+                    if(
+                        clase.dia_semana_num==fecha_casillero.weekday()
+                        and fecha_casillero>=clase.fecha
+                    ):
+                        hay_clases_mes=True
+                        break
+                if hay_clases_mes:
+                    break
+        if hay_clases_mes:
+            break
+    actividades=Actividad.objects.all()
+    mensaje_filtro=None
+    if actividad_id and not hay_clases_mes:
+        mensaje_filtro=(
+            "No se encontraron clases disponibles para los filtros seleccionados"
+        )
 
     context = {
         'semanas_matriz': semanas_matriz,
@@ -122,6 +150,9 @@ def grilla_actividades(request):
         'fecha_seleccionada': fecha_seleccionada,
         'clases_detalle_dia': clases_detalle_dia,
         'hoy': ahora,
+        'actividades':actividades,
+        'actividad_seleccionada':actividad_id,
+        'mensaje_filtro':mensaje_filtro,
     }
     
     if request.user.is_authenticated:
