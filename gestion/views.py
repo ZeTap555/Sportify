@@ -115,6 +115,13 @@ def grilla_actividades(request):
         for clase in todas_las_clases:
             if clase.dia_semana_num == dia_semana_sel and fecha_seleccionada >= clase.fecha:
                 clase.cupos_mostrar = clase.cupos_para_fecha(fecha_seleccionada)
+                # No mostrar clases que ya pasaron en el detalle del día
+                if fecha_seleccionada == ahora:
+                    fecha_hora_clase = timezone.make_aware(
+                        datetime.combine(fecha_seleccionada, clase.horario)
+                    )
+                    if fecha_hora_clase < timezone.now():
+                        continue
                 clases_detalle_dia.append(clase)
         
         # Las ordenamos por horario para que no queden mezcladas
@@ -315,7 +322,7 @@ def inscribirse_clase(request, clase_id):
                 return redirect('grilla_actividades')
                 
             precio = clase.actividad.precio_clase
-            monto = precio * Decimal('0.50') if tipo_pago == 'senia' else precio
+            monto = precio / 2 if tipo_pago == 'senia' else precio
 
         # Guardamos en sesión
         request.session['inscripcion_pendiente'] = {
