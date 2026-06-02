@@ -320,7 +320,7 @@ def inscribirse_clase(request, clase_id):
                     monto_pagado=0,
                     estado_pago='pendiente',
                 )
-                messages.warning(request, "Te registraste en la lista de espera para esta clase.")
+                messages.success(request, "Te registraste en la lista de espera para esta clase.")
                 return redirect('grilla_actividades')
                 
             precio = clase.actividad.precio_clase
@@ -1459,7 +1459,7 @@ def asignar_profesor_clase(request, clase_id):
 
 @login_required
 def historial_pagos(request):
-    pagos = Reserva.objects.filter(usuario=request.user).order_by('-fecha_reserva')
+    pagos = Reserva.objects.filter(usuario=request.user, en_lista_de_espera=False).order_by('-fecha_reserva')
 
     hoy = date.today()
     dia_hoy = hoy.day
