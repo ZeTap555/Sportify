@@ -63,7 +63,9 @@ def grilla_actividades(request):
     año = int(request.GET.get('anio', ahora.year))
     mes = int(request.GET.get('mes', ahora.month))
     dia_seleccionado_str = request.GET.get('dia_sel', str(ahora.day))
-    actividad_id=request.GET.get('actividad')
+    actividad_id = request.GET.get('actividad')
+    if actividad_id and not actividad_id.isdigit():
+     actividad_id = None
 
     
     fecha_seleccionada = date(año, mes, int(dia_seleccionado_str))

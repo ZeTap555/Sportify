@@ -340,7 +340,10 @@
                                 {% for act in actividades %}
                                     <div class="item-row">
                                         <span>Clase de <strong>{{ act.nombre }}</strong></span>
-                                        <input type="number" step="0.01" name="precio_clase_{{ act.id }}" class="input-field price-input" value="{{ act.precio_clase }}" placeholder="0.00">
+                                        <div style="display:flex; align-items:center; gap:10px;">
+                                            <span style="color:#00ff88; font-weight:600; min-width:60px;">${{ act.precio_clase }}</span>
+                                            <input type="number" step="0.01" name="precio_clase_{{ act.id }}" class="input-field price-input" value="{{ act.precio_clase }}" placeholder="0.00" style="width:120px;">
+                                        </div>
                                     </div>
                                 {% empty %}
                                     <p style="font-style:italic; color:#636366;">No hay actividades cargadas.</p>
@@ -356,7 +359,10 @@
                                 {% for act in actividades %}
                                     <div class="item-row">
                                         <span>Mensualidad de <strong>{{ act.nombre }}</strong></span>
-                                        <input type="number" step="0.01" name="precio_mes_{{ act.id }}" class="input-field price-input" style="color:#8e8e93;" value="{{ act.precio_mensualidad }}" placeholder="0.00">
+                                        <div style="display:flex; align-items:center; gap:10px;">
+                                            <span style="color:#00ff88; font-weight:600; min-width:60px;">${{ act.precio_mensualidad }}</span>
+                                            <input type="number" step="0.01" name="precio_mes_{{ act.id }}" class="input-field price-input" value="{{ act.precio_mensualidad }}" placeholder="0.00" style="width:120px;">
+                                        </div>
                                     </div>
                                 {% empty %}
                                     <p style="font-style:italic; color:#636366;">No hay actividades cargadas.</p>
