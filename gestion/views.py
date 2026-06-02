@@ -84,8 +84,10 @@ def grilla_actividades(request):
 
     # 3. Traemos todas las clases del sistema para evaluar en qué casilleros se repiten
     todas_las_clases = Clase.objects.all()
-    if actividad_id:
-        todas_las_clases=todas_las_clases.filter(
+    
+    # Validamos que actividad_id tenga un valor real y no sea el string 'None' o un texto vacío
+    if actividad_id and actividad_id != 'None' and actividad_id != '':
+        todas_las_clases = todas_las_clases.filter(
             actividad_id=actividad_id
         )
     
