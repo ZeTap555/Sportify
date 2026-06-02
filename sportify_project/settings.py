@@ -8,6 +8,8 @@ ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '.ngrok-free.app','.ngrok-free.dev']
 CSRF_TRUSTED_ORIGINS = [
 
     'https://5ca0-89-187-170-169.ngrok-free.app',
+    
+    'https://pancake-energetic-preseason.ngrok-free.dev',
 
     'https://*.ngrok-free.dev',
 
