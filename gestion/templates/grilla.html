@@ -579,26 +579,61 @@
 
             // 👥 EVALUAMOS SEGÚN EL ROL QUE VIENE DEL BACKEND
             if (modalData.rol === 'admin' || modalData.rol === 'profesor') {
-                // ... (Lógica de Admin/Profesores con su botón Cerrar al final) ...
+                
+                // 1. Armamos la Lista de Alumnos Inscriptos (Los que ya tienen su lugar)
+                let listaInscriptosHtml = '';
+                if (modalData.inscriptos && modalData.inscriptos.length > 0) {
+                    modalData.inscriptos.forEach(function(alumno) {
+                        // Verificamos si el backend dice que es mensualidad o clase suelta
+                        let badgePase = (alumno.tipo_reserva === 'mensualidad') 
+                            ? `<span style="background: rgba(48, 209, 88, 0.2); color: #30d158; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; margin-left: 8px;">Mensualidad</span>`
+                            : `<span style="background: rgba(255, 159, 10, 0.2); color: #ff9f0a; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; margin-left: 8px;">Por Clase</span>`;
+                            
+                        listaInscriptosHtml += `
+                            <li style="font-size:0.9rem; color:#fff; margin-bottom:8px; display: flex; align-items: center; justify-content: space-between;">
+                                <div>
+                                    ✅ <strong>${alumno.last_name}, ${alumno.first_name}</strong>
+                                    <span style="color:#8e8e93; font-size:0.85rem;">(DNI: ${alumno.username})</span>
+                                </div>
+                                ${badgePase}
+                            </li>`;
+                    });
+                } else {
+                    listaInscriptosHtml = '<li style="font-size:0.9rem; color:#636366; font-style:italic;">Aún no hay inscriptos.</li>';
+                }
+
+                // 2. Armamos la Lista de Espera (Los que están en cola)
                 let listaEsperaHtml = '';
                 if (modalData.cola_espera && modalData.cola_espera.length > 0) {
                     modalData.cola_espera.forEach(function(alumno) {
-                        let badgePase = alumno.pase_mensual ? `<span>...</span>` : '';
-                        listaEsperaHtml += `<li>${alumno.last_name}...</li>`;
+                        let badgePase = (alumno.tipo_reserva === 'mensualidad') 
+                            ? `<span style="background: rgba(48, 209, 88, 0.2); color: #30d158; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; margin-left: 8px;">Mensualidad</span>`
+                            : `<span style="background: rgba(255, 159, 10, 0.2); color: #ff9f0a; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; margin-left: 8px;">Por Clase</span>`;
+                            
+                        listaEsperaHtml += `
+                            <li style="font-size:0.9rem; color:#fff; margin-bottom:8px; display: flex; align-items: center; justify-content: space-between;">
+                                <div>
+                                    ⏳ <strong>${alumno.last_name}, ${alumno.first_name}</strong>
+                                </div>
+                                ${badgePase}
+                            </li>`;
                     });
                 } else {
-                    listaEsperaHtml = '<li>No hay alumnos en espera.</li>';
+                    listaEsperaHtml = '<li style="font-size:0.9rem; color:#636366; font-style:italic;">No hay alumnos en espera.</li>';
                 }
 
-                let opcionesProfesores = '';
-                if (modalData.todos_los_profesores) {
-                    modalData.todos_los_profesores.forEach(function(p) {
-                        let selected = (p.id == modalData.profesor_id) ? 'selected' : '';
-                        opcionesProfesores += `<option value="${p.id}" ${selected}>${p.apellido}, ${p.nombre}</option>`;
-                    });
-                }
-
-                
+                // Imprimimos todo junto en el modal
+                contenidoHtml = `
+                    <div style="background:#2c2c2e; padding:15px; border-radius:10px; margin-bottom:20px;">
+                        <h3 style="font-size:1rem; margin:0 0 10px 0; color:#30d158;">✅ Alumnos Inscriptos</h3>
+                        <ul style="padding-left:0; margin:0; list-style:none;">${listaInscriptosHtml}</ul>
+                    </div>
+                    
+                    <div style="background:#2c2c2e; padding:15px; border-radius:10px; margin-bottom:20px;">
+                        <h3 style="font-size:1rem; margin:0 0 10px 0; color:#ff9f0a;">⏳ Lista de Espera</h3>
+                        <ul style="padding-left:0; margin:0; list-style:none;">${listaEsperaHtml}</ul>
+                    </div>
+                `;
 
             } else {
                 // ==========================================================
@@ -630,7 +665,17 @@
                     botonMensualidad = `
                         <button class="modal-btn" disabled style="background-color: #2c2c2e; color: #545456; cursor: not-allowed; opacity: 0.3;">Contratar mensualidad</button>
                     `;
-                } else if (modalData.ya_inscripto) {
+                } 
+                // 🔥 NUEVA LÓGICA: Si hay deuda, priorizamos el botón de pago
+                else if (modalData.reserva_pendiente) {
+                    botonMensualidad = `
+                        <button class="modal-btn primary" style="background-color: #34c759; color: #ff0000; margin-top: 5px;" 
+                                onclick="mostrarPasoSel('pago', 'total', 'mensualidad')">
+                            Renovar mensualidad
+                        </button>
+                    `;
+                }
+                else if (modalData.ya_inscripto) {
                     botonMensualidad = `
                         <button class="modal-btn" disabled style="background-color: #2c2c2e; color: #8e8e93; cursor: not-allowed; opacity: 0.4; margin-top: 5px;">Contratar mensualidad</button>
                     `;
@@ -657,6 +702,15 @@
                 acciones.innerHTML = `
                     <div style="text-align: center; margin: 20px 0;">
                         <p style="color: #30d158; font-weight: 600; font-size: 1.1rem; margin-bottom: 15px; line-height: 1.4;">Ya tenés una mensualidad activa de esta actividad.</p>
+                        <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver al detalle</button> </div>
+                `;
+            } else if (modalData.choque_mensual_abono) {
+                acciones.innerHTML = `
+                    <div style="text-align: center; margin: 20px 0;">
+                        <p style="color: #ff453a; font-weight: 600; font-size: 1rem; margin-bottom: 15px; line-height: 1.4;">
+                            ⚠️ Horario Superpuesto<br>
+                            <span style="font-size: 0.85rem; font-weight: 400; color: #aeaeae;">No podés contratar la mensualidad porque coincide con tu abono de <strong style="color: #00ff88;">${modalData.nombre_actividad_choque_m}</strong>.</span>
+                        </p>
                         <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver al detalle</button> </div>
                 `;
             } else if (modalData.choque_horario) {
@@ -734,10 +788,10 @@
                     <input type="hidden" name="fecha_clase" value="${modalFecha}">
                     <input type="hidden" name="flujo_tipo" value="${flujoTipo}">
                 </form>
-                <button class="modal-btn primary" onclick="enviarForm('Tarjeta')">
+                <button class="modal-btn primary" onclick="enviarForm('Tarjeta', '${flujoTipo}')">
                     💳 Tarjeta de crédito/débito
                 </button>
-                <button class="modal-btn primary" onclick="enviarForm('Mercado Pago')">
+                <button class="modal-btn primary" onclick="enviarForm('Mercado Pago', '${flujoTipo}')">
                     <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#00BFFF; margin-right:6px; vertical-align:middle;"></span> Mercado Pago
                 </button>
                 <button class="modal-btn secondary" onclick="mostrarPasoSel('${pasoVolver}')">Volver</button>
@@ -747,10 +801,14 @@
         document.getElementById('modalDetalle').classList.add('active');
     }
 
-    function enviarForm(medioPago) {
-        document.getElementById('input-medio-pago').value = medioPago;
-        document.getElementById('form-pago').submit();
+    function enviarForm(medioPago, flujo) {
+    // Si pasamos el flujo, lo forzamos en el input oculto
+    if (flujo) {
+        document.querySelector('input[name="flujo_tipo"]').value = flujo;
     }
+    document.getElementById('input-medio-pago').value = medioPago;
+    document.getElementById('form-pago').submit();
+}
 
     function cerrarModal(e) {
         if (!e || e.target === e.currentTarget) {

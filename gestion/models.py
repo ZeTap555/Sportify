@@ -147,15 +147,17 @@ class Reserva(models.Model):
     fecha_reserva = models.DateTimeField(auto_now_add=True)
     
     # 📋 LISTA DE ESPERA INTERNA
-    # Si al crearse la reserva los cupos de la clase eran 0, pasa automáticamente a True
     en_lista_de_espera = models.BooleanField(default=False)
     
+    # 💰 PAGOS
     monto_pagado = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     estado_pago = models.CharField(max_length=20, default='pendiente') # 'seña', 'total', 'pendiente'
     medio_pago = models.CharField(max_length=30, blank=True, null=True)  # 'Tarjeta', 'Mercado Pago'
 
+    # 🚀 NUEVO: Diferencia si compró clase suelta o si viene por abono mensual
+    tipo_reserva = models.CharField(max_length=20, default='clase') # Puede ser 'clase' o 'mensualidad'
+
     class Meta:
-        # Evita que un mismo usuario se anote dos veces a la misma clase exacta
         unique_together = ('usuario', 'clase', 'fecha_clase')
 
     def __str__(self):

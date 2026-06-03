@@ -70,6 +70,20 @@ def grilla_actividades(request):
     
     fecha_seleccionada = date(año, mes, int(dia_seleccionado_str))
 
+    # =========================================================
+    # LA GUILLOTINA: Si pasamos el día 10, volamos a los morosos del mes actual
+    # =========================================================
+    if ahora.day > 10:
+        reservas_morosas = Reserva.objects.filter(
+            tipo_reserva='mensualidad',
+            estado_pago='pendiente',
+            clase__fecha__month=ahora.month,
+            clase__fecha__year=ahora.year
+        )
+        if reservas_morosas.exists():
+            reservas_morosas.delete()
+    # =========================================================
+
     # 2. Generar la lista de los próximos 6 meses para el panel superior derecho
     proximos_meses = []
     meses_nombres = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
@@ -105,9 +119,17 @@ def grilla_actividades(request):
                 
                 clases_por_dia[dia] = []
                 for clase in todas_las_clases:
-                    # Se repite si coincide el día de la semana Y el casillero es posterior o igual al inicio
                     if clase.dia_semana_num == dia_semana_casillero and fecha_casillero >= clase.fecha:
                         clase.cupos_mostrar = clase.cupos_para_fecha(fecha_casillero)
+                        
+                        # 🔥 NUEVO: Detectar si este usuario debe esta clase específica
+                        clase.tiene_deuda = Reserva.objects.filter(
+                            usuario=request.user, 
+                            clase=clase, 
+                            fecha_clase=fecha_casillero, 
+                            estado_pago='pendiente'
+                        ).exists() if request.user.is_authenticated else False
+                        
                         clases_por_dia[dia].append(clase)
 
     # 5. Lógica para el detalle del día seleccionado (Abajo a la derecha)
@@ -117,6 +139,13 @@ def grilla_actividades(request):
         for clase in todas_las_clases:
             if clase.dia_semana_num == dia_semana_sel and fecha_seleccionada >= clase.fecha:
                 clase.cupos_mostrar = clase.cupos_para_fecha(fecha_seleccionada)
+                # 🔥 NUEVO: Detectar deuda para el detalle
+                clase.tiene_deuda = Reserva.objects.filter(
+                    usuario=request.user, 
+                    clase=clase, 
+                    fecha_clase=fecha_seleccionada, 
+                    estado_pago='pendiente'
+                ).exists() if request.user.is_authenticated else False
                 # No mostrar clases que ya pasaron en el detalle del día
                 if fecha_seleccionada == ahora:
                     fecha_hora_clase = timezone.make_aware(
@@ -212,7 +241,7 @@ def detalle_clase_fecha(request, clase_id):
 def inscribirse_clase(request, clase_id):
     clase = get_object_or_404(Clase, id=clase_id)
     fecha_clase_str = request.POST.get('fecha_clase')
-
+    
     if not fecha_clase_str:
         return redirect('grilla_actividades')
 
@@ -224,7 +253,41 @@ def inscribirse_clase(request, clase_id):
     if request.method == 'POST':
         tipo_pago = request.POST.get('tipo_pago')
         medio_pago = request.POST.get('medio_pago')
-        flujo_tipo = request.POST.get('flujo_tipo', 'clase')  # 'clase' o 'mensualidad'
+        flujo_tipo = request.POST.get('flujo_tipo', 'clase') # Ahora sí viene del form
+
+        # Cálculo de costo de la mensualidad
+        if flujo_tipo == 'mensualidad':
+            # 🔥 CORRECCIÓN: Si el usuario ya tiene una reserva pendiente (es una renovación), 
+            # cobramos precio fijo de mensualidad sin hacer cuentas raras
+            tiene_pendiente = Reserva.objects.filter(
+                usuario=request.user, 
+                clase=clase, 
+                estado_pago='pendiente'
+            ).exists()
+
+            if tiene_pendiente:
+                # PRECIO FIJO SI ES RENOVACIÓN
+                monto = clase.actividad.precio_mensualidad
+            else:
+                # CÁLCULO PROPORCIONAL SOLO SI ES INSCRIPCIÓN NUEVA
+                anio_solicitado = fecha_clase.year
+                mes_solicitado = fecha_clase.month
+                dia_semana_objetivo = fecha_clase.weekday()
+                _, ultimo_dia_mes = monthrange(anio_solicitado, mes_solicitado)
+                dia_inicio = fecha_clase.day
+                
+                clases_totales_restantes = 0
+                for d in range(dia_inicio, ultimo_dia_mes + 1):
+                    fecha_evaluar = date(anio_solicitado, mes_solicitado, d)
+                    if fecha_evaluar.weekday() == dia_semana_objetivo:
+                        clases_totales_restantes += 1
+                
+                # Aplicar proporcional
+                clases_ideales = Decimal('4.0')
+                precio_unitario_mensual = clase.actividad.precio_mensualidad / clases_ideales
+                monto = precio_unitario_mensual * Decimal(clases_totales_restantes)
+                
+            monto = round(monto, 2)
 
         if tipo_pago not in ('senia', 'total'):
             return redirect('grilla_actividades')
@@ -238,6 +301,10 @@ def inscribirse_clase(request, clase_id):
             fecha_clase=fecha_clase,
             clase__horario=clase.horario,
             en_lista_de_espera=False
+        ).exclude(
+            # Esta línea es la que evita que el sistema "se choque contra sí mismo"
+            estado_pago='pendiente', 
+            clase=clase
         ).exists()
 
         if choque_horario:  
@@ -254,15 +321,27 @@ def inscribirse_clase(request, clase_id):
             mes_solicitado = fecha_clase.month
             anio_solicitado = fecha_clase.year
             
-            if Mensualidad.objects.filter(
-                usuario=request.user, 
-                actividad=clase.actividad, 
-                mes=mes_solicitado, 
-                anio=anio_solicitado,
-                estado='pagada'
-            ).exists():
-                messages.error(request, "Ya estás inscripto a una mensualidad de esta actividad.")
+            
+
+            # =========================================================
+            # 🔥 NUEVA REGLA: Evitar choque de horarios entre Mensualidades diferentes
+            # =========================================================
+            dia_semana_objetivo = fecha_clase.weekday()
+            choque_mensual_abono = Reserva.objects.filter(
+                usuario=request.user,
+                tipo_reserva='mensualidad',
+                fecha_clase=fecha_clase,
+                clase__horario=clase.horario
+            ).exclude(clase__actividad=clase.actividad).select_related('clase__actividad').first()
+
+            if choque_mensual_abono:
+                messages.error(
+                    request, 
+                    f"Error: No podés contratar esta mensualidad. Ya tenés un abono mensual de "
+                    f"'{choque_mensual_abono.clase.actividad.nombre}' asignado a este mismo día y horario."
+                )
                 return redirect('grilla_actividades')
+            # =========================================================
 
         # Cálculo de costo de la mensualidad (MODELO MES CALENDARIO)
         if flujo_tipo == 'mensualidad':
@@ -278,35 +357,34 @@ def inscribirse_clase(request, clase_id):
             # Obtenemos cuántos días tiene ese mes (ej: 28, 30, 31)
             _, ultimo_dia_mes = monthrange(anio_solicitado, mes_solicitado)
             
-            # Si se está anotando para el mes EN CURSO, contamos desde hoy.
-            # Si está pagando por adelantado el MES QUE VIENE, contamos desde el día 1.
-            if hoy.month == mes_solicitado and hoy.year == anio_solicitado:
-                dia_inicio = hoy.day
-            else:
-                dia_inicio = 1
+            # El conteo arranca estrictamente desde el día que clickeó en la grilla
+            dia_inicio = fecha_clase.day
             
             # Contamos las clases EXACTAS que le quedan en este mes
             for d in range(dia_inicio, ultimo_dia_mes + 1):
                 fecha_evaluar = date(anio_solicitado, mes_solicitado, d)
                 if fecha_evaluar.weekday() == dia_semana_objetivo:
+                    # 🔥 NUEVO: Si ya está anotado a esta clase física individual, la salteamos del cobro
+                    if Reserva.objects.filter(usuario=request.user, clase=clase, fecha_clase=fecha_evaluar).exists():
+                        continue
                     clases_totales_restantes += 1
-
             if clases_totales_restantes == 0:
                 clases_totales_restantes = 1
                 
             # =========================================================
-            # CÁLCULO PROPORCIONAL EXACTO DEL MES
+            # REGLA ESPECIAL: 1 CLASE RESTANTE = PRECIO INDIVIDUAL
             # =========================================================
-            # El precio de la mensualidad toma como base 5 clases
-            clases_ideales = Decimal('5.0') 
-            
-            precio_unitario_mensual = clase.actividad.precio_mensualidad / clases_ideales
-            monto = precio_unitario_mensual * Decimal(clases_totales_restantes)
-            
-            # TOPE MÁXIMO: Nunca cobra más que la mensualidad base
-            if monto > clase.actividad.precio_mensualidad:
-                monto = clase.actividad.precio_mensualidad
-            
+
+            if clases_totales_restantes == 1:
+                monto = clase.actividad.precio_clase
+            else:
+                # Si quedan 2 o más clases (hasta 5), aplica el proporcional base 4
+                clases_ideales = Decimal('4.0') 
+                precio_unitario_mensual = clase.actividad.precio_mensualidad / clases_ideales
+                monto = precio_unitario_mensual * Decimal(clases_totales_restantes)
+            print(f"DEBUG - Fecha elegida: {fecha_evaluar}")
+            print(f"DEBUG - Clases restantes: {clases_totales_restantes}")
+            print(f"DEBUG - Monto a cobrar: ${monto}")
             monto = round(monto, 2)
              
         else:
@@ -319,6 +397,7 @@ def inscribirse_clase(request, clase_id):
                     en_lista_de_espera=True,
                     monto_pagado=0,
                     estado_pago='pendiente',
+                    tipo_reserva='clase'  # <-- Buen lugar para reforzar que esto es por clase
                 )
                 messages.warning(request, "Te registraste en la lista de espera para esta clase.")
                 return redirect('grilla_actividades')
@@ -460,18 +539,56 @@ def pago_tarjeta(request):
                 dia_semana_objetivo = fecha_inicial.weekday()
                 
                 reserva_principal = None
-                lista_fechas_reservar = []
 
-                # 1. Recolectar días válidos del mes actual
+                # =========================================================
+                # 🔥 PASO 1: ASEGURAR EL MES ACTUAL (RENOVACIÓN O NUEVO)
+                # =========================================================
                 _, ultimo_dia_mes = monthrange(anio_actual, mes_current)
-                inicio_conteo = hoy if hoy.month == mes_current and hoy.year == anio_actual else date(anio_actual, mes_current, 1)
-                
-                for d in range(inicio_conteo.day, ultimo_dia_mes + 1):
+                lista_fechas_actual = []
+
+                for d in range(fecha_inicial.day, ultimo_dia_mes + 1):
                     f = date(anio_actual, mes_current, d)
                     if f.weekday() == dia_semana_objetivo:
-                        lista_fechas_reservar.append(f)
+                        lista_fechas_actual.append(f)
 
-                # 2. Recolectar días del mes siguiente hasta el 10 inclusive
+                # Dividimos el pago proporcionalmente entre las clases del mes
+                monto_por_clase = Decimal(datos['monto']) / max(len(lista_fechas_actual), 1)
+
+                for fecha_evaluar in lista_fechas_actual:
+                    # Buscamos si el sistema ya le había guardado el cupo el mes pasado
+                    reserva_existente = Reserva.objects.filter(
+                        usuario=request.user,
+                        clase=clase,
+                        fecha_clase=fecha_evaluar,
+                        tipo_reserva='mensualidad'
+                    ).first()
+
+                    if reserva_existente:
+                        # Si es una RENOVACIÓN, la pasamos a PAGADA
+                        reserva_existente.estado_pago = 'total'
+                        reserva_existente.monto_pagado = monto_por_clase
+                        reserva_existente.save()
+                        if not reserva_principal:
+                            reserva_principal = reserva_existente
+                    else:
+                        # Si es la primera vez que compra, creamos la reserva PAGADA
+                        sin_cupo = clase.cupos_para_fecha(fecha_evaluar) <= 0
+                        nueva_reserva = Reserva.objects.create(
+                            usuario=request.user,
+                            clase=clase,
+                            fecha_clase=fecha_evaluar,
+                            monto_pagado=monto_por_clase,
+                            estado_pago='total',
+                            medio_pago='Tarjeta',
+                            en_lista_de_espera=sin_cupo,
+                            tipo_reserva='mensualidad'
+                        )
+                        if not reserva_principal:
+                            reserva_principal = nueva_reserva
+
+                # =========================================================
+                # 🔥 PASO 2: PATEAR LA PELOTA AL MES SIGUIENTE (PENDIENTES)
+                # =========================================================
                 if mes_current == 12:
                     mes_siguiente = 1
                     anio_siguiente = anio_actual + 1
@@ -479,32 +596,27 @@ def pago_tarjeta(request):
                     mes_siguiente = mes_current + 1
                     anio_siguiente = anio_actual
 
-                for d in range(1, 11):
+                # AHORA LE GUARDAMOS TODO EL MES ENTERO (NO SOLO HASTA EL 10)
+                _, ultimo_dia_mes_sig = monthrange(anio_siguiente, mes_siguiente)
+
+                for d in range(1, ultimo_dia_mes_sig + 1):
                     f_sig = date(anio_siguiente, mes_siguiente, d)
                     if f_sig.weekday() == dia_semana_objetivo:
-                        lista_fechas_reservar.append(f_sig)
+                        # Nos aseguramos de no duplicarle la reserva pendiente si ya la tiene
+                        if not Reserva.objects.filter(usuario=request.user, clase=clase, fecha_clase=f_sig).exists():
+                            sin_cupo_sig = clase.cupos_para_fecha(f_sig) <= 0
+                            Reserva.objects.create(
+                                usuario=request.user,
+                                clase=clase,
+                                fecha_clase=f_sig,
+                                monto_pagado=0, # Está pendiente, no pagó nada por esta todavía
+                                estado_pago='pendiente',
+                                medio_pago='Tarjeta',
+                                en_lista_de_espera=sin_cupo_sig,
+                                tipo_reserva='mensualidad'
+                            )
 
-                # 3. Guardar registros físicos de las reservas
-                for fecha_evaluar in lista_fechas_reservar:
-                    # CONTROL ANTIDUPLICADOS
-                    if Reserva.objects.filter(usuario=request.user, clase=clase, fecha_clase=fecha_evaluar).exists():
-                        continue 
-                    
-                    sin_cupo = clase.cupos_para_fecha(fecha_evaluar) <= 0
-                    
-                    nueva_reserva = Reserva.objects.create(
-                        usuario=request.user,
-                        clase=clase,
-                        fecha_clase=fecha_evaluar,
-                        monto_pagado=Decimal(datos['monto']) / max(len(lista_fechas_reservar), 1),
-                        estado_pago='total',
-                        medio_pago='Tarjeta',
-                        en_lista_de_espera=sin_cupo
-                    )
-                    if not reserva_principal:
-                        reserva_principal = nueva_reserva
-                
-                # 4. Registrar la mensualidad en estado pagada
+                # 4. Registrar la tabla Mensualidad en estado pagada
                 Mensualidad.objects.update_or_create(
                     usuario=request.user,
                     actividad=clase.actividad,
@@ -517,7 +629,7 @@ def pago_tarjeta(request):
                 )
                 
                 reserva = reserva_principal
-                mensaje_notificacion = f"Se realizó con éxito el pago de tu MENSUALIDAD para: {clase.actividad.nombre}. Cupos reservados hasta el día 10 del próximo mes."
+                mensaje_notificacion = f"Se realizó con éxito el pago de tu MENSUALIDAD para: {clase.actividad.nombre}. Tus cupos ya están asegurados para este mes y el próximo."
             
             else:
                 # Flujo normal de una clase única individual
@@ -560,7 +672,7 @@ def pago_mercadopago(request):
     request.session.modified = True
     
     sdk = mercadopago.SDK(settings.MERCADO_PAGO_ACCESS_TOKEN)
-    BASE_URL = "https://pancake-energetic-preseason.ngrok-free.dev"
+    host_url = f"https://{request.get_host()}"
     
     preference_data = {
         "items": [
@@ -572,9 +684,9 @@ def pago_mercadopago(request):
             }
         ],
         "back_urls": {
-            "success": f"{BASE_URL}/pago/exito/",
-            "failure": f"{BASE_URL}/pago/error/",
-            "pending": f"{BASE_URL}/pago/pendiente/",
+            "success": f"{host_url}/pago/exito/",
+            "failure": f"{host_url}/pago/error/",
+            "pending": f"{host_url}/pago/pendiente/",
         },
         "auto_return": "approved"
     }
@@ -599,62 +711,161 @@ def pago_mercadopago(request):
 @login_required
 def pago_exito(request):
     """
-    Destino cuando el pago es aprobado. Usa get_or_create y el modelo 
-    de usuario personalizado para evitar colisiones en la base de datos.
+    Destino cuando el pago es aprobado por Mercado Pago. 
+    Replica la lógica proporcional base 4 y automatización del mes siguiente.
     """
     print("🟢 ENTRÓ A PAGO ÉXITO - PROCESANDO RESERVA")
     datos = request.session.get('inscripcion_pendiente')
     
-    if not datos:
-        messages.warning(request, 'La sesión de tu pago expiró o ya fue procesada.')
-        return redirect('grilla_actividades')
+   
         
-    # Sumamos Notificacion al import local
     from .models import Clase, Reserva, Notificacion 
+    from reservas.models import Mensualidad
     
     clase = get_object_or_404(Clase, id=datos['clase_id'])
     usuario_id = datos.get('usuario_id')
     usuario_reserva = get_object_or_404(Usuario, id=usuario_id) if usuario_id else request.user
     
+    fecha_inicial = datetime.strptime(datos['fecha_clase'], '%Y-%m-%d').date()
+    hoy = datetime.now().date()
+    
+    creado = False
+    reserva = None
+
     with transaction.atomic():
-        reserva, creado = Reserva.objects.get_or_create(
-            usuario=usuario_reserva,
-            clase=clase,
-            fecha_clase=datos['fecha_clase'],
-            defaults={
-                'monto_pagado': datos['monto'],
-                'estado_pago': 'seña' if datos['tipo_pago'] == 'senia' else 'total',
-                'medio_pago': 'Mercado Pago'
-            }
-        )
-        
-    if creado:
-        print(f"✅ Reserva {reserva.id} creada con éxito en la base de datos.")
-        
-        # =========================================================
-        # 🔔 LOGICA DE NOTIFICACIÓN IDÉNTICA A LA TARJETA
-        # =========================================================
         if datos.get('flujo_tipo') == 'mensualidad':
-            mensaje_notificacion = f"Se realizó con éxito el pago de tu MENSUALIDAD para: {clase.actividad.nombre}. Cupos reservados hasta el día 10 del próximo mes."
+            mes_current = fecha_inicial.month
+            anio_actual = fecha_inicial.year
+            dia_semana_objetivo = fecha_inicial.weekday()
+            
+            # Control de doble impacto de Mercado Pago: verificamos si la mensualidad ya se pagó
+            if Mensualidad.objects.filter(
+                usuario=usuario_reserva, 
+                actividad=clase.actividad, 
+                mes=mes_current, 
+                anio=anio_actual, 
+                estado='pagada'
+            ).exists():
+                reserva = Reserva.objects.filter(usuario=usuario_reserva, clase=clase, fecha_clase=fecha_inicial).first()
+                creado = False
+            else:
+                reserva_principal = None
+                _, ultimo_dia_mes = monthrange(anio_actual, mes_current)
+                lista_fechas_actual = []
+
+                # 1. Recolectamos las clases físicas del mes actual desde el día seleccionado
+                for d in range(fecha_inicial.day, ultimo_dia_mes + 1):
+                    f = date(anio_actual, mes_current, d)
+                    if f.weekday() == dia_semana_objetivo:
+                        lista_fechas_actual.append(f)
+
+                monto_por_clase = Decimal(datos['monto']) / max(len(lista_fechas_actual), 1)
+
+                # 2. Registramos o actualizamos las reservas físicas del mes corriente
+                for fecha_evaluar in lista_fechas_actual:
+                    reserva_existente = Reserva.objects.filter(
+                        usuario=usuario_reserva,
+                        clase=clase,
+                        fecha_clase=fecha_evaluar,
+                        tipo_reserva='mensualidad'
+                    ).first()
+
+                    if reserva_existente:
+                        reserva_existente.estado_pago = 'total'
+                        reserva_existente.monto_pagado = monto_por_clase
+                        reserva_existente.medio_pago = 'Mercado Pago'
+                        reserva_existente.save()
+                        if not reserva_principal:
+                            reserva_principal = reserva_existente
+                    else:
+                        sin_cupo = clase.cupos_para_fecha(fecha_evaluar) <= 0
+                        nueva_reserva = Reserva.objects.create(
+                            usuario=usuario_reserva,
+                            clase=clase,
+                            fecha_clase=fecha_evaluar,
+                            monto_pagado=monto_por_clase,
+                            estado_pago='total',
+                            medio_pago='Mercado Pago',
+                            en_lista_de_espera=sin_cupo,
+                            tipo_reserva='mensualidad'
+                        )
+                        if not reserva_principal:
+                            reserva_principal = nueva_reserva
+
+                # 3. Reservas fijas automáticas en estado PENDIENTE para TODO el mes siguiente
+                if mes_current == 12:
+                    mes_siguiente = 1
+                    anio_siguiente = anio_actual + 1
+                else:
+                    mes_siguiente = mes_current + 1
+                    anio_siguiente = anio_actual
+
+                _, ultimo_dia_mes_sig = monthrange(anio_siguiente, mes_siguiente)
+
+                for d in range(1, ultimo_dia_mes_sig + 1):
+                    f_sig = date(anio_siguiente, mes_siguiente, d)
+                    if f_sig.weekday() == dia_semana_objetivo:
+                        if not Reserva.objects.filter(usuario=usuario_reserva, clase=clase, fecha_clase=f_sig).exists():
+                            sin_cupo_sig = clase.cupos_para_fecha(f_sig) <= 0
+                            Reserva.objects.create(
+                                usuario=usuario_reserva,
+                                clase=clase,
+                                fecha_clase=f_sig,
+                                monto_pagado=0,
+                                estado_pago='pendiente',
+                                medio_pago='Mercado Pago',
+                                en_lista_de_espera=sin_cupo_sig,
+                                tipo_reserva='mensualidad'
+                            )
+
+                # 4. Confirmamos la mensualidad global en el sistema
+                Mensualidad.objects.update_or_create(
+                    usuario=usuario_reserva,
+                    actividad=clase.actividad,
+                    mes=mes_current,
+                    anio=anio_actual,
+                    defaults={
+                        'fecha_pago': hoy,
+                        'estado': 'pagada'
+                    }
+                )
+                reserva = reserva_principal
+                creado = True
+                mensaje_notificacion = f"Se realizó con éxito el pago de tu MENSUALIDAD para: {clase.actividad.nombre}. Tus cupos ya están asegurados para este mes y el próximo."
+        
         else:
+            # Flujo para clases sueltas individuales
+            estado_final = 'seña' if datos['tipo_pago'] == 'senia' else 'total'
+            reserva, creado = Reserva.objects.get_or_create(
+                usuario=usuario_reserva,
+                clase=clase,
+                fecha_clase=datos['fecha_clase'],
+                defaults={
+                    'monto_pagado': datos['monto'],
+                    'estado_pago': estado_final,
+                    'medio_pago': 'Mercado Pago',
+                    'tipo_reserva': 'clase'
+                }
+            )
             mensaje_notificacion = f"Se realizó con éxito tu pago para la clase: {clase.actividad.nombre}"
 
-        # Guardamos la notificación para la campanita de la interfaz
+    # Despacho de notificaciones y correo electrónico (solo en la primera ejecución exitosa)
+    if creado and reserva:
+        print(f"✅ Transacción {reserva.id} procesada con éxito.")
+        
         Notificacion.objects.create(
             usuario=usuario_reserva,
             mensaje=mensaje_notificacion
         )
         
-        # Disparamos el mail automático usando tus datos procesados
         enviar_confirmacion(usuario_reserva, clase, reserva)
-        
     else:
-        print(f"ℹ️ La reserva {reserva.id} ya existía. Se evitó el IntegrityError.")
+        print(f"ℹ️ La transacción ya había sido asentada previamente por resguardo de duplicados.")
 
     if 'inscripcion_pendiente' in request.session:
         del request.session['inscripcion_pendiente']
         
-    response = redirect('pago_confirmacion', reserva_id=reserva.id)
+    response = redirect('pago_confirmacion', reserva_id=reserva.id if reserva else 0)
     response["ngrok-skip-browser-warning"] = "true"
     return response
 
@@ -1030,6 +1241,23 @@ Tu usuario de ingreso es tu DNI: {dni}
                 for clase in todas_las_clases:
                     if clase.dia_semana_num == dia_semana_casillero and fecha_casillero >= clase.fecha:
                         clase.cupos_mostrar = clase.cupos_para_fecha(fecha_casillero)
+                        
+                        # --- AQUÍ ESTÁ EL AJUSTE ---
+                        # Buscamos la reserva, pero chequeamos su estado
+                        reserva = Reserva.objects.filter(
+                            usuario=request.user, 
+                            clase=clase, 
+                            fecha_clase=fecha_casillero
+                        ).first()
+
+                        if reserva:
+                            if reserva.estado_pago == 'pendiente':
+                                clase.estado_reserva = 'pendiente_pago' # NUEVO ESTADO
+                            else:
+                                clase.estado_reserva = 'confirmado'
+                        else:
+                            clase.estado_reserva = 'libre'
+                        
                         clases_por_dia[dia].append(clase)
 
     # Cálculo de ganancias en tiempo real
@@ -1128,81 +1356,46 @@ def asignar_profesor_clase(request, clase_id):
 @login_required
 def historial_pagos(request):
     pagos = Reserva.objects.filter(usuario=request.user).order_by('-fecha_reserva')
-
-    hoy = date.today()
-    dia_hoy = hoy.day
-    mes_hoy = hoy.month
-    anio_hoy = hoy.year
-
-    if mes_hoy == 1:
-        mes_anterior = 12
-        anio_anterior = anio_hoy - 1
-    else:
-        mes_anterior = mes_hoy - 1
-        anio_anterior = anio_hoy
-
-    mensualidades_actuales = Mensualidad.objects.filter(
-        usuario=request.user,
-        mes=mes_hoy,
-        anio=anio_hoy
-    )
     
-    mensualidades_anteriores = Mensualidad.objects.filter(
-        usuario=request.user,
-        mes=mes_anterior,
-        anio=anio_anterior,
-        estado='pagada'
-    )
-
+    # Obtenemos todas las mensualidades del mes actual
+    hoy = date.today()
+    mensualidades = Mensualidad.objects.filter(usuario=request.user, mes=hoy.month, anio=hoy.year)
+    
     resultados_mensualidad = []
-    actividades_procesadas = set()
 
-    for m in mensualidades_actuales:
-        actividades_procesadas.add(m.actividad.id)
-        
-        if m.estado == 'pagada':
-            resultados_mensualidad.append({
-                'actividad': m.actividad.nombre,
-                'estado': 'pagada',
-                'mensaje': f'Su mensualidad de {m.actividad.nombre} está paga. ¡Puede disfrutar de su actividad!'
-            })
-        elif m.estado == 'pendiente' and dia_hoy <= 10:
-            resultados_mensualidad.append({
-                'actividad': m.actividad.nombre,
-                'estado': 'pendiente',
-                'mensaje': f'Su mensualidad de {m.actividad.nombre} está pendiente de pago. Por favor abone antes del día 11.'
-            })
-        elif m.estado == 'vencida' or (m.estado == 'pendiente' and dia_hoy > 10):
-            resultados_mensualidad.append({
-                'actividad': m.actividad.nombre,
-                'estado': 'vencida',
-                'mensaje': f'Tu mensualidad de {m.actividad.nombre} ha sido suspendida por falta de pago. El vencimiento fue el día 10 del corriente mes.'
-            })
-
-    if dia_hoy <= 10:
-        for m_ant in mensualidades_anteriores:
-            if m_ant.actividad.id not in actividades_procesadas:
-                actividades_procesadas.add(m_ant.actividad.id)
-                resultados_mensualidad.append({
-                    'actividad': m_ant.actividad.nombre,
-                    'estado': 'pagada',
-                    'mensaje': f'Su mensualidad de {m_ant.actividad.nombre} se encuentra vigente (Período de gracia de renovación activo hasta el 10/{mes_hoy}).'
-                })
-
-    if not resultados_mensualidad:
+    if not mensualidades.exists():
         resultados_mensualidad.append({
-            'actividad': None,
-            'estado': 'sin_mensualidad',
-            'mensaje': 'Usted no posee ninguna mensualidad vigente. Puede solicitar su mensualidad desde el cronograma.'
+            'actividad': None, 
+            'estado': 'sin_mensualidad', 
+            'mensaje': 'Usted no posee ninguna mensualidad vigente.'
         })
+    else:
+        for m in mensualidades:
+            # Determinamos el estado para el template
+            estado_visual = m.estado  # 'pagada' o 'pendiente'
+            
+            # Ajuste de lógica para "vencida"
+            if m.estado == 'pendiente' and hoy.day > 10:
+                estado_visual = 'vencida'
+            
+            mensaje = ""
+            if estado_visual == 'pagada':
+                mensaje = f'Su mensualidad de {m.actividad.nombre} está paga. ¡Puede disfrutar de su actividad!'
+            elif estado_visual == 'pendiente':
+                mensaje = f'Su mensualidad de {m.actividad.nombre} está pendiente de pago. Por favor abone antes del día 11.'
+            else:
+                mensaje = f'Tu mensualidad de {m.actividad.nombre} ha sido suspendida por falta de pago.'
+                
+            resultados_mensualidad.append({
+                'actividad': m.actividad.nombre,
+                'estado': estado_visual,
+                'mensaje': mensaje
+            })
 
-    context = {
-        'pagos': pagos,
-        'resultados_mensualidad': resultados_mensualidad,
-    }
-    return render(request, 'gestion/historial_pagos.html', context)
-
-
+    return render(request, 'gestion/historial_pagos.html', {
+        'pagos': pagos, 
+        'resultados_mensualidad': resultados_mensualidad
+    })
 # =========================================================================
 # 6. NOTIFICACIONES
 # =========================================================================
@@ -1333,6 +1526,7 @@ def comprobante_pdf(request,reserva_id):
 # =========================================================================
 
 def detalle_clase_api(request, clase_id):
+    fecha_obj = None
     clase = get_object_or_404(Clase, id=clase_id)
     fecha_str = request.GET.get('fecha')
     ya_inscripto = False
@@ -1340,9 +1534,17 @@ def detalle_clase_api(request, clase_id):
     ya_mensualizado = False
     choque_horario = False
     actividad_choque_nombre = None
+    choque_mensual_abono = False
+    nombre_actividad_choque_m = None
+    
+    # Inicializamos las variables del cálculo para que existan siempre
+    clases_restantes = 0
+    monto_mensual_proporcional = 0
+    diferencia_mensualidad = 0
     
     if fecha_str:
         fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+        fecha_obj = fecha
         cupos = clase.cupos_para_fecha(fecha)
         if request.user.is_authenticated:
             reserva_user = Reserva.objects.filter(
@@ -1352,34 +1554,10 @@ def detalle_clase_api(request, clase_id):
                 ya_inscripto = True
                 en_espera = reserva_user.en_lista_de_espera
 
-            # Mensualidad mes actual
-            mensualidad_mes_actual = Mensualidad.objects.filter(
-                usuario=request.user, 
-                actividad=clase.actividad,  
-                mes=fecha.month, 
-                anio=fecha.year, 
-                estado='pagada'
-            ).exists()
+            # Desactivamos restricción para permitir múltiples mensualidades de la misma actividad
+            ya_mensualizado = False
 
-            # Mensualidad mes anterior
-            mensualidad_mes_anterior = False
-            if fecha.day <= 10:
-                if fecha.month == 1:
-                    mes_ant, anio_ant = 12, fecha.year - 1
-                else:
-                    mes_ant, anio_ant = fecha.month - 1, fecha.year
-
-                mensualidad_mes_anterior = Mensualidad.objects.filter(
-                    usuario=request.user, 
-                    actividad=clase.actividad, 
-                    mes=mes_ant, 
-                    anio=anio_ant, 
-                    estado='pagada'
-                ).exists()
-
-            ya_mensualizado = mensualidad_mes_actual or mensualidad_mes_anterior
-
-            # Verificación choque de horario
+            # Verificación choque de horario (Inscripción individual suelta)
             reserva_choque = Reserva.objects.filter(
                 usuario=request.user,
                 fecha_clase=fecha,
@@ -1390,33 +1568,93 @@ def detalle_clase_api(request, clase_id):
             if reserva_choque:
                 actividad_choque_nombre = reserva_choque.clase.actividad.nombre
                 choque_horario = True
+
+            # Verificación choque de horario para modalidad Mensualidad
+            choque_m = Reserva.objects.filter(
+                usuario=request.user,
+                tipo_reserva='mensualidad',
+                fecha_clase=fecha,
+                clase__horario=clase.horario
+            ).exclude(clase__actividad=clase.actividad).exclude(estado_pago='pendiente', clase=clase).select_related('clase__actividad').first()
+
+            choque_mensual_abono = True if choque_m else False
+            nombre_actividad_choque_m = choque_m.clase.actividad.nombre if choque_m else None
+
+        # =========================================================
+        # 🔥 CÁLCULO PROPORCIONAL CORREGIDO DESDE EL DÍA SELECCIONADO (BASE 4)
+        # =========================================================
+        anio_s = fecha.year
+        mes_s = fecha.month
+        dia_objetivo = fecha.weekday()
+        _, ultimo_dia = monthrange(anio_s, mes_s)
+        
+        # Contamos las clases que quedan estrictamente desde el día clickeado en la grilla
+        for d in range(fecha.day, ultimo_dia + 1):
+            f_eval = date(anio_s, mes_s, d)
+            if f_eval.weekday() == dia_objetivo:
+                # 🔥 NUEVO: Si el usuario ya tiene una reserva para este día, no se la volvemos a cobrar
+                if request.user.is_authenticated and Reserva.objects.filter(usuario=request.user, clase=clase, fecha_clase=f_eval).exists():
+                    continue
+                clases_restantes += 1
+                
+        if clases_restantes == 0:
+            clases_restantes = 1
+            
+        precio_fijo = float(clase.actividad.precio_mensualidad)
+        
+        # Evaluamos el caso especial para la interfaz
+        if clases_restantes == 1:
+            monto_mensual_proporcional = float(clase.actividad.precio_clase)
+            diferencia_mensualidad = precio_fijo - monto_mensual_proporcional
+        else:
+            precio_unitario = precio_fijo / 4.0
+            monto_mensual_proporcional = precio_unitario * clases_restantes
+            diferencia_mensualidad = precio_fijo - monto_mensual_proporcional
+        # =========================================================
+        
     else:
         cupos = getattr(clase.actividad, 'capacidad_maxima', 30)
 
-    es_admin = request.user.is_authenticated and request.user.rol == 'admin'
+    es_admin = request.user.is_authenticated and request.user.rol in ['admin', 'profesor']
     cola_espera_data = []
+    inscriptos_data = []
     todos_profes_data = []
 
     if es_admin and fecha_str:
-        cola = Reserva.objects.filter(clase=clase, fecha_clase=fecha, en_lista_de_espera=True).select_related('usuario')
-        for r in cola:
-            tiene_mensualidad = Mensualidad.objects.filter(
-                usuario=r.usuario, actividad=clase.actividad, mes=fecha.month, anio=fecha.year, estado='pagada'
-            ).exists()
+        # 1. Traer INSCRIPTOS CONFIRMADOS
+        confirmados = Reserva.objects.filter(
+            clase=clase, fecha_clase=fecha, en_lista_de_espera=False
+        ).select_related('usuario').order_by('fecha_reserva')
+        
+        for r in confirmados:
+            inscriptos_data.append({
+                'username': r.usuario.username,
+                'first_name': r.usuario.first_name,
+                'last_name': r.usuario.last_name,
+                'tipo_reserva': r.tipo_reserva,
+            })
 
+        # 2. Traer LISTA DE ESPERA
+        cola = Reserva.objects.filter(
+            clase=clase, fecha_clase=fecha, en_lista_de_espera=True
+        ).select_related('usuario').order_by('fecha_reserva')
+        
+        for r in cola:
             cola_espera_data.append({
                 'username': r.usuario.username,
                 'first_name': r.usuario.first_name,
                 'last_name': r.usuario.last_name,
-                'pase_mensual': tiene_mensualidad,
+                'tipo_reserva': r.tipo_reserva,
             })
             
-        for p in Profesor.objects.all():
-            todos_profes_data.append({
-                'id': p.id,
-                'nombre': p.nombre,
-                'apellido': p.apellido,
-            })
+        # 3. Traer PROFESORES para el select
+        if request.user.rol == 'admin':
+            for p in Profesor.objects.all():
+                todos_profes_data.append({
+                    'id': p.id,
+                    'nombre': p.nombre,
+                    'apellido': p.apellido,
+                })
 
     data = {
         'id': clase.id,
@@ -1436,7 +1674,15 @@ def detalle_clase_api(request, clase_id):
         'ya_mensualizado': ya_mensualizado,  
         'choque_horario': choque_horario,  
         'actividad_choque_nombre': actividad_choque_nombre,
+        'inscriptos': inscriptos_data,
         'cola_espera': cola_espera_data,
         'todos_los_profesores': todos_profes_data,
+        'choque_mensual_abono': choque_mensual_abono,
+        'nombre_actividad_choque_m': nombre_actividad_choque_m,
+        'reserva_pendiente': Reserva.objects.filter(usuario=request.user, clase=clase, fecha_clase=fecha_obj if fecha_obj else date.today(),estado_pago='pendiente').exists(),
+        # 🔥 VARIABLES ENVIADAS AL JSON PARA EL TICKET DE LA GRILLA
+        'clases_restantes_mes': clases_restantes,
+        'monto_mensual_proporcional': round(monto_mensual_proporcional, 2),
+        'diferencia_mensualidad': round(diferencia_mensualidad, 2),
     }
     return JsonResponse(data)
