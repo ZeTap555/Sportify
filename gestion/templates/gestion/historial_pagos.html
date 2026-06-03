@@ -392,7 +392,7 @@
 
                         {% if resultado.actividad %}
                             <p class="mb-1 text-white-50" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
-                                🏅 {{ resultado.actividad }}
+                                 {{ resultado.actividad }}
                             </p>
                         {% endif %}
 
@@ -415,7 +415,7 @@
                                 </span>
                             {% elif resultado.estado == 'sin_mensualidad' %}
                                 <span class="badge" style="background-color: rgba(99, 99, 102, 0.2); color: #aeaeae; border: 1px solid #636366; padding: 6px 12px; font-size: 0.8rem; font-weight: 600;">
-                                    — SIN PASO MENSUAL
+                                    — SIN MENSUALIDAD 
                                 </span>
                             {% endif %}
                         </div>
@@ -425,7 +425,7 @@
             </div>
 
             <div class="modal-footer">
-                <button type="button" class="btn btn-sportify btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-sportify btn-sm" data-bs-dismiss="modal">Volver</button>
             </div>
 
         </div>
