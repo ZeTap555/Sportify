@@ -810,6 +810,62 @@ def panel_admin(request):
                                 fecha=fecha_obj,
                                 horario=horario_obj
                             )
+                            Notificacion.objects.create(
+                                usuario=profesor.usuario,
+                                mensaje=(
+                                    f"Se te ha asignado una nueva clase de "
+                                    f"{actividad.nombre} para el "
+                                    f"{fecha_obj.strftime('%d/%m/%Y')} "
+                                    f"a las {horario_obj.strftime('%H:%M')} hs."
+                                ),
+                                leida=False
+                            )
+                            asunto="Nueva clase asignada - Sportify"
+                            mensaje_texto = f"""
+                            Hola {profesor.nombre},
+                            Se te ha asignado una nueva clase.
+                            
+                            Actividad: {actividad.nombre}
+                            Fecha: {fecha_obj.strftime('%d/%m/%Y')}
+                            Horario: {horario_obj.strftime('%H:%M')} hs
+                            
+                            Ingresá a Sportify para consultar los detalles
+                            Saludos.
+                            """
+                            mensaje_html=f"""
+                            <div style="background-color:#000000;padding:40px;font-family:Poppins,sans-serif; text-align:center;">
+                                <h1 style="color:#00ff88;">SPORTIFY</h1>
+                                <h2 style="color:white;">
+                                     Nueva clase asignada
+                                </h2>
+                                <p style="color:#cccccc;">
+                                    Hola {profesor.nombre} {profesor.apellido},
+                                </p>
+                                <p style="color:#cccccc;">
+                                    Se te ha asignado una nueva clase
+                                </p>
+                                <div style="
+                                    background:#1c1c1e;
+                                    padding:20px;
+                                    border-radius:10px;
+                                    margin:20px auto;
+                                    max-width:400px;
+                                    color:white;
+                                ">
+                                    <p><b>Actividad:</b> {actividad.nombre}</p>
+                                    <p><b>Fecha:</b> {fecha_obj.strftime('%d/%m/%Y')}</p>
+                                    <p><b>Horario:</b> {horario_obj.strftime('%H:%M')} hs</p>
+                                </div>
+                                <p style="color:#777777;">
+                                    Ingresá a Sportify para consultar mas detalles.
+                                </p>
+                            </div>
+                            """
+                            email_message=EmailMultiAlternatives(
+                                asunto,mensaje_texto,settings.EMAIL_HOST_USER,[profesor.correo]
+                            )
+                            email_message.attach_alternative(mensaje_html,"text/html")
+                            email_message.send()
                             messages.success(request, "Clases creadas con éxito.")
 
         # --- C. PROCESAR REGISTRAR PROFESOR ---
