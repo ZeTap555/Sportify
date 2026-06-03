@@ -97,7 +97,7 @@
         {% endif %}
 
         <div class="monto-box">
-            Total a pagar: <span>${{ monto }}</span>
+            Total a pagar: <span>${{ monto|floatformat:2 }}</span>
         </div>
 
         <form method="POST" id="form-pago">
