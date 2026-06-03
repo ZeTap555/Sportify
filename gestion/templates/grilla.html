@@ -773,31 +773,30 @@
                 <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver</button>
             `;
 
-         } else if (paso === 'pago') {
+         // ... dentro de mostrarPasoSel, en el bloque 'pago' ...
+        }  else if (paso === 'pago') {
             var tipoPago = arguments[1] || 'total';
-            var flujoTipo = arguments[2] || 'clase'; 
-
-            var pasoVolver = (flujoTipo === 'mensualidad') ? '' : 'inscribir';
+            var flujoTipo = arguments[2] || 'clase';
+            
+            // 🔥 USAMOS DIRECTAMENTE EL MONTO CALCULADO POR EL BACKEND
+            // Si es mensualidad, el backend ya nos envió el monto total en 'monto_mensual_proporcional'
+            var montoFinal = (flujoTipo === 'mensualidad') ? modalData.monto_mensual_proporcional : modalData.precio_clase;
 
             acciones.innerHTML = `
-                <p style="color:#8e8e93; text-align:center; margin-bottom:15px;">Medio de pago</p>
+                
                 <form method="POST" action="/clase/${modalData.id}/inscribirse/" id="form-pago">
                     <input type="hidden" name="csrfmiddlewaretoken" value="${getCSRFToken()}">
                     <input type="hidden" name="tipo_pago" value="${tipoPago}">
                     <input type="hidden" name="medio_pago" value="" id="input-medio-pago">
                     <input type="hidden" name="fecha_clase" value="${modalFecha}">
                     <input type="hidden" name="flujo_tipo" value="${flujoTipo}">
+                    <input type="hidden" name="monto_fijo" value="${montoFinal}"> 
                 </form>
-                <button class="modal-btn primary" onclick="enviarForm('Tarjeta', '${flujoTipo}')">
-                    💳 Tarjeta de crédito/débito
-                </button>
-                <button class="modal-btn primary" onclick="enviarForm('Mercado Pago', '${flujoTipo}')">
-                    <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#00BFFF; margin-right:6px; vertical-align:middle;"></span> Mercado Pago
-                </button>
-                <button class="modal-btn secondary" onclick="mostrarPasoSel('${pasoVolver}')">Volver</button>
+                <button class="modal-btn primary" onclick="enviarForm('Tarjeta')">💳 Tarjeta debito/credito </button>
+                <button class="modal-btn primary" onclick="enviarForm('Mercado Pago')">Mercado Pago</button>
+                <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver</button>
             `;
         }
-
         document.getElementById('modalDetalle').classList.add('active');
     }
 

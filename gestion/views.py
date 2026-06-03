@@ -253,157 +253,59 @@ def inscribirse_clase(request, clase_id):
     if request.method == 'POST':
         tipo_pago = request.POST.get('tipo_pago')
         medio_pago = request.POST.get('medio_pago')
-        flujo_tipo = request.POST.get('flujo_tipo', 'clase') # Ahora sí viene del form
+        flujo_tipo = request.POST.get('flujo_tipo', 'clase')
 
-        # Cálculo de costo de la mensualidad
+        # --- LÓGICA DE PRECIO Y RESERVA ---
         if flujo_tipo == 'mensualidad':
-            # 🔥 CORRECCIÓN: Si el usuario ya tiene una reserva pendiente (es una renovación), 
-            # cobramos precio fijo de mensualidad sin hacer cuentas raras
             tiene_pendiente = Reserva.objects.filter(
                 usuario=request.user, 
-                clase=clase, 
-                estado_pago='pendiente'
+                clase__actividad=clase.actividad, 
+                estado_pago='pendiente',
+                tipo_reserva='mensualidad'
             ).exists()
 
             if tiene_pendiente:
-                # PRECIO FIJO SI ES RENOVACIÓN
-                monto = clase.actividad.precio_mensualidad
+                monto = Decimal(str(clase.actividad.precio_mensualidad))
+                tipo_reserva = 'mensualidad'
             else:
-                # CÁLCULO PROPORCIONAL SOLO SI ES INSCRIPCIÓN NUEVA
-                anio_solicitado = fecha_clase.year
-                mes_solicitado = fecha_clase.month
+                anio_solicitado, mes_solicitado = fecha_clase.year, fecha_clase.month
                 dia_semana_objetivo = fecha_clase.weekday()
                 _, ultimo_dia_mes = monthrange(anio_solicitado, mes_solicitado)
-                dia_inicio = fecha_clase.day
                 
                 clases_totales_restantes = 0
-                for d in range(dia_inicio, ultimo_dia_mes + 1):
-                    fecha_evaluar = date(anio_solicitado, mes_solicitado, d)
-                    if fecha_evaluar.weekday() == dia_semana_objetivo:
+                for d in range(fecha_clase.day, ultimo_dia_mes + 1):
+                    if date(anio_solicitado, mes_solicitado, d).weekday() == dia_semana_objetivo:
                         clases_totales_restantes += 1
                 
-                # Aplicar proporcional
-                clases_ideales = Decimal('4.0')
-                precio_unitario_mensual = clase.actividad.precio_mensualidad / clases_ideales
-                monto = precio_unitario_mensual * Decimal(clases_totales_restantes)
+                if clases_totales_restantes == 0: clases_totales_restantes = 1
                 
-            monto = round(monto, 2)
+                precio_unitario_mensual = clase.actividad.precio_mensualidad / Decimal('4.0')
+                monto = precio_unitario_mensual * Decimal(clases_totales_restantes)
+                monto = round(monto, 2)
+                tipo_reserva = 'mensualidad'
+        else:
+            precio = clase.actividad.precio_clase
+            monto = precio / 2 if tipo_pago == 'senia' else precio
+            tipo_reserva = 'clase'
 
-        if tipo_pago not in ('senia', 'total'):
+        if tipo_pago not in ('senia', 'total') or medio_pago not in ('Tarjeta', 'Mercado Pago'):
             return redirect('grilla_actividades')
 
-        if medio_pago not in ('Tarjeta', 'Mercado Pago'):
-            return redirect('grilla_actividades')
-
-        # Regla de negocio: Choque de horarios en inscripción individual
+        # Reglas de Choque
         choque_horario = Reserva.objects.filter(
             usuario=request.user,
             fecha_clase=fecha_clase,
             clase__horario=clase.horario,
             en_lista_de_espera=False
-        ).exclude(
-            # Esta línea es la que evita que el sistema "se choque contra sí mismo"
-            estado_pago='pendiente', 
-            clase=clase
-        ).exists()
+        ).exclude(estado_pago='pendiente', clase=clase).exists()
 
         if choque_horario:  
             messages.error(request, f"Ya estás inscripto a otra clase en el horario de las {clase.horario.strftime('%H:%M')}.")
             return redirect('grilla_actividades')
         
-        # Control A: Si es clase individual y ya tiene reserva para esta clase y fecha exacta
         if flujo_tipo == 'clase' and Reserva.objects.filter(usuario=request.user, clase=clase, fecha_clase=fecha_clase).exists():
             messages.error(request, "Ya estás inscripto en esta clase para esta fecha.")
             return redirect('grilla_actividades')
-
-        # Control B: Si es mensualidad, chequeamos que no tenga ya el abono activo este mes
-        if flujo_tipo == 'mensualidad':
-            mes_solicitado = fecha_clase.month
-            anio_solicitado = fecha_clase.year
-            
-            
-
-            # =========================================================
-            # 🔥 NUEVA REGLA: Evitar choque de horarios entre Mensualidades diferentes
-            # =========================================================
-            dia_semana_objetivo = fecha_clase.weekday()
-            choque_mensual_abono = Reserva.objects.filter(
-                usuario=request.user,
-                tipo_reserva='mensualidad',
-                fecha_clase=fecha_clase,
-                clase__horario=clase.horario
-            ).exclude(clase__actividad=clase.actividad).select_related('clase__actividad').first()
-
-            if choque_mensual_abono:
-                messages.error(
-                    request, 
-                    f"Error: No podés contratar esta mensualidad. Ya tenés un abono mensual de "
-                    f"'{choque_mensual_abono.clase.actividad.nombre}' asignado a este mismo día y horario."
-                )
-                return redirect('grilla_actividades')
-            # =========================================================
-
-        # Cálculo de costo de la mensualidad (MODELO MES CALENDARIO)
-        if flujo_tipo == 'mensualidad':
-            hoy = datetime.now().date()
-            
-            # Usamos el mes y año de la clase que seleccionó en la grilla
-            anio_solicitado = fecha_clase.year
-            mes_solicitado = fecha_clase.month
-            
-            dia_semana_objetivo = fecha_clase.weekday()
-            clases_totales_restantes = 0
-
-            # Obtenemos cuántos días tiene ese mes (ej: 28, 30, 31)
-            _, ultimo_dia_mes = monthrange(anio_solicitado, mes_solicitado)
-            
-            # El conteo arranca estrictamente desde el día que clickeó en la grilla
-            dia_inicio = fecha_clase.day
-            
-            # Contamos las clases EXACTAS que le quedan en este mes
-            for d in range(dia_inicio, ultimo_dia_mes + 1):
-                fecha_evaluar = date(anio_solicitado, mes_solicitado, d)
-                if fecha_evaluar.weekday() == dia_semana_objetivo:
-                    # 🔥 NUEVO: Si ya está anotado a esta clase física individual, la salteamos del cobro
-                    if Reserva.objects.filter(usuario=request.user, clase=clase, fecha_clase=fecha_evaluar).exists():
-                        continue
-                    clases_totales_restantes += 1
-            if clases_totales_restantes == 0:
-                clases_totales_restantes = 1
-                
-            # =========================================================
-            # REGLA ESPECIAL: 1 CLASE RESTANTE = PRECIO INDIVIDUAL
-            # =========================================================
-
-            if clases_totales_restantes == 1:
-                monto = clase.actividad.precio_clase
-            else:
-                # Si quedan 2 o más clases (hasta 5), aplica el proporcional base 4
-                clases_ideales = Decimal('4.0') 
-                precio_unitario_mensual = clase.actividad.precio_mensualidad / clases_ideales
-                monto = precio_unitario_mensual * Decimal(clases_totales_restantes)
-            print(f"DEBUG - Fecha elegida: {fecha_evaluar}")
-            print(f"DEBUG - Clases restantes: {clases_totales_restantes}")
-            print(f"DEBUG - Monto a cobrar: ${monto}")
-            monto = round(monto, 2)
-             
-        else:
-            # Flujo individual suelta
-            if clase.cupos_para_fecha(fecha_clase) <= 0:
-                Reserva.objects.create(
-                    usuario=request.user,
-                    clase=clase,
-                    fecha_clase=fecha_clase,
-                    en_lista_de_espera=True,
-                    monto_pagado=0,
-                    estado_pago='pendiente',
-                    tipo_reserva='clase'  # <-- Buen lugar para reforzar que esto es por clase
-                )
-                messages.warning(request, "Te registraste en la lista de espera para esta clase.")
-                return redirect('grilla_actividades')
-                
-            precio = clase.actividad.precio_clase
-            monto = precio / 2 if tipo_pago == 'senia' else precio
 
         # Guardamos en sesión
         request.session['inscripcion_pendiente'] = {
@@ -415,10 +317,7 @@ def inscribirse_clase(request, clase_id):
             'flujo_tipo': flujo_tipo,
         }
 
-        if medio_pago == 'Tarjeta':
-            return redirect('pago_tarjeta')
-        else:
-            return redirect('pago_mercadopago')
+        return redirect('pago_tarjeta') if medio_pago == 'Tarjeta' else redirect('pago_mercadopago')
 
     return redirect('grilla_actividades')
 
@@ -1596,20 +1495,32 @@ def detalle_clase_api(request, clase_id):
                 if request.user.is_authenticated and Reserva.objects.filter(usuario=request.user, clase=clase, fecha_clase=f_eval).exists():
                     continue
                 clases_restantes += 1
+        tiene_pendiente = Reserva.objects.filter(
+            usuario=request.user,
+            clase__actividad=clase.actividad,
+            estado_pago='pendiente',
+            tipo_reserva='mensualidad'
+        ).exists() if request.user.is_authenticated else False
+
+        if tiene_pendiente:
+            # Si tiene deuda, ignoramos el proporcional y forzamos el precio fijo
+            monto_mensual_proporcional = float(clase.actividad.precio_mensualidad)
+            diferencia_mensualidad = 0
+            clases_restantes = 4 # Lo dejamos en 4 para que sea estético
+        else:        
+            if clases_restantes == 0:
+                clases_restantes = 1
                 
-        if clases_restantes == 0:
-            clases_restantes = 1
+            precio_fijo = float(clase.actividad.precio_mensualidad)
             
-        precio_fijo = float(clase.actividad.precio_mensualidad)
-        
-        # Evaluamos el caso especial para la interfaz
-        if clases_restantes == 1:
-            monto_mensual_proporcional = float(clase.actividad.precio_clase)
-            diferencia_mensualidad = precio_fijo - monto_mensual_proporcional
-        else:
-            precio_unitario = precio_fijo / 4.0
-            monto_mensual_proporcional = precio_unitario * clases_restantes
-            diferencia_mensualidad = precio_fijo - monto_mensual_proporcional
+            # Evaluamos el caso especial para la interfaz
+            if clases_restantes == 1:
+                monto_mensual_proporcional = float(clase.actividad.precio_clase)
+                diferencia_mensualidad = precio_fijo - monto_mensual_proporcional
+            else:
+                precio_unitario = precio_fijo / 4.0
+                monto_mensual_proporcional = precio_unitario * clases_restantes
+                diferencia_mensualidad = precio_fijo - monto_mensual_proporcional
         # =========================================================
         
     else:
