@@ -429,7 +429,7 @@ def pago_tarjeta(request):
         # =========================================================
         if resultado != "ok":
             # 1. Errores de Tipeo (El usuario se queda en la pantalla para corregir)
-            errores_tipeo = ["titular_incorrecto", "cvv_invalido", "tarjeta_vencida", "tarjeta_corta"]
+            errores_tipeo = ["titular_incorrecto", "cvv_invalido", "tarjeta_vencida", "tarjeta_corta","tarjeta_inexistente","error_banco"]
             
             if resultado in errores_tipeo:
                 if resultado == "titular_incorrecto":
@@ -440,7 +440,10 @@ def pago_tarjeta(request):
                     messages.error(request, "La tarjeta ingresada se encuentra vencida.")
                 elif resultado == "tarjeta_corta":
                     messages.error(request, "La tarjeta ingresada debe tener 16 dígitos.")
-                
+                elif resultado=="tarjeta_inexistente":
+                    messages.error(request,"La tarjeta no existe")
+                elif resultado=="error_banco":
+                    messages.error(request, "ERROR-No se pudo establecer conexión con el banco.")
                 return render(request, 'pago_tarjeta.html', {'monto': datos['monto']})
             
             # 2. Errores Duros / Rechazos (Lo mandamos a la cruz roja)
@@ -560,8 +563,7 @@ def pago_mercadopago(request):
     request.session.modified = True
     
     sdk = mercadopago.SDK(settings.MERCADO_PAGO_ACCESS_TOKEN)
-    BASE_URL = "https://pancake-energetic-preseason.ngrok-free.dev"
-    
+    host_url = f"https://{request.get_host()}"    
     preference_data = {
         "items": [
             {
@@ -572,9 +574,9 @@ def pago_mercadopago(request):
             }
         ],
         "back_urls": {
-            "success": f"{BASE_URL}/pago/exito/",
-            "failure": f"{BASE_URL}/pago/error/",
-            "pending": f"{BASE_URL}/pago/pendiente/",
+            "success": f"{host_url}/pago/exito/",
+            "failure": f"{host_url}/pago/error/",
+            "pending": f"{host_url}/pago/pendiente/",
         },
         "auto_return": "approved"
     }

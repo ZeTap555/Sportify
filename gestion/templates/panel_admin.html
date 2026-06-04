@@ -390,7 +390,7 @@
                     <h3>Registrar Nuevo Profesor</h3>
                     <p style="font-size: 0.85rem; color:#8e8e93; margin-bottom:25px;">Al dar de alta a un docente desde este formulario, se le otorgará de forma automática el rol y credenciales de "Profesor" en la plataforma.</p>
                     
-                    <form method="POST">
+                    <form method="POST" novalidate>
                         {% csrf_token %}
                         <input type="hidden" name="action" value="registrar_profesor">
                         
@@ -420,7 +420,7 @@
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                             <div class="input-group">
                                 <label for="prof-dni">DNI</label>
-                                <input type="text" id="prof-dni" name="dni" class="input-field" placeholder="Ej: 42333444" value="{{ valores_profesor.dni|default:'' }}" minlength="7" maxlength="9">
+                                <input type="text" id="prof-dni" name="dni" class="input-field" placeholder="Ej: 42333444" value="{{ valores_profesor.dni|default:'' }}" >
                                 {% if errores_profesor.dni %}
                                     <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.dni }}</span>
                                 {% endif %}
