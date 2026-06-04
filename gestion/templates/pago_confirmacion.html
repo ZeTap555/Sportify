@@ -109,6 +109,23 @@
                 </div>
             </div>
             
+            {% if sin_cupo_info %}
+            <div class="detalle" style="border:1px solid rgba(255,69,58,0.3); background:rgba(255,69,58,0.1);">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ff453a" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    <span style="color:#ff453a; font-weight:600;">Atención</span>
+                </div>
+                <p style="color:#ff6b6b; margin:0; font-size:0.9rem;">
+                    {{ sin_cupo_info.cantidad }} de las clases de tu mensualidad no tenían cupo disponible.
+                    Te notificaremos si logras entrar, caso contrario se te dará un voucher.
+                </p>
+            </div>
+            {% endif %}
+
             <div class="btn-group">
                 <a href="{% url 'comprobante_pdf' reserva.id %}" class="btn-pdf" target="_blank">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

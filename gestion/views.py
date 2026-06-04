@@ -215,7 +215,7 @@ def detalle_clase_fecha(request, clase_id):
             clase=clase, 
             fecha_clase=fecha_str, 
             en_lista_de_espera=True
-        ).select_related('usuario')
+        ).select_related('usuario').order_by('-tipo_reserva', 'id')
 
         # 2. Traemos la lista completa de profesores para el elemento <select>
         lista_profesores = Profesor.objects.all()
@@ -274,7 +274,10 @@ def inscribirse_clase(request, clase_id):
                 
                 clases_totales_restantes = 0
                 for d in range(fecha_clase.day, ultimo_dia_mes + 1):
-                    if date(anio_solicitado, mes_solicitado, d).weekday() == dia_semana_objetivo:
+                    f_eval = date(anio_solicitado, mes_solicitado, d)
+                    if f_eval.weekday() == dia_semana_objetivo:
+                        if Reserva.objects.filter(usuario=request.user, clase=clase, fecha_clase=f_eval).exists():
+                            continue
                         clases_totales_restantes += 1
                 
                 if clases_totales_restantes == 0: clases_totales_restantes = 1
@@ -431,6 +434,7 @@ def pago_tarjeta(request):
             clase = get_object_or_404(Clase, id=datos['clase_id'])
             fecha_inicial = datetime.strptime(datos['fecha_clase'], '%Y-%m-%d').date()
             hoy = datetime.now().date()
+            total_sin_cupo = 0
             
             if datos['flujo_tipo'] == 'mensualidad':
                 mes_current = fecha_inicial.month
@@ -438,6 +442,7 @@ def pago_tarjeta(request):
                 dia_semana_objetivo = fecha_inicial.weekday()
                 
                 reserva_principal = None
+                fechas_sin_cupo = []
 
                 # =========================================================
                 # 🔥 PASO 1: ASEGURAR EL MES ACTUAL (RENOVACIÓN O NUEVO)
@@ -454,24 +459,26 @@ def pago_tarjeta(request):
                 monto_por_clase = Decimal(datos['monto']) / max(len(lista_fechas_actual), 1)
 
                 for fecha_evaluar in lista_fechas_actual:
-                    # Buscamos si el sistema ya le había guardado el cupo el mes pasado
+                    # Buscamos si el sistema ya le había guardado el cupo
                     reserva_existente = Reserva.objects.filter(
                         usuario=request.user,
                         clase=clase,
                         fecha_clase=fecha_evaluar,
-                        tipo_reserva='mensualidad'
                     ).first()
 
                     if reserva_existente:
-                        # Si es una RENOVACIÓN, la pasamos a PAGADA
+                        # Si ya tenía reserva, la actualizamos a mensualidad pagada
                         reserva_existente.estado_pago = 'total'
                         reserva_existente.monto_pagado = monto_por_clase
+                        reserva_existente.tipo_reserva = 'mensualidad'
                         reserva_existente.save()
                         if not reserva_principal:
                             reserva_principal = reserva_existente
                     else:
                         # Si es la primera vez que compra, creamos la reserva PAGADA
                         sin_cupo = clase.cupos_para_fecha(fecha_evaluar) <= 0
+                        if sin_cupo:
+                            fechas_sin_cupo.append(fecha_evaluar)
                         nueva_reserva = Reserva.objects.create(
                             usuario=request.user,
                             clase=clase,
@@ -504,6 +511,8 @@ def pago_tarjeta(request):
                         # Nos aseguramos de no duplicarle la reserva pendiente si ya la tiene
                         if not Reserva.objects.filter(usuario=request.user, clase=clase, fecha_clase=f_sig).exists():
                             sin_cupo_sig = clase.cupos_para_fecha(f_sig) <= 0
+                            if sin_cupo_sig:
+                                fechas_sin_cupo.append(f_sig)
                             Reserva.objects.create(
                                 usuario=request.user,
                                 clase=clase,
@@ -528,7 +537,19 @@ def pago_tarjeta(request):
                 )
                 
                 reserva = reserva_principal
-                mensaje_notificacion = f"Se realizó con éxito el pago de tu MENSUALIDAD para: {clase.actividad.nombre}. Tus cupos ya están asegurados para este mes y el próximo."
+                total_sin_cupo = len(fechas_sin_cupo)
+                if total_sin_cupo > 0:
+                    request.session['mensualidad_sin_cupo'] = {
+                        'hay': True,
+                        'cantidad': total_sin_cupo,
+                    }
+                    mensaje_notificacion = (
+                        f"Se realizó con éxito el pago de tu MENSUALIDAD para: {clase.actividad.nombre}. "
+                        f"{total_sin_cupo} clase(s) no tenían cupo disponible. "
+                        f"Te notificaremos si logras entrar, caso contrario se te dará un voucher."
+                    )
+                else:
+                    mensaje_notificacion = f"Se realizó con éxito el pago de tu MENSUALIDAD para: {clase.actividad.nombre}. Tus cupos ya están asegurados para este mes y el próximo."
             
             else:
                 # Flujo normal de una clase única individual
@@ -548,7 +569,7 @@ def pago_tarjeta(request):
                 mensaje=mensaje_notificacion
             )
 
-        enviar_confirmacion(request.user, clase, reserva)
+        enviar_confirmacion(request.user, clase, reserva, tiene_sin_cupo=total_sin_cupo > 0, cantidad_sin_cupo=total_sin_cupo)
         del request.session['inscripcion_pendiente']
         return redirect('pago_confirmacion', reserva_id=reserva.id)
 
@@ -630,6 +651,7 @@ def pago_exito(request):
     
     creado = False
     reserva = None
+    total_sin_cupo = 0
 
     with transaction.atomic():
         if datos.get('flujo_tipo') == 'mensualidad':
@@ -649,6 +671,7 @@ def pago_exito(request):
                 creado = False
             else:
                 reserva_principal = None
+                fechas_sin_cupo = []
                 _, ultimo_dia_mes = monthrange(anio_actual, mes_current)
                 lista_fechas_actual = []
 
@@ -666,18 +689,20 @@ def pago_exito(request):
                         usuario=usuario_reserva,
                         clase=clase,
                         fecha_clase=fecha_evaluar,
-                        tipo_reserva='mensualidad'
                     ).first()
 
                     if reserva_existente:
                         reserva_existente.estado_pago = 'total'
                         reserva_existente.monto_pagado = monto_por_clase
                         reserva_existente.medio_pago = 'Mercado Pago'
+                        reserva_existente.tipo_reserva = 'mensualidad'
                         reserva_existente.save()
                         if not reserva_principal:
                             reserva_principal = reserva_existente
                     else:
                         sin_cupo = clase.cupos_para_fecha(fecha_evaluar) <= 0
+                        if sin_cupo:
+                            fechas_sin_cupo.append(fecha_evaluar)
                         nueva_reserva = Reserva.objects.create(
                             usuario=usuario_reserva,
                             clase=clase,
@@ -706,6 +731,8 @@ def pago_exito(request):
                     if f_sig.weekday() == dia_semana_objetivo:
                         if not Reserva.objects.filter(usuario=usuario_reserva, clase=clase, fecha_clase=f_sig).exists():
                             sin_cupo_sig = clase.cupos_para_fecha(f_sig) <= 0
+                            if sin_cupo_sig:
+                                fechas_sin_cupo.append(f_sig)
                             Reserva.objects.create(
                                 usuario=usuario_reserva,
                                 clase=clase,
@@ -730,7 +757,19 @@ def pago_exito(request):
                 )
                 reserva = reserva_principal
                 creado = True
-                mensaje_notificacion = f"Se realizó con éxito el pago de tu MENSUALIDAD para: {clase.actividad.nombre}. Tus cupos ya están asegurados para este mes y el próximo."
+                total_sin_cupo = len(fechas_sin_cupo)
+                if total_sin_cupo > 0:
+                    request.session['mensualidad_sin_cupo'] = {
+                        'hay': True,
+                        'cantidad': total_sin_cupo,
+                    }
+                    mensaje_notificacion = (
+                        f"Se realizó con éxito el pago de tu MENSUALIDAD para: {clase.actividad.nombre}. "
+                        f"{total_sin_cupo} clase(s) no tenían cupo disponible. "
+                        f"Te notificaremos si logras entrar, caso contrario se te dará un voucher."
+                    )
+                else:
+                    mensaje_notificacion = f"Se realizó con éxito el pago de tu MENSUALIDAD para: {clase.actividad.nombre}. Tus cupos ya están asegurados para este mes y el próximo."
         
         else:
             # Flujo para clases sueltas individuales
@@ -757,7 +796,7 @@ def pago_exito(request):
             mensaje=mensaje_notificacion
         )
         
-        enviar_confirmacion(usuario_reserva, clase, reserva)
+        enviar_confirmacion(usuario_reserva, clase, reserva, tiene_sin_cupo=total_sin_cupo > 0, cantidad_sin_cupo=total_sin_cupo)
     else:
         print(f"ℹ️ La transacción ya había sido asentada previamente por resguardo de duplicados.")
 
@@ -792,25 +831,35 @@ def pago_confirmacion(request, reserva_id):
     if reserva_id == 0:
         return render(request, 'pago_confirmacion.html', {'exito': False})
     reserva = get_object_or_404(Reserva, id=reserva_id, usuario=request.user)
+    sin_cupo_info = request.session.pop('mensualidad_sin_cupo', None)
     return render(request, 'pago_confirmacion.html', {
         'exito': True,
         'reserva': reserva,
         'clase': reserva.clase,
+        'sin_cupo_info': sin_cupo_info,
     })
 
 
-def enviar_confirmacion(usuario, clase, reserva):
+def enviar_confirmacion(usuario, clase, reserva, tiene_sin_cupo=False, cantidad_sin_cupo=0):
     try:
         fecha_clase = reserva.fecha_clase
         if isinstance(fecha_clase, str):
             fecha_clase = datetime.strptime(fecha_clase, '%Y-%m-%d').date()
+        
+        msg_adicional = ""
+        if tiene_sin_cupo and cantidad_sin_cupo > 0:
+            msg_adicional = (
+                f"\n\n⚠️ {cantidad_sin_cupo} de las clases de tu mensualidad no tenían cupo disponible. "
+                f"Te notificaremos si logras entrar, caso contrario se te dará un voucher."
+            )
+        
         send_mail(
             subject=f"Sportify - Inscripción confirmada: {clase.actividad.nombre}",
             message=f"Hola {usuario.first_name},\n\n"
                     f"Te inscribiste a la clase de {clase.actividad.nombre} del {fecha_clase.strftime('%d-%m-%Y')} a las {clase.horario}.\n"
                     f"Monto pagado: ${reserva.monto_pagado}\n"
                     f"Medio de pago: {reserva.medio_pago}\n\n"
-                    f"¡Gracias por elegir Sportify!",
+                    f"¡Gracias por elegir Sportify!{msg_adicional}",
             from_email='sportifygymapp@gmail.com',
             recipient_list=[usuario.email],
             fail_silently=False,
@@ -1548,7 +1597,7 @@ def detalle_clase_api(request, clase_id):
         # 2. Traer LISTA DE ESPERA
         cola = Reserva.objects.filter(
             clase=clase, fecha_clase=fecha, en_lista_de_espera=True
-        ).select_related('usuario').order_by('fecha_reserva')
+        ).select_related('usuario').order_by('-tipo_reserva', 'id')
         
         for r in cola:
             cola_espera_data.append({
