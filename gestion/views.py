@@ -1185,7 +1185,7 @@ def asignar_profesor_clase(request, clase_id):
 
 @login_required
 def historial_pagos(request):
-    pagos = Reserva.objects.filter(usuario=request.user).order_by('-fecha_reserva')
+    pagos = Reserva.objects.filter(usuario=request.user).order_by('-fecha_reserva').exclude(estado_pago='pendiente')
 
     hoy = date.today()
     dia_hoy = hoy.day
