@@ -448,12 +448,18 @@
                                     <span>{{ clase.actividad.nombre }}</span>
                                     <span style="color: #fff;">{{ clase.horario|time:"H:i" }} hs</span>
                                 </div>
-                                <div class="detail-profesor">
-                                    Prof: {% if clase.profesor %}{{ clase.profesor.nombre }} {{ clase.profesor.apellido }}{% else %}<span style="color:#636366; font-style:italic;">Sin asignar</span>{% endif %}
-                                </div>
+                                {% if request.user.is_authenticated %}
+                                    <div class="detail-profesor">
+                                        Prof: {% if clase.profesor %}{{ clase.profesor.nombre }} {{ clase.profesor.apellido }}{% else %}<span style="color:#636366; font-style:italic;">Sin asignar</span>{% endif %}
+                                    </div>
+                                {% endif %}
+
                                 <div class="detail-footer">
-                                    <span class="cupos-badge">Cupos disp: {{ clase.cupos_mostrar }}</span>
+                                    {% if request.user.is_authenticated %}
+                                        <span class="cupos-badge">Cupos disp: {{ clase.cupos_mostrar }}</span>
+                                     {% endif %}
                                     <button onclick="abrirModalDetalle({{ clase.id }}, '{{ fecha_seleccionada|date:"Y-m-d" }}')" class="btn-ver-detalle" style="cursor:pointer;">Ver detalle</button>
+
                                 </div>
                             </div>
                         {% endfor %}
@@ -478,11 +484,11 @@
 
         <hr class="modal-divider">
 
-        <div class="modal-info-row">
+        <div class="modal-info-row" id="fila-profesor">
             <span class="modal-info-label">Profesor</span>
             <span class="modal-info-value" id="modal-profesor"></span>
         </div>
-        <div class="modal-info-row">
+        <div class="modal-info-row" id="fila-cupos">
             <span class="modal-info-label">Cupos disponibles</span>
             <span class="modal-info-value" id="modal-cupos"></span>
         </div>
@@ -511,6 +517,16 @@
                 const cuposEl = document.getElementById('modal-cupos');
                 cuposEl.textContent = data.cupos_disponibles;
                 cuposEl.className = 'modal-info-value ' + (data.cupos_disponibles > 0 ? 'cupos-verde' : 'cupos-rojo');
+                const filaprofesor=document.getElementById('fila-profesor');
+                const filacupos=document.getElementById('fila-cupos');
+                if(!data.logueado){
+                    filaprofesor.style.display='none';
+                    filacupos.style.display='none';
+                }
+                else{
+                    filaprofesor.style.display='flex';
+                    filacupos.style.display='flex';
+                }
 
                 mostrarPasoSel('');
             });
