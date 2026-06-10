@@ -503,6 +503,13 @@
     var modalData = null;
     var modalFecha = null;
 
+    function diasHastaFecha(fechaStr) {
+        const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+        const p = fechaStr.split('-');
+        const fechaClase = new Date(+p[0], +p[1] - 1, +p[2]);
+        return Math.round((fechaClase - hoy) / (1000 * 60 * 60 * 24));
+    }
+
     function abrirModalDetalle(claseId, fecha) {
         modalFecha = fecha;
         fetch('/clase/' + claseId + '/datos/?fecha=' + fecha)
@@ -639,9 +646,12 @@
                         <p style="color: #30d158; text-align: center; font-weight: 600; margin-bottom: 15px; font-size: 1.05rem;">✓ Ya estás registrado en esta clase</p>
                     `;
                 } else {
-                    botonInscripcion = `
-                        <button class="modal-btn primary" style="margin-bottom: 12px;" onclick="mostrarPasoSel('inscribir')">Inscribirse a esta clase</button>
-                    `;
+                    const dias = diasHastaFecha(modalFecha);
+                    if (dias >= 0 && dias <= 7) {
+                        botonInscripcion = `
+                            <button class="modal-btn primary" style="margin-bottom: 12px;" onclick="mostrarPasoSel('inscribir')">Inscribirse a esta clase</button>
+                        `;
+                    }
                 }
 
                 // 2️⃣ Botón de Mensualidad

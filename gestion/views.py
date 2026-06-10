@@ -6,7 +6,7 @@ import re
 import uuid
 import calendar
 from calendar import monthrange
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from decimal import Decimal
 from multiprocessing import context
 
@@ -249,6 +249,16 @@ def inscribirse_clase(request, clase_id):
             messages.error(request, "Ya estás inscripto en esta clase para esta fecha.")
             return redirect('grilla_actividades')
 
+        # Regla de negocio: inscripción individual solo dentro de 7 días
+        if flujo_tipo == 'clase':
+            hoy = date.today()
+            if fecha_clase > hoy + timedelta(days=7):
+                messages.error(request, "Solo podés inscribirte a clases dentro de la próxima semana.")
+                return redirect('grilla_actividades')
+            if fecha_clase < hoy:
+                messages.error(request, "No podés inscribirte a una clase que ya pasó.")
+                return redirect('grilla_actividades')
+
         # Control B: Si es mensualidad, chequeamos que no tenga ya el abono activo este mes
         if flujo_tipo == 'mensualidad':
             mes_solicitado = fecha_clase.month
@@ -320,7 +330,7 @@ def inscribirse_clase(request, clase_id):
                     monto_pagado=0,
                     estado_pago='pendiente',
                 )
-                messages.warning(request, "Te registraste en la lista de espera para esta clase.")
+                messages.success(request, "Te registraste en la lista de espera para esta clase.")
                 return redirect('grilla_actividades')
                 
             precio = clase.actividad.precio_clase
