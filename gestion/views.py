@@ -6,7 +6,7 @@ import re
 import uuid
 import calendar
 from calendar import monthrange
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from decimal import Decimal
 from multiprocessing import context
 
@@ -248,6 +248,16 @@ def inscribirse_clase(request, clase_id):
         if flujo_tipo == 'clase' and Reserva.objects.filter(usuario=request.user, clase=clase, fecha_clase=fecha_clase).exists():
             messages.error(request, "Ya estás inscripto en esta clase para esta fecha.")
             return redirect('grilla_actividades')
+
+        # Regla de negocio: inscripción individual solo dentro de 7 días
+        if flujo_tipo == 'clase':
+            hoy = date.today()
+            if fecha_clase > hoy + timedelta(days=7):
+                messages.error(request, "Solo podés inscribirte a clases dentro de la próxima semana.")
+                return redirect('grilla_actividades')
+            if fecha_clase < hoy:
+                messages.error(request, "No podés inscribirte a una clase que ya pasó.")
+                return redirect('grilla_actividades')
 
         # Control B: Si es mensualidad, chequeamos que no tenga ya el abono activo este mes
         if flujo_tipo == 'mensualidad':
@@ -1185,9 +1195,7 @@ def asignar_profesor_clase(request, clase_id):
 
 @login_required
 def historial_pagos(request):
-
     pagos = Reserva.objects.filter(usuario=request.user).order_by('-fecha_reserva').exclude(estado_pago='pendiente')
-
 
     hoy = date.today()
     dia_hoy = hoy.day
