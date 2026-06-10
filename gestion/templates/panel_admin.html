@@ -211,10 +211,15 @@
                 {% if messages %}
                     {% for message in messages %}
                         <div class="alert-toast" style="
+                            position: relative;
+                            padding-right: 30px;
                             border-left-color: {% if message.tags == 'error' %}#ff453a{% else %}#00ff88{% endif %};
                             color: {% if message.tags == 'error' %}#ff453a{% else %}#00ff88{% endif %};
                         ">
                             {{ message }}
+                            <span onclick="this.parentElement.style.display='none';" style="position: absolute; right: 15px; top: 12px; cursor: pointer; font-size: 1.2rem; font-weight: bold; line-height: 1;">
+                                &times;
+                            </span>
                         </div>
                     {% endfor %}
                 {% endif %}

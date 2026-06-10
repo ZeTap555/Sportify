@@ -15,8 +15,11 @@
             {% for message in messages %}
                 <div style="color: {% if message.tags == 'error' %}#ff3333{% else %}#00ff88{% endif %}; margin-bottom: 15px;">
                     {{ message }}
-                </div>
-            {% endfor %}
+                    <span onclick="this.parentElement.style.display='none';" style="position: absolute; right: 10px; top: 10px; cursor: pointer; font-weight: bold;">
+                            &times;
+                        </span>
+                    </div>
+                {% endfor %}
         {% endif %}
 
         <form method="POST">
