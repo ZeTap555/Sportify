@@ -366,6 +366,48 @@ def mis_reservas(request):
 # =========================================================================
 # 3. PASARELAS DE PAGO Y CONFIRMACIONES
 # =========================================================================
+@login_required
+def mis_clases(request):
+    profesor=Profesor.objects.get(usuario=request.user)
+    clases=Clase.objects.filter(profesor=profesor).select_related('actividad')
+    hoy=date.today()
+    clases_pendientes=[]
+    clases_finalizadas=[]
+    for clase in clases:
+        print("clase",clase.id,clase.fecha)
+        fecha_inicio=clase.fecha
+        fecha_minima=hoy-timedelta(days=90)
+        fecha_maxima=hoy+timedelta(days=90)
+        fecha_actual=fecha_inicio
+        while fecha_actual<=fecha_maxima:
+            cantidad_inscriptos=Reserva.objects.filter(
+                clase=clase,
+                fecha_clase=fecha_actual,
+                en_lista_de_espera=False
+            ).count()
+            ocurrencia={
+                'clase':clase,
+                'fecha':fecha_actual,
+                'dia':clase.dia_semana_nombre,
+                'inscriptos':cantidad_inscriptos,
+            }
+            fecha_hora=timezone.datetime.combine(
+                fecha_actual,clase.horario
+            )
+            if fecha_hora>=timezone.now().replace(tzinfo=None):
+                    clases_pendientes.append(ocurrencia)
+            else:
+                    clases_finalizadas.append(ocurrencia)
+
+            fecha_actual+=timedelta(days=7)
+    clases_pendientes.sort(key=lambda x:(x['fecha'],x['clase'].horario))
+    clases_finalizadas.sort(key=lambda x:(x['fecha'],x['clase'].horario),reverse=True)
+    print("pendientes",len(clases_pendientes))
+    print("finalizadas",len(clases_finalizadas))
+    return render(request,'gestion/mis_clases.html',{
+        'clases_pendientes':clases_pendientes,
+        'clases_finalizadas':clases_finalizadas,
+    })
 
 @login_required
 def pago_tarjeta(request):

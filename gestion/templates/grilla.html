@@ -226,7 +226,7 @@
                     <a href="{% url 'panel_admin' %}" class="menu-item">Panel Admin</a>
                 {% endif %}
                 {% if request.user.is_authenticated and request.user.rol == 'profesor' %}
-                    <a href="#" class="menu-item" style="pointer-events: none; opacity: 0.6;">Mis Clases</a>
+                    <a href="{% url 'mis_clases' %}" class="menu-item">Mis Clases</a>
                 {% endif %}
                 {% if request.user.is_authenticated and request.user.rol != 'admin' and request.user.rol != 'profesor' %}
                 <a href="{% if request.user.is_authenticated %}{% url 'mis_reservas' %}{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Reservas</a>
