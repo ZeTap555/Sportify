@@ -408,8 +408,23 @@ def mis_clases(request):
         'clases_pendientes':clases_pendientes,
         'clases_finalizadas':clases_finalizadas,
     })
-
 @login_required
+def ver_inscriptos(request,clase_id,fecha):
+    clase=Clase.objects.get(id=clase_id)
+    fecha_obj=datetime.strptime(fecha, "%Y-%m-%d").date()
+    reservas=Reserva.objects.filter(
+        clase=clase,
+        fecha_clase=fecha_obj,
+        en_lista_de_espera=False
+    ).select_related('usuario')
+    datos=[]
+    for reserva in reservas:
+        datos.append({
+            'nombre':reserva.usuario.first_name,
+            'apellido':reserva.usuario.last_name,
+            'dni':reserva.usuario.dni,
+        })
+    return JsonResponse({'inscriptos':datos})
 def pago_tarjeta(request):
     datos = request.session.get('inscripcion_pendiente')
     if not datos:

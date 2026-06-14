@@ -236,133 +236,223 @@
             {% endif %}
         </div>
 
-        <div class="main-content">
-            <div class="container my-5">
-                <div class="card card-custom text-white shadow-lg p-4">
-                    <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3" style="border-color: #2c2c2e !important;">
-                        <div>
-                            <h2 class="h3 text-uppercase text-warning-custom m-0">Mis Clases</h2>
-                            <small class="text-white-50">Clases que tenés asignadas como profesor</small>
-                        </div>
-                    </div>
-
-                    <div class="tabs-container mb-4">
-                        <button id="btnProximas" class="tab-btn active">
-                            Próximas Clases
-                        </button>
-                        <button id="btnFinalizadas" class="tab-btn">
-                            Clases Finalizadas
-                        </button>
-                    </div>
-
-                    <div id="proximas">  
-                        {% if not clases_pendientes %}
-                            <div class="alert alert-custom text-center py-5 my-3">
-                                <h4 class="text-white mb-2">No tenés próximas clases programadas.</h4>
-                                <p class="m-0 text-white-50">
-                                    Podés consultar tu historial en la pestaña "Clases finalizadas"
-                                </p>
-                            </div>
-                        {% else %}
-                            <table class="table table-dark table-hover align-middle m-0" style="--bs-table-bg: #1c1c1e;">
-                                <thead>
-                                    <tr>
-                                        <th>Actividad</th>
-                                        <th>Día</th>
-                                        <th>Fecha</th>
-                                        <th>Horario</th>
-                                        <th>Inscriptos</th>
-                                        <th>Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for ocurrencia in clases_pendientes %}
-                                        <tr>
-                                            <td>{{ ocurrencia.clase.actividad.nombre }}</td>
-                                            <td>{{ ocurrencia.dia }}</td>
-                                            <td>{{ ocurrencia.fecha|date:"d/m/Y" }}</td>
-                                            <td>{{ ocurrencia.clase.horario|time:"H:i" }}</td>
-                                            <td>{{ ocurrencia.inscriptos }}</td>
-                                            <td>
-                                                <button class="btn btn-sportify btn-sm">
-                                                    👥 Ver inscriptos
-                                                </button>
-                                                <button class="btn btn-sportify btn-sm">
-                                                    Generar QR
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        {% endif %}
-                    </div>
-
-                    <div id="finalizadas" style="display:none;">
-                        {% if not clases_finalizadas %}
-                            <div class="alert alert-custom text-center py-5 my-3">
-                                <h4 class="text-white mb-2">No tenés clases finalizadas.</h4>
-                                <p class="m-0 text-white-50">
-                                    Cuando tengas clases finalizadas, las vas a poder ver acá.
-                                </p>
-                            </div>
-                        {% else %}
-                            <table class="table table-dark table-hover align-middle m-0" style="--bs-table-bg: #1c1c1e;">
-                                <thead>
-                                    <tr>
-                                        <th>Actividad</th>
-                                        <th>Día</th>
-                                        <th>Fecha</th>
-                                        <th>Horario</th>
-                                        <th>Inscriptos</th>
-                                        <th>Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for ocurrencia in clases_finalizadas %}
-                                        <tr>
-                                            <td>{{ ocurrencia.clase.actividad.nombre }}</td>
-                                            <td>{{ ocurrencia.dia }}</td>
-                                            <td>{{ ocurrencia.fecha|date:"d/m/Y" }}</td>
-                                            <td>{{ ocurrencia.clase.horario|time:"H:i" }}</td>
-                                            <td>{{ ocurrencia.inscriptos }}</td>
-                                            <td>
-                                                <button class="btn btn-sportify btn-sm">
-                                                    👥 Ver inscriptos
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        {% endif %}
-                    </div>
+       <div class="main-content">
+    <div class="container my-5">
+        <div class="card card-custom text-white shadow-lg p-4">
+            <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3" style="border-color: #2c2c2e !important;">
+                <div>
+                    <h2 class="h3 text-uppercase text-warning-custom m-0">Mis Clases</h2>
+                    <small class="text-white-50">Clases que tenés asignadas como profesor</small>
                 </div>
+            </div>
+
+            <div class="tabs-container mb-4">
+                <button id="btnProximas" class="tab-btn active">
+                    Próximas Clases
+                </button>
+                <button id="btnFinalizadas" class="tab-btn">
+                    Clases Finalizadas
+                </button>
+            </div>
+
+            <div id="proximas">  
+                {% if not clases_pendientes %}
+                    <div class="alert alert-custom text-center py-5 my-3">
+                        <h4 class="text-white mb-2">No tenés próximas clases programadas.</h4>
+                        <p class="m-0 text-white-50">
+                            Podés consultar tu historial en la pestaña "Clases finalizadas"
+                        </p>
+                    </div>
+                {% else %}
+                    <table class="table table-dark table-hover align-middle m-0" style="--bs-table-bg: #1c1c1e;">
+                        <thead>
+                            <tr>
+                                <th>Actividad</th>
+                                <th>Día</th>
+                                <th>Fecha</th>
+                                <th>Horario</th>
+                                <th>Inscriptos</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ocurrencia in clases_pendientes %}
+                                <tr>
+                                    <td>{{ ocurrencia.clase.actividad.nombre }}</td>
+                                    <td>{{ ocurrencia.dia }}</td>
+                                    <td>{{ ocurrencia.fecha|date:"d/m/Y" }}</td>
+                                    <td>{{ ocurrencia.clase.horario|time:"H:i" }}</td>
+                                    <td>{{ ocurrencia.inscriptos }}</td>
+                                    <td>
+                                        <button
+                                            class="btn btn-sportify btn-sm btn-inscriptos"
+                                            data-clase="{{ocurrencia.clase.id}}"
+                                            data-fecha="{{ ocurrencia.fecha|date:'Y-m-d' }}"
+                                            data-actividad="{{ocurrencia.clase.actividad.nombre}}"
+                                            data-horario="{{ocurrencia.clase.horario|time:'H:i'}}"
+                                            data-fecha-mostrar="{{ocurrencia.fecha|date:'d/m/Y'}}"
+                                        >
+                                            👥 Ver inscriptos
+                                        </button>
+                                        <button class="btn btn-sportify btn-sm">
+                                            Generar QR
+                                        </button>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% endif %}
+            </div>
+
+            <div id="finalizadas" style="display:none;">
+                {% if not clases_finalizadas %}
+                    <div class="alert alert-custom text-center py-5 my-3">
+                        <h4 class="text-white mb-2">No tenés clases finalizadas.</h4>
+                        <p class="m-0 text-white-50">
+                            Cuando tengas clases finalizadas, las vas a poder ver acá.
+                        </p>
+                    </div>
+                {% else %}
+                    <table class="table table-dark table-hover align-middle m-0" style="--bs-table-bg: #1c1c1e;">
+                        <thead>
+                            <tr>
+                                <th>Actividad</th>
+                                <th>Día</th>
+                                <th>Fecha</th>
+                                <th>Horario</th>
+                                <th>Inscriptos</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ocurrencia in clases_finalizadas %}
+                                <tr>
+                                    <td>{{ ocurrencia.clase.actividad.nombre }}</td>
+                                    <td>{{ ocurrencia.dia }}</td>
+                                    <td>{{ ocurrencia.fecha|date:"d/m/Y" }}</td>
+                                    <td>{{ ocurrencia.clase.horario|time:"H:i" }}</td>
+                                    <td>{{ ocurrencia.inscriptos }}</td>
+                                    <td>
+                                        <button
+                                            class="btn btn-sportify btn-sm btn-inscriptos"
+                                            data-clase="{{ocurrencia.clase.id}}"
+                                            data-fecha="{{ ocurrencia.fecha|date:'Y-m-d' }}"
+                                            data-actividad="{{ocurrencia.clase.actividad.nombre}}"
+                                            data-horario="{{ocurrencia.clase.horario|time:'H:i'}}"
+                                            data-fecha-mostrar="{{ocurrencia.fecha|date:'d/m/Y'}}"
+                                        >
+                                            👥 Ver inscriptos
+                                        </button>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% endif %}
             </div>
         </div>
     </div>
+</div>
 
-    <script>
-        const btnProximas = document.getElementById('btnProximas');
-        const btnFinalizadas = document.getElementById('btnFinalizadas');
-        const proximas = document.getElementById('proximas');
-        const finalizadas = document.getElementById('finalizadas');
+<div class="modal fade" id="modalInscriptos" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark text-white" style="border: 1px solid #2c2c2e; border-radius: 14px;">
+            <div class="modal-header" style="border-bottom: 1px solid #2c2c2e;">
+                <h5 class="modal-title fw-bold" id="tituloModalInscriptos">Inscriptos</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="sinInscriptos" class="text-center py-5" style="display: none;">
+                    <h5 class="text-white fw-semibold m-0">No hay clientes inscriptos para esta fecha.</h5>
+                </div>
 
-        btnProximas.addEventListener('click', () => {
-            proximas.style.display = 'block';
-            finalizadas.style.display = 'none';
-            btnProximas.classList.add('active');
-            btnFinalizadas.classList.remove('active');
-        });
+                <table id="tablaContenedor" class="table table-dark table-hover m-0">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>DNI</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaInscriptos">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 
-        btnFinalizadas.addEventListener('click', () => {
-            proximas.style.display = 'none';
-            finalizadas.style.display = 'block';
-            btnFinalizadas.classList.add('active');
-            btnProximas.classList.remove('active');
-        });
-    </script>
+<script>
+    const btnProximas = document.getElementById('btnProximas');
+    const btnFinalizadas = document.getElementById('btnFinalizadas');
+    const proximas = document.getElementById('proximas');
+    const finalizadas = document.getElementById('finalizadas');
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    btnProximas.addEventListener('click', () => {
+        proximas.style.display = 'block';
+        finalizadas.style.display = 'none';
+        btnProximas.classList.add('active');
+        btnFinalizadas.classList.remove('active');
+    });
+
+    btnFinalizadas.addEventListener('click', () => {
+        proximas.style.display = 'none';
+        finalizadas.style.display = 'block';
+        btnFinalizadas.classList.add('active');
+        btnProximas.classList.remove('active');
+    });
+</script>
+
+<script>
+document.querySelectorAll('.btn-inscriptos').forEach(boton => {
+    boton.addEventListener('click', async () => {
+        const claseId = boton.dataset.clase;
+        const fecha = boton.dataset.fecha;
+        
+        const actividad = boton.dataset.actividad || 'Clase';
+        const horario = boton.dataset.horario || '--:--';
+        const fechaMostrar = boton.dataset.fechaMostrar || fecha;
+        
+        try {
+            const response = await fetch(`/ver-inscriptos/${claseId}/${fecha}/`);
+            const data = await response.json();
+            
+            const tablaContenedor = document.getElementById('tablaContenedor');
+            const sinInscriptos = document.getElementById('sinInscriptos');
+            const tablaBody = document.getElementById('tablaInscriptos');
+            
+            tablaBody.innerHTML = '';
+            
+            if (data.inscriptos.length === 0) {
+                tablaContenedor.style.display = 'none';
+                sinInscriptos.style.display = 'block';
+            } else {
+                tablaContenedor.style.display = 'table';
+                sinInscriptos.style.display = 'none';
+                
+                data.inscriptos.forEach(inscripto => {
+                    tablaBody.innerHTML += `
+                        <tr>
+                            <td class="py-3">${inscripto.nombre}</td>
+                            <td class="py-3">${inscripto.dni}</td>
+                        </tr>
+                    `;
+                });
+            }
+            
+            document.getElementById("tituloModalInscriptos").textContent = `Inscriptos - ${actividad} - ${fechaMostrar} - ${horario} hs`;
+            
+            const modalElement = document.getElementById('modalInscriptos');
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+
+        } catch (error) {
+            console.error("Error al obtener los inscriptos:", error);
+            alert("No se pudo cargar la lista de inscriptos. Intente nuevamente.");
+        }
+    });
+});
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
