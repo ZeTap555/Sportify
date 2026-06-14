@@ -18,6 +18,7 @@ urlpatterns = [
     path('clase/<int:clase_id>/detalle/', views.detalle_clase_fecha, name='detalle_clase_fecha'),
     path('clase/<int:clase_id>/inscribirse/', views.inscribirse_clase, name='inscribirse_clase'),
     path('clase/<int:clase_id>/asignar-profesor/', views.asignar_profesor_clase, name='asignar_profesor_clase'),
+    path('ver-inscriptos/<int:clase_id>/<str:fecha>/',views.ver_inscriptos,name='ver_inscriptos'),
     
     # Pasarela de Pagos
     path('pago/tarjeta/', views.pago_tarjeta, name='pago_tarjeta'),
