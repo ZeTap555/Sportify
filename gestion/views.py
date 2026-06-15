@@ -374,7 +374,6 @@ def mis_clases(request):
     clases_pendientes=[]
     clases_finalizadas=[]
     for clase in clases:
-        print("clase",clase.id,clase.fecha)
         fecha_inicio=clase.fecha
         fecha_minima=hoy-timedelta(days=90)
         fecha_maxima=hoy+timedelta(days=90)
@@ -394,7 +393,10 @@ def mis_clases(request):
             fecha_hora=timezone.datetime.combine(
                 fecha_actual,clase.horario
             )
-            if fecha_hora>=timezone.now().replace(tzinfo=None):
+            fin_clase=fecha_hora+timedelta(hours=1,minutes=15)
+            ahora=timezone.localtime().replace(tzinfo=None)
+        
+            if fin_clase>=ahora:
                     clases_pendientes.append(ocurrencia)
             else:
                     clases_finalizadas.append(ocurrencia)
@@ -423,8 +425,136 @@ def ver_inscriptos(request,clase_id,fecha):
             'nombre':reserva.usuario.first_name,
             'apellido':reserva.usuario.last_name,
             'dni':reserva.usuario.dni,
+            'asistio':reserva.asistio,
+            'estado':"✅" if reserva.asistio else("❌" if timezone.localtime()>timezone.make_aware(datetime.combine(fecha_obj,clase.horario))+timedelta(hours=1,minutes=15)else "-"),
         })
     return JsonResponse({'inscriptos':datos})
+import qrcode 
+from io import BytesIO
+@login_required
+def generar_qr(request,clase_id,fecha):
+    contenido=f"https://8d07-138-199-50-101.ngrok-free.app/registrar-asistencia/{clase_id}/{fecha}/"
+    cantidad_inscriptos=Reserva.objects.filter(
+        clase_id=clase_id,
+        fecha_clase=fecha
+    ).count()
+    qr=qrcode.make(contenido)
+    buffer=BytesIO()
+    qr.save(buffer, format='PNG')
+    buffer.seek(0)
+    return HttpResponse(buffer.getvalue(), content_type='image/png')
+
+@login_required
+def validar_horario_qr(request,clase_id,fecha):
+    clase=Clase.objects.get(id=clase_id)
+    fecha_obj=datetime.strptime(fecha,"%Y-%m-%d").date()
+    inicio=timezone.make_aware(
+        datetime.combine(fecha_obj,clase.horario)
+    )
+    fin=inicio + timedelta(hours=1)
+    ahora=timezone.localtime()
+    permitido=(
+        inicio-timedelta(minutes=15)<=ahora<=fin + timedelta(minutes=15)
+    )
+    return JsonResponse({
+        "permitido":permitido
+    })
+
+from django.contrib.auth import authenticate
+def registrar_asistencia(request, clase_id, fecha):
+    clase=Clase.objects.get(id=clase_id)
+    fecha_obj=datetime.strptime(fecha,"%Y-%m-%d").date()
+    inicio=timezone.make_aware(
+        datetime.combine(fecha_obj,clase.horario)
+    )
+    fin=inicio+timedelta(hours=1)
+    ahora=timezone.now()
+    #ESCENARIO QR EXPIRADO
+    if ahora<inicio-timedelta(minutes=15)or ahora>fin + timedelta(minutes=15):
+        return render(request,"gestion/mensaje_asistencia.html",{
+            "icono":"⌛",
+            "titulo":"QR expirado",
+            "mensaje":"El código QR ya no es válido. No se puede registrar tu asistencia a esta clase."})
+    if request.method=="GET":
+        return render(request,"gestion/registrar_asistencia.html")
+    dni=request.POST.get("dni")
+    password=request.POST.get("password")
+    usuario=authenticate(
+        request,
+        username=dni,
+        password=password
+    )
+    if usuario is None:
+        return render(request,"gestion/registrar_asistencia.html",{
+            "error":"DNI o contraseña incorrectos."
+        })
+    try:
+        reserva=Reserva.objects.get(
+            usuario=usuario,
+            clase=clase,
+            fecha_clase=fecha_obj
+        )
+    except Reserva.DoesNotExist:
+        return render(request,"gestion/mensaje_asistencia.html",{
+            "icono":"❌",
+            "titulo":"No estás inscripto",
+            "mensaje":"Lo sentimos, no estás inscripto en esta clase."        })
+    
+    if reserva.asistio:
+        return render(request,"gestion/mensaje_asistencia.html",{
+            "icono":"⚠️",
+            "titulo":"Asistencia ya registrada",
+            "mensaje":"Ya registraste tu asistencia para esta clase previamente."
+        })
+    reserva.asistio=True
+    reserva.save()
+    return render(request,"gestion/mensaje_asistencia.html",{
+        "icono":"✅",
+        "titulo":"Asistencia registrada",
+        "mensaje":"Asistencia registrada correctamente.Gracias por venir!"
+        })
+
+def estado_qr(request,clase_id,fecha):
+    clase=Clase.objects.get(id=clase_id)
+    fecha_obj=datetime.strptime(
+        fecha,
+        "%Y-%m-%d"
+    ).date()
+    inicio=timezone.make_aware(datetime.combine(fecha_obj,clase.horario))
+    fin=inicio+timedelta(hours=1)
+    ahora=timezone.localtime()
+    qr_vigente=(
+        inicio-timedelta(minutes=15)
+        <= ahora<=
+        fin + timedelta(minutes=15)
+    )
+    reservas=Reserva.objects.filter(
+        clase=clase,
+        fecha_clase=fecha_obj
+    )
+    inscriptos=reservas.count()
+    asistentes=reservas.filter(asistio=True)
+    ultimo_asistente=asistentes.order_by("-id").first()
+    lista_reservas=[]
+    for reserva in reservas:
+        lista_reservas.append({
+            "id":reserva.id,
+            "nombre":f"{reserva.usuario.first_name} {reserva.usuario.last_name}",
+            "dni":reserva.usuario.dni,
+            "asistio":reserva.asistio,
+            "estado":"✅" if reserva.asistio else("-" if qr_vigente else"❌"),
+        })
+    return JsonResponse({
+        "qr_vigente":qr_vigente,
+        "inscriptos":inscriptos,
+        "asistentes":reservas.filter(asistio=True).count(),
+        "ultimo_asistente":(
+            f"{ultimo_asistente.usuario.first_name} {ultimo_asistente.usuario.last_name}"
+            if ultimo_asistente else None
+        ),
+        "reservas":lista_reservas,
+    })
+
 def pago_tarjeta(request):
     datos = request.session.get('inscripcion_pendiente')
     if not datos:

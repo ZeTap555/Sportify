@@ -1,0 +1,186 @@
+{% load static %}
+
+<!DOCTYPE html>
+
+<html lang="es">
+<head>
+
+```
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Sportify - Registrar Asistencia</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="{% static 'css/styles.css' %}">
+```
+
+</head>
+
+<body>
+
+```
+<div class="overlay"></div>
+
+<div class="login-container">
+
+    <img
+        src="{% static 'img/logo_Sportify.png' %}"
+        class="logo"
+    >
+
+    <p class="subtitulo">
+        Registrar Asistencia
+    </p>
+    <p style="
+        color:rgba(255,255,255,0.75);
+        text-align:center;
+        font-size:0.95rem;
+        margin-bottom:25px;
+    ">
+        Ingresá tu DNI y contraseña para registrar tu asistencia a la clase.
+    </p>
+
+    {% if mensaje_exito %}
+
+        <div style="
+            background-color: rgba(0,255,136,0.12);
+            border: 1px solid #00ff88;
+            color: #00ff88;
+            padding: 12px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+        ">
+
+            {{ mensaje_exito }}
+
+        </div>
+
+    {% endif %}
+
+    {% if error %}
+        <div style="
+            background-color: rgba(255,69,58,0.12);
+            border: 1px solid #ff453a;
+            color: #ff453a;
+            padding: 12px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+        ">
+            {{ error }}
+        </div>
+    {% endif %}
+
+    <script>
+        setTimeout(() => {
+            const mensajeExito = document.querySelector(
+                'div[style*="background-color: rgba(0,255,136"]');
+            if(mensajeExito){
+                mensajeExito.style.transition = 'opacity 0.5s ease';
+                mensajeExito.style.opacity = '0';
+                setTimeout(() => {
+                    mensajeExito.remove();
+                }, 500);
+            }
+        
+        }, 3000);
+
+    </script>
+
+
+
+
+
+
+    <form method="POST">
+
+        {% csrf_token %}
+
+        <div class="input-group">
+
+            <label>DNI</label>
+
+            <input
+                type="text"
+                name="dni"
+                placeholder="Ingrese su DNI"
+                required
+            >
+
+        </div>
+
+        <div class="input-group">
+
+            <label>Contraseña</label>
+
+            <div class="password-container">
+
+                <input
+                    type="password"
+                    name="password"
+                    placeholder="Ingrese su contraseña"
+                    id="login-password"
+                    required
+                >
+
+                <span
+                    class="toggle-password"
+                    onclick="toggleLoginPassword()"
+                >
+                    👁
+                </span>
+
+            </div>
+
+        </div>
+
+       
+
+        <button type="submit">
+
+            REGISTRAR ASISTENCIA
+
+        </button>
+
+    </form>
+
+    
+
+</div>
+
+<script>
+
+    function toggleLoginPassword(){
+
+        const passwordInput = document.getElementById(
+            "login-password"
+        );
+
+        if(passwordInput.type === "password"){
+
+            passwordInput.type = "text";
+
+        }else{
+
+            passwordInput.type = "password";
+
+        }
+    }
+
+</script>
+```
+
+</body>
+</html>

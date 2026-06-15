@@ -145,6 +145,7 @@ class Reserva(models.Model):
     clase = models.ForeignKey(Clase, on_delete=models.CASCADE, related_name='reservas')
     fecha_clase = models.DateField(null=True, blank=True)
     fecha_reserva = models.DateTimeField(auto_now_add=True)
+    asistio=models.BooleanField(default=False)
     
     # 📋 LISTA DE ESPERA INTERNA
     # Si al crearse la reserva los cupos de la clase eran 0, pasa automáticamente a True
