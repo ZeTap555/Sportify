@@ -40,6 +40,8 @@ from django.db.models import Sum
 from django.core.mail import send_mail, EmailMultiAlternatives
 from django.utils import translation
 from django.core.exceptions import ValidationError
+from django.db.models import Count
+import django.db.models as django_models
 
 # =========================================================================
 # MODELOS LOCALES
@@ -814,128 +816,152 @@ def panel_admin(request):
             else:
                 messages.error(request, "El nombre de la actividad no puede estar vacío.")
 
-        # --- B. PROCESAR PROGRAMAR CLASE ---
+        # --- B. PROCESAR PROGRAMAR CLASE (RECURSIVA CON CUPO AJUSTADO) ---
         elif action == 'crear_clase':
             pestania_activa = 'clases'
             actividad_id = request.POST.get('actividad')
             profesor_id = request.POST.get('profesor')
-            fecha_str = request.POST.get('fecha')
+            dia_semana_str = request.POST.get('dia_semana') # '0'=Lunes, '1'=Martes, etc.
+            fecha_str = request.POST.get('fecha')           # Puede venir vacío ''
             horario_str = request.POST.get('horario')
+            cupo_str = request.POST.get('cupo')
 
-            if not profesor_id or profesor_id == "":
-                messages.error(request, "Error: Debe seleccionar obligatoriamente un profesor para la clase.")
-            elif not fecha_str or not actividad_id or not horario_str:
-                messages.error(request, "Por favor, complete todos los campos obligatorios.")
+            if not profesor_id or not actividad_id or not horario_str or not cupo_str or not dia_semana_str:
+                messages.error(request, "Por favor, complete todos los campos obligatorios (Actividad, Profesor, Día y Cupo).")
             else:
-                fecha_obj = datetime.strptime(fecha_str, "%Y-%m-%d").date()
-                
                 try:
                     horario_obj = datetime.strptime(horario_str, "%H:%M").time()
                 except ValueError:
                     horario_obj = datetime.strptime(horario_str, "%H:%M:%S").time()
 
+                cupo_nuevo = int(cupo_str)
+                dia_semana_target = int(dia_semana_str) # 0=Lunes, 1=Martes...
+
+                # --- CÁLCULO DE FECHA DE INICIO SI VIENE VACÍA ---
+                if not fecha_str or fecha_str == "":
+                    dias_faltantes = (dia_semana_target - ahora.weekday()) % 7
+                    fecha_obj = ahora + timedelta(days=dias_faltantes)
+                else:
+                    fecha_obj = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+
+                # Validaciones de negocio del gimnasio
                 if horario_obj.minute != 0 or horario_obj.second != 0:
                     messages.error(request, "Error: Las clases deben comenzar estrictamente en punto (Ej: 19:00).")
                 elif horario_obj.hour < 8 or horario_obj.hour > 20:
                     messages.error(request, "Error: El gimnasio se encuentra cerrado. Las clases se dictan únicamente de 08 a 20 hs.")
                 elif fecha_obj < ahora:
                     messages.error(request, "Error: No se pueden programar clases en una fecha que ya pasó.")
-                elif fecha_obj.weekday() == 6:
-                    messages.error(request, "Error: El gimnasio permanece cerrado los domingos.")
+                elif fecha_obj.weekday() != dia_semana_target:
+                    messages.error(request, f"Error: La fecha seleccionada en el calendario no coincide con el día de la semana elegido.")
+                elif cupo_nuevo < 1 or cupo_nuevo > 30:
+                    messages.error(request, "Error: El cupo de la clase debe estar entre 1 y 30.")
                 else:
-                    dia_semana_nuevo = fecha_obj.weekday()
+                    fin_de_anio = date(fecha_obj.year, 12, 31)
 
-                    clases_profe_horario = Clase.objects.filter(
-                        profesor_id=profesor_id,
-                        horario=horario_obj,
-                        fecha__lte=fecha_obj
-                    )
+                    # 1. Generar lista de fechas recursivas (mismo día hasta fin de año)
+                    fechas_a_crear = []
+                    curr = fecha_obj
+                    while curr <= fin_de_anio:
+                        if curr.weekday() == dia_semana_target:
+                            fechas_a_crear.append(curr)
+                        curr += timedelta(days=1)
 
-                    profesor_ocupado = False
-                    for c in clases_profe_horario:
-                        if c.dia_semana_num == dia_semana_nuevo:
-                            profesor_ocupado = True
+                    # 2. VALIDACIÓN MATEMÁTICA DE CAPACIDAD DEL GIMNASIO (Máximo 30 total)
+                    from django.db.models import Sum
+                    cupo_excedido = False
+                    fecha_conflicto = None
+                    cupos_ya_asignados = 0
+
+                    for f in fechas_a_crear:
+                        datos_cupo = Clase.objects.filter(
+                            fecha=f,
+                            horario=horario_obj
+                        ).aggregate(total=Sum('cupo_maximo'))
+                        
+                        cupos_existentes = datos_cupo['total'] or 0
+                        
+                        if (cupos_existentes + cupo_nuevo) > 30:
+                            cupo_excedido = True
+                            fecha_conflicto = f
+                            cupos_ya_asignados = cupos_existentes
                             break
 
-                    if profesor_ocupado:
-                        messages.error(request, f"Error: El profesor ya se encuentra asignado a otra clase en ese mismo día y horario.")
+                    if cupo_excedido:
+                        cupos_restantes = 30 - cupos_ya_asignados
+                        messages.error(
+                            request, 
+                            f"Error: No se pueden asignar {cupo_nuevo} cupos. "
+                            f"El día {fecha_conflicto.strftime('%d/%m/%Y')} a las {horario_obj.strftime('%H:%M')} hs "
+                            f"ya tenés {cupos_ya_asignados} cupos tomados por otras clases. "
+                            f"Solo podés asignar un cupo de hasta {cupos_restantes} para esta franja."
+                        )
                     else:
-                        colision = Clase.objects.filter(actividad_id=actividad_id, horario=horario_obj)
+                        # 3. VERIFICACIÓN DE DISPONIBILIDAD DEL PROFESOR Y CHOQUE DE LA MISMA ACTIVIDAD
+                        profesor_ocupado = False
                         ya_existe_choque = False
-                        for c in colision:
-                            if c.dia_semana_num == dia_semana_nuevo:
+
+                        for f in fechas_a_crear:
+                            if Clase.objects.filter(profesor_id=profesor_id, horario=horario_obj, fecha=f).exists():
+                                profesor_ocupado = True
+                                fecha_conflicto = f
+                                break
+                            if Clase.objects.filter(actividad_id=actividad_id, horario=horario_obj, fecha=f).exists():
                                 ya_existe_choque = True
+                                fecha_conflicto = f
                                 break
 
-                        if ya_existe_choque:
-                            messages.error(request, "Error: ya existen clases de esa actividad en el horario y dia seleccionado.")
+                        if profesor_ocupado:
+                            messages.error(request, f"Error: El profesor ya tiene otra clase asignada en ese horario el día {fecha_conflicto.strftime('%d/%m/%Y')}.")
+                        elif ya_existe_choque:
+                            messages.error(request, f"Error: Ya existe una clase de esa misma actividad en ese horario el día {fecha_conflicto.strftime('%d/%m/%Y')}.")
                         else:
+                            # 4. CREACIÓN ATÓMICA DE LA SERIE
                             actividad = Actividad.objects.get(id=actividad_id)
                             profesor = Profesor.objects.get(id=profesor_id)
 
-                            Clase.objects.create(
-                                actividad=actividad,
-                                profesor=profesor,
-                                fecha=fecha_obj,
-                                horario=horario_obj
-                            )
-                            Notificacion.objects.create(
-                                usuario=profesor.usuario,
-                                mensaje=(
-                                    f"Se te ha asignado una nueva clase de "
-                                    f"{actividad.nombre} para el "
-                                    f"{fecha_obj.strftime('%d/%m/%Y')} "
-                                    f"a las {horario_obj.strftime('%H:%M')} hs."
-                                ),
-                                leida=False
-                            )
-                            asunto="Nueva clase asignada - Sportify"
-                            mensaje_texto = f"""
-                            Hola {profesor.nombre},
-                            Se te ha asignado una nueva clase.
-                            
-                            Actividad: {actividad.nombre}
-                            Fecha: {fecha_obj.strftime('%d/%m/%Y')}
-                            Horario: {horario_obj.strftime('%H:%M')} hs
-                            
-                            Ingresá a Sportify para consultar los detalles
-                            Saludos.
-                            """
-                            mensaje_html=f"""
-                            <div style="background-color:#000000;padding:40px;font-family:Poppins,sans-serif; text-align:center;">
-                                <h1 style="color:#00ff88;">SPORTIFY</h1>
-                                <h2 style="color:white;">
-                                     Nueva clase asignada
-                                </h2>
-                                <p style="color:#cccccc;">
-                                    Hola {profesor.nombre} {profesor.apellido},
-                                </p>
-                                <p style="color:#cccccc;">
-                                    Se te ha asignado una nueva clase
-                                </p>
-                                <div style="
-                                    background:#1c1c1e;
-                                    padding:20px;
-                                    border-radius:10px;
-                                    margin:20px auto;
-                                    max-width:400px;
-                                    color:white;
-                                ">
-                                    <p><b>Actividad:</b> {actividad.nombre}</p>
-                                    <p><b>Fecha:</b> {fecha_obj.strftime('%d/%m/%Y')}</p>
-                                    <p><b>Horario:</b> {horario_obj.strftime('%H:%M')} hs</p>
-                                </div>
-                                <p style="color:#777777;">
-                                    Ingresá a Sportify para consultar mas detalles.
-                                </p>
-                            </div>
-                            """
-                            email_message=EmailMultiAlternatives(
-                                asunto,mensaje_texto,settings.EMAIL_HOST_USER,[profesor.correo]
-                            )
-                            email_message.attach_alternative(mensaje_html,"text/html")
-                            email_message.send()
-                            messages.success(request, "Clases creadas con éxito.")
+                            try:
+                                with transaction.atomic():
+                                    for f in fechas_a_crear:
+                                        Clase.objects.create(
+                                            actividad=actividad,
+                                            profesor=profesor,
+                                            fecha=f,
+                                            horario=horario_obj,
+                                            cupo_maximo=cupo_nuevo
+                                        )
+                                    
+                                    # Notificación interna
+                                    Notificacion.objects.create(
+                                        usuario=profesor.usuario,
+                                        mensaje=(
+                                            f"Nueva serie de clases de {actividad.nombre} asignada para los "
+                                            f"días {fecha_obj.strftime('%A')} a las {horario_obj.strftime('%H:%M')} hs."
+                                        ),
+                                        leida=False
+                                    )
+                                    
+                                    # Envío de Correo
+                                    asunto = "Nueva serie de clases asignada - Sportify"
+                                    mensaje_texto = f"Hola {profesor.nombre},\nSe te ha asignado una serie de clases de {actividad.nombre} desde el {fecha_obj.strftime('%d/%m/%Y')} hasta fin de año."
+                                    mensaje_html = f"""
+                                    <div style="background-color:#000000;padding:40px;font-family:Poppins,sans-serif; text-align:center;">
+                                        <h1 style="color:#00ff88;">SPORTIFY</h1>
+                                        <h2 style="color:white;">Nueva serie de clases asignada</h2>
+                                        <div style="background:#1c1c1e; padding:20px; border-radius:10px; margin:20px auto; max-width:400px; color:white;">
+                                            <p><b>Actividad:</b> {actividad.nombre}</p>
+                                            <p><b>Horario:</b> {horario_obj.strftime('%H:%M')} hs</p>
+                                            <p><b>Inicio:</b> {fecha_obj.strftime('%d/%m/%Y')} hasta el 31/12</p>
+                                            <p><b>Cupo Asignado:</b> {cupo_nuevo} alumnos</p>
+                                        </div>
+                                    </div>
+                                    """
+                                    email_message = EmailMultiAlternatives(asunto, mensaje_texto, settings.EMAIL_HOST_USER, [profesor.correo])
+                                    email_message.attach_alternative(mensaje_html, "text/html")
+                                    email_message.send()
+
+                                messages.success(request, f"Serie de clases fijas creada con éxito ({cupo_nuevo} cupos por clase).")
+                            except Exception as e:
+                                messages.error(request, f"Error al procesar la creación masiva: {e}")
 
         # --- C. PROCESAR REGISTRAR PROFESOR ---
         elif action == 'registrar_profesor':
@@ -1158,7 +1184,7 @@ Tu usuario de ingreso es tu DNI: {dni}
                         clases_por_dia[dia].append(clase)
 
     # Cálculo de ganancias en tiempo real
-    resultado_ganancias = Reserva.objects.aggregate(total=Sum('monto_pagado'))
+    resultado_ganancias = Reserva.objects.aggregate(total=django_models.Sum('monto_pagado'))
     total_ganancias = resultado_ganancias['total'] if resultado_ganancias['total'] is not None else 0.0
 
     # =========================================================

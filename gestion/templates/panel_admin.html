@@ -42,7 +42,6 @@
             justify-content: center;
             padding: 0 15px;              
             margin-bottom: 25px;          
-
         }
 
         .sidebar-brand-link {
@@ -156,7 +155,6 @@
         /* ESTILOS DE LA PESTAÑA PAGOS */
         .item-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #2c2c2e; }
         .item-row:last-child { border-bottom: none; }
-        /* Clases específicas para inputs de precios */
         .price-input { width: 120px; text-align: right; background-color: rgba(0, 255, 136, 0.05); font-weight: bold; color: #00ff88; }
 
         /* Dashboard de ganancias corporativas */
@@ -181,7 +179,6 @@
                 <a href="{% url 'grilla_actividades' %}" class="menu-item">Cronograma</a>
                 <a href="{% url 'perfil' %}" class="menu-item">Mi Perfil</a>
                 <a href="{% url 'panel_admin' %}" class="menu-item active">Panel Admin</a>
-
             </div>
         </div>
 
@@ -225,23 +222,11 @@
                 {% endif %}
             </div>
 
-            <div id="pane-clases" class="tab-pane {% if pestania_activa == 'clases' or not pestania_activa %}active{% endif %}">
-                <div class="bento-grid-two">
+        <div id="pane-clases" class="tab-pane {% if pestania_activa == 'clases' or not pestania_activa %}active{% endif %}">
+                
+                <div style="display: flex; flex-direction: column; gap: 30px; max-width: 650px; margin: 0 auto 30px auto;">
+                    
                     <div class="card-panel">
-                        <h3>Nueva Actividad</h3>
-                        <form method="POST">
-                        {% csrf_token %}
-                            <input type="hidden" name="action" value="crear_actividad">
-                            
-                            <div class="input-group">
-                                <label for="act-nombre">Nombre de la Disciplina</label>
-                                <input type="text" id="act-nombre" name="nombre" class="input-field" placeholder="Ej: Ritmos, CrossFit, Pilates" required>
-                            </div>
-                            <button type="submit" class="btn-action">Registrar Actividad</button>
-                        </form>
-                    </div>
-
-                   <div class="card-panel">
                         <h3>Crear Clase</h3>
                         <form method="POST" id="form-crear-clase">
                             {% csrf_token %}
@@ -249,8 +234,8 @@
                             
                             <div class="input-group">
                                 <label>Seleccionar Actividad</label>
-                                <select name="actividad" id="id_actividad" class="select-field">
-                                    <option value="" selected>-- Seleccione disciplina --</option>
+                                <select name="actividad" id="id_actividad" class="select-field" required>
+                                    <option value="" selected disabled>-- Seleccione disciplina --</option>
                                     {% for act in actividades %}
                                         <option value="{{ act.id }}">{{ act.nombre }}</option>
                                     {% endfor %}
@@ -259,8 +244,8 @@
 
                             <div class="input-group">
                                 <label>Asignar Profesor</label>
-                                <select name="profesor" id="id_profesor" class="select-field">
-                                    <option value="" selected>-- Seleccione un Profesor Obligatoriamente --</option>
+                                <select name="profesor" id="id_profesor" class="select-field" required>
+                                    <option value="" selected disabled>-- Seleccione un Profesor Obligatoriamente --</option>
                                     {% for prof in profesores %}
                                         <option value="{{ prof.id }}">{{ prof.apellido }}, {{ prof.nombre }}</option>
                                     {% endfor %}
@@ -269,13 +254,32 @@
 
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                                 <div class="input-group">
-                                    <label>Fecha de Inicio de la Clase</label>
+                                    <label>Día de la semana fijo</label>
+                                    <select name="dia_semana" id="id_dia_semana" class="select-field" required>
+                                        <option value="" selected disabled>-- Seleccione Día --</option>
+                                        <option value="0">Lunes</option>
+                                        <option value="1">Martes</option>
+                                        <option value="2">Miércoles</option>
+                                        <option value="3">Jueves</option>
+                                        <option value="4">Viernes</option>
+                                        <option value="5">Sábado</option>
+                                    </select>
+                                </div>
+                                <div class="input-group">
+                                    <label>Cupo de esta clase (1 a 30)</label>
+                                    <input type="number" name="cupo" id="id_cupo" class="input-field" min="1" max="30" value="30" required>
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                                <div class="input-group">
+                                    <label>Fecha de Inicio (Opcional)</label>
                                     <input type="date" name="fecha" id="id_fecha" class="input-field">
                                 </div>
                                 <div class="input-group">
                                     <label>Horario (Horas en punto)</label>
-                                    <select name="horario" id="id_horario" class="select-field">
-                                        <option value="" selected>-- Seleccione Hora --</option>
+                                    <select name="horario" id="id_horario" class="select-field" required>
+                                        <option value="" selected disabled>-- Seleccione Hora --</option>
                                         <option value="08:00">08:00 hs</option>
                                         <option value="09:00">09:00 hs</option>
                                         <option value="10:00">10:00 hs</option>
@@ -292,7 +296,24 @@
                                     </select>
                                 </div>
                             </div>
-                            <button type="submit" class="btn-action">Añadir al Cronograma</button>
+
+                            <div id="aviso-recursivo" style="color: #00ff88; font-weight: bold; font-size: 0.9rem; margin-top: 15px; min-height: 20px;"></div>
+
+                            <button type="submit" class="btn-action" style="margin-top: 15px;">Añadir al Cronograma</button>
+                        </form>
+                    </div>
+
+                    <div class="card-panel">
+                        <h3>Nueva Actividad</h3>
+                        <form method="POST" style="display: flex; align-items: flex-end; gap: 20px;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="crear_actividad">
+                            
+                            <div class="input-group" style="flex-grow: 1; margin-bottom: 0;">
+                                <label for="act-nombre">Nombre de la Disciplina</label>
+                                <input type="text" id="act-nombre" name="nombre" class="input-field" placeholder="Ej: Ritmos, CrossFit, Pilates" required>
+                            </div>
+                            <button type="submit" class="btn-action" style="width: auto; padding: 11px 24px; white-space: nowrap;">Registrar Actividad</button>
                         </form>
                     </div>
                 </div>
@@ -329,14 +350,11 @@
                     </div>
                 </div>
             </div>
-
             <div id="pane-pagos" class="tab-pane {% if pestania_activa == 'pagos' %}active{% endif %}">
-                
                 <form method="POST">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="actualizar_precios_globales">
 
-                    <div class="bento-grid-two">
                         <div class="card-panel">
                             <h3>Precio por Clase</h3>
                             <p style="font-size:0.82rem; color:#8e8e93; margin-bottom:20px;">Precio por asistencia única a cada Clase.</p>
@@ -355,26 +373,6 @@
                                 {% endfor %}
                             </div>
                         </div>
-
-                        <div class="card-panel">
-                            <h3>Precio por Mensualidad</h3>
-                            <p style="font-size:0.82rem; color:#8e8e93; margin-bottom:20px;">Precio fijo para todas las clases del mes de una actividad.</p>
-                            
-                            <div style="max-height: 280px; overflow-y:auto; padding-right:5px;">
-                                {% for act in actividades %}
-                                    <div class="item-row">
-                                        <span>Mensualidad de <strong>{{ act.nombre }}</strong></span>
-                                        <div style="display:flex; align-items:center; gap:10px;">
-                                            <span style="color:#00ff88; font-weight:600; min-width:60px;">${{ act.precio_mensualidad }}</span>
-                                            <input type="number" step="0.01" name="precio_mes_{{ act.id }}" class="input-field price-input" value="{{ act.precio_mensualidad }}" placeholder="0.00" style="width:120px;">
-                                        </div>
-                                    </div>
-                                {% empty %}
-                                    <p style="font-style:italic; color:#636366;">No hay actividades cargadas.</p>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
 
                     <button type="submit" class="btn-action" style="max-width: 400px; margin: 0 auto; display: block;">
                         Guardar Tarifas
@@ -474,9 +472,34 @@
     </div>
 
     <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const diaSelect = document.getElementById('id_dia_semana');
+            const fechaInput = document.getElementById('id_fecha');
+            const avisoDiv = document.getElementById('aviso-recursivo');
+
+            if (diaSelect && fechaInput && avisoDiv) {
+                function actualizarAviso() {
+                    if (diaSelect.value !== "") {
+                        const textoDia = diaSelect.options[diaSelect.selectedIndex].text;
+                        if (fechaInput.value) {
+                            avisoDiv.innerText = `⚠️ A partir del día ${fechaInput.value} se crearán clases todos los ${textoDia} hasta terminar el año.`;
+                        } else {
+                            avisoDiv.innerText = `⚠️ Se crearán clases automáticamente todos los ${textoDia} a partir del próximo día disponible hasta terminar el año.`;
+                        }
+                    } else {
+                        avisoDiv.innerText = "";
+                    }
+                }
+
+                diaSelect.addEventListener('change', actualizarAviso);
+                fechaInput.addEventListener('change', actualizarAviso);
+            }
+        });
+
         function switchTab(tabId) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+            
             event.currentTarget.classList.add('active');
             document.getElementById('pane-' + tabId).classList.add('active');
         }
@@ -491,15 +514,19 @@
             document.querySelector('.panel-content').scrollTop = 0;
         }
 
+        // Validaciones JS adaptadas al nuevo comportamiento del formulario
         document.getElementById('form-crear-clase').addEventListener('submit', function(event) {
             const actividad = document.getElementById('id_actividad').value;
             const profesor = document.getElementById('id_profesor').value;
+            const diaSemana = document.getElementById('id_dia_semana').value;
             const fechaStr = document.getElementById('id_fecha').value;
             const horarioStr = document.getElementById('id_horario').value;
+            const cupo = document.getElementById('id_cupo').value;
 
-            if (!actividad || !fechaStr || !horarioStr) {
+            // Validar requeridos estructurales
+            if (!actividad || !horarioStr || !diaSemana || !cupo) {
                 event.preventDefault();
-                mostrarErrorGym("Error: Por favor, complete todos los campos obligatorios del formulario.");
+                mostrarErrorGym("Error: Por favor, complete todos los campos obligatorios (Actividad, Profesor, Día y Cupo).");
                 return;
             }
 
@@ -509,30 +536,33 @@
                 return;
             }
 
-            const ahora = new Date();
-            const hoySoloFecha = new Date(ahora.getTime());
-            hoySoloFecha.setHours(0, 0, 0, 0);
-            const fechaSeleccionada = new Date(fechaStr + 'T00:00:00');
-            
-            if (fechaSeleccionada < hoySoloFecha) {
-                event.preventDefault();
-                mostrarErrorGym("Error: No se pueden programar clases en una fecha que ya pasó.");
-                return;
-            }
-
-            if (fechaSeleccionada.getTime() === hoySoloFecha.getTime()) {
-                const horaSeleccionada = parseInt(horarioStr.split(':')[0], 10);
-                if (horaSeleccionada <= ahora.getHours()) {
+            // Validar fecha únicamente si el administrador ingresó una
+            if (fechaStr) {
+                const ahora = new Date();
+                const hoySoloFecha = new Date(ahora.getTime());
+                hoySoloFecha.setHours(0, 0, 0, 0);
+                const fechaSeleccionada = new Date(fechaStr + 'T00:00:00');
+                
+                if (fechaSeleccionada < hoySoloFecha) {
                     event.preventDefault();
-                    mostrarErrorGym(`Error: El horario seleccionado (${horarioStr} hs) ya pasó para el día de hoy.`);
+                    mostrarErrorGym("Error: No se pueden programar clases en una fecha que ya pasó.");
                     return;
                 }
-            }
 
-            if (fechaSeleccionada.getDay() === 0) {
-                event.preventDefault();
-                mostrarErrorGym("Error: El gimnasio permanece cerrado los domingos. Por favor, elija un día de lunes a sábado.");
-                return;
+                if (fechaSeleccionada.getTime() === hoySoloFecha.getTime()) {
+                    const horaSeleccionada = parseInt(horarioStr.split(':')[0], 10);
+                    if (horaSeleccionada <= ahora.getHours()) {
+                        event.preventDefault();
+                        mostrarErrorGym(`Error: El horario seleccionado (${horarioStr} hs) ya pasó para el día de hoy.`);
+                        return;
+                    }
+                }
+
+                if (fechaSeleccionada.getDay() === 0) {
+                    event.preventDefault();
+                    mostrarErrorGym("Error: El gimnasio permanece cerrado los domingos. Por favor, elija un día válido.");
+                    return;
+                }
             }
         });
     </script>
