@@ -1,0 +1,47 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ titulo }} - Sportify</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body>
+
+    <div class="overlay"></div>
+
+    <div class="login-container">
+        <img src="{% static 'img/logo_Sportify.png' %}" class="logo" alt="Logo Sportify">
+        <div 
+            style="
+                text-align:center;
+                font-size:3.8rem;
+                margin-bottom:15px;
+            "
+        >
+            {{icono}}
+        </div>
+
+        <p class="subtitulo">
+            {{ titulo }}
+        </p>
+
+        <p style="color:white;">
+            {{ mensaje }}
+        </p>
+        <a href="{{ url_boton }}" class="forgot" style="
+            display: block;
+            text-align: center;
+            font-size: 1rem;
+        ">
+            {{ texto_boton }}
+        </a>
+    </div>
+
+</body>
+</html>
