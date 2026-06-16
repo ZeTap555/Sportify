@@ -357,10 +357,34 @@ def inscribirse_clase(request, clase_id):
 @login_required
 def mis_reservas(request):
     from datetime import date
+    from reservas.models import Mensualidad
     reservas = Reserva.objects.filter(usuario=request.user, fecha_clase__gte=date.today())\
         .select_related('clase__actividad', 'clase__profesor')\
-        .order_by('-fecha_clase', '-clase__horario')
-    return render(request, 'gestion/mis_reservas.html', {'reservas': reservas})
+        .order_by('fecha_clase', 'clase__horario')
+
+    reservas_normales = []
+    reservas_espera = []
+
+    mensualidades = Mensualidad.objects.filter(
+        usuario=request.user, estado='pagada'
+    ).values_list('actividad_id', 'mes', 'anio')
+    mensualidades_set = {(m[0], m[1], m[2]) for m in mensualidades}
+
+    for r in reservas:
+        if r.en_lista_de_espera:
+            reservas_espera.append(r)
+        else:
+            r.es_mensual = (r.clase.actividad_id, r.fecha_clase.month, r.fecha_clase.year) in mensualidades_set
+            reservas_normales.append(r)
+
+    from gestion.models import Notificacion
+    cantidad_no_leidas = Notificacion.objects.filter(usuario=request.user, leida=False).count()
+
+    return render(request, 'gestion/mis_reservas.html', {
+        'reservas': reservas_normales,
+        'reservas_espera': reservas_espera,
+        'cantidad_no_leidas': cantidad_no_leidas,
+    })
 
 
 # =========================================================================
