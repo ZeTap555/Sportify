@@ -40,6 +40,7 @@ from django.db.models import Sum
 from django.core.mail import send_mail, EmailMultiAlternatives
 from django.utils import translation
 from django.core.exceptions import ValidationError
+from django.db import models
 
 # =========================================================================
 # MODELOS LOCALES
@@ -699,7 +700,8 @@ def pago_tarjeta(request):
                         monto_pagado=Decimal(datos['monto']) / max(len(lista_fechas_reservar), 1),
                         estado_pago='total',
                         medio_pago='Tarjeta',
-                        en_lista_de_espera=sin_cupo
+                        en_lista_de_espera=sin_cupo,
+                        modalidad='mensual'  # <--- AGREGA ESTA LÍNEA
                     )
                     if not reserva_principal:
                         reserva_principal = nueva_reserva
@@ -729,6 +731,7 @@ def pago_tarjeta(request):
                     monto_pagado=datos['monto'],
                     estado_pago=estado_final,
                     medio_pago='Tarjeta',
+                    modalidad='individual' # <--- AGREGA ESTA LÍNEA
                 )
                 mensaje_notificacion = f"Se realizó con éxito tu pago para la clase: {clase.actividad.nombre}"
 
@@ -823,10 +826,22 @@ def pago_exito(request):
             defaults={
                 'monto_pagado': datos['monto'],
                 'estado_pago': 'seña' if datos['tipo_pago'] == 'senia' else 'total',
-                'medio_pago': 'Mercado Pago'
+                'medio_pago': 'Mercado Pago',
+                'modalidad': 'mensual' if datos.get('flujo_tipo') == 'mensualidad' else 'individual' # <--- ESTA LÍNEA
             }
         )
-        
+        # Si la reserva ya existía, forzamos que se guarde la modalidad correcta
+        if not creado:
+            reserva.modalidad = 'mensual' if datos.get('flujo_tipo') == 'mensualidad' else 'individual'
+            reserva.save()
+        if datos.get('flujo_tipo') == 'mensualidad':
+            Reserva.objects.filter(
+                usuario=usuario_reserva,
+                clase__actividad=clase.actividad,
+                fecha_clase__month=reserva.fecha_clase.month,
+                fecha_clase__year=reserva.fecha_clase.year
+            ).update(modalidad='mensual')
+    
     if creado:
         print(f"✅ Reserva {reserva.id} creada con éxito en la base de datos.")
         
@@ -1383,7 +1398,55 @@ def asignar_profesor_clase(request, clase_id):
 @login_required
 def historial_pagos(request):
     pagos = Reserva.objects.filter(usuario=request.user).order_by('-fecha_reserva').exclude(estado_pago='pendiente')
+    
+    for pago in pagos:
+        # Obtenemos mes y año de la clase reservada
+        mes_clase = pago.fecha_clase.month
+        anio_clase = pago.fecha_clase.year
+        
+        # Lógica para detectar si esta reserva pertenece a una mensualidad pagada
+        # Buscamos si existe una mensualidad para el mismo mes de la clase
+        # O para el mes anterior (que es donde se suele pagar la mensualidad del mes siguiente)
+        mes_anterior = mes_clase - 1 if mes_clase > 1 else 12
+        anio_anterior = anio_clase if mes_clase > 1 else anio_clase - 1
+        
+        es_mensual = Mensualidad.objects.filter(
+            usuario=request.user,
+            actividad=pago.clase.actividad,
+            estado='pagada'
+        ).filter(
+            models.Q(mes=mes_clase, anio=anio_clase) | 
+            models.Q(mes=mes_anterior, anio=anio_anterior)
+        ).exists()
+        
+        pago.es_mensual = es_mensual
+        
+        # Asignación de fechas reales para la tabla
+        pago.fecha_pago_real = pago.fecha_reserva
+        pago.fecha_clase_real = pago.fecha_clase
+    
+    '''for pago in pagos:
+        # Buscamos si existe una mensualidad pagada para esa actividad, mes y año
+        # y que además haya sido creada ANTES o EL MISMO DÍA que la reserva.
+        mensualidad = Mensualidad.objects.filter(
+            usuario=request.user,
+            actividad=pago.clase.actividad,
+            mes=pago.fecha_clase.month,
+            anio=pago.fecha_clase.year,
+            estado='pagada'
+        ).first() # Obtenemos la primera coincidencia
 
+        if mensualidad:
+            # Comparamos: Si la reserva ocurrió el mismo día o después de que se 
+            # generó la mensualidad, entonces es parte de la mensualidad.
+            # (Nota: 'fecha_pago' es el campo estándar. Si tu modelo usa otro nombre, cámbialo)
+            pago.es_mensual = (pago.fecha_reserva.date() >= mensualidad.fecha_pago)
+        else:
+            pago.es_mensual = False
+        
+        # Fechas para la tabla
+        pago.fecha_pago_real = pago.fecha_reserva
+        pago.fecha_clase_real = pago.fecha_clase'''
     hoy = date.today()
     dia_hoy = hoy.day
     mes_hoy = hoy.month

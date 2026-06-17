@@ -96,48 +96,6 @@ class Clase(models.Model):
         disponibles = CAPACIDAD_MAXIMA_GIMNASIO - total_reservas_franja
         return max(0, disponibles)
 
-'''class Clase(models.Model):
-    actividad = models.ForeignKey(Actividad, on_delete=models.CASCADE)
-    profesor = models.ForeignKey(Profesor, on_delete=models.SET_NULL, null=True, blank=True)
-    
-    # 📆 1. CAMBIO CLAVE: Cambiamos el CharField de texto por una fecha real de calendario
-    fecha = models.DateField(default=timezone.now) 
-    horario = models.TimeField()  # Mantiene HH:MM:00
-
-    def __str__(self):
-        return f"{self.actividad.nombre} - {self.fecha|date:'d/m'} a las {self.horario}"
-
-    # 🔄 2. MÉTODO DINÁMICO: Obtiene el nombre del día traducido cuando lo necesites en el front
-    @property
-    def dia_semana_nombre(self):
-        dias = {0: 'Lunes', 1: 'Martes', 2: 'Miércoles', 3: 'Jueves', 4: 'Viernes', 5: 'Sábado', 6: 'Domingo'}
-        return dias[self.fecha.weekday()]
-
-    # ⏳ 3. MÉTODO DE CONTROL: Evalúa si la clase ya expiró en base a la hora actual exacta
-    @property
-    def ya_paso(self):
-        ahora = timezone.now()
-        # Combinamos fecha y hora de la clase para comparar con el momento actual
-        clase_datetime = timezone.make_aware(
-            timezone.datetime.combine(self.fecha, self.horario)
-        )
-        return ahora > clase_datetime
-
-    # 👥 4. LÓGICA DE CUPOS DINÁMICOS COMPARTIDOS (30 por franja horaria)
-    @property
-    def cupos_disponibles(self):
-        CAPACIDAD_MAXIMA_GIMNASIO = 30
-        
-        # Contamos todas las reservas activas que existan para el MISMO DÍA y la MISMA HORA
-        # sin importar si son de esta actividad o de otra que corra en simultáneo.
-        total_reservas_franja = Reserva.objects.filter(
-            clase__fecha=self.fecha,
-            clase__horario=self.horario
-        ).count()
-        
-        disponibles = CAPACIDAD_MAXIMA_GIMNASIO - total_reservas_franja
-        return max(0, disponibles) # Evita números negativos por si acaso'''
-
 
 class Reserva(models.Model):
     # Tabla intermedia para conectar los usuarios con las clases específicas
@@ -154,7 +112,13 @@ class Reserva(models.Model):
     monto_pagado = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     estado_pago = models.CharField(max_length=20, default='pendiente') # 'seña', 'total', 'pendiente'
     medio_pago = models.CharField(max_length=30, blank=True, null=True)  # 'Tarjeta', 'Mercado Pago'
-
+    #--------------------------------------------------------------
+    MODALIDAD_CHOICES = [
+        ('individual', 'Individual'),
+        ('mensual', 'Mensual'),
+    ]
+    modalidad = models.CharField(max_length=10, choices=MODALIDAD_CHOICES, default='individual')
+    #---------------------------------------------------------------------------------------------------------
     class Meta:
         # Evita que un mismo usuario se anote dos veces a la misma clase exacta
         unique_together = ('usuario', 'clase', 'fecha_clase')

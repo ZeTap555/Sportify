@@ -317,8 +317,12 @@
                                 <thead>
                                     <tr>
                                         <th>Actividad</th>
-                                        <th>Fecha</th>
-                                        <th>Estado</th>
+                                        <th>Fecha de Pago</th>
+                                        <th>Fecha Clase</th>
+                                        <th>Día</th>
+                                        <th>Hora</th>
+                                        <th>Estado</th> 
+                                        <th>Modalidad</th>
                                         <th>Comprobante</th>
                                     </tr>
                                 </thead>
@@ -326,8 +330,20 @@
                                     {% for pago in pagos %}
                                     <tr>
                                         <td>{{ pago.clase.actividad.nombre }}</td>
-                                        <td>{{ pago.fecha_reserva|date:"d/m/Y" }}</td>
+                                        <!-- Fecha de cuando se realizó la transacción -->
+                                        <td>{{ pago.fecha_pago_real|date:"d/m/Y" }}</td>
+                                        <!-- Fecha de la clase -->
+                                        <td>{{ pago.fecha_clase_real|date:"d/m/Y" }}</td>
+
+                                        <!-- Día de la semana de la clase -->
+                                        <td>{{ pago.fecha_clase_real|date:"l" }}</td>
+        
+                                        <td>{{ pago.clase.horario|time:"H:i" }}</td>
+        
                                         <td>{{ pago.estado_pago }}</td>
+        
+                                        <!-- Modalidad corregida -->
+                                        <td>{{ pago.get_modalidad_display }}</td>
                                         <td>
                                             <a href="{% url 'comprobante_pdf' pago.id %}" 
                                                class="btn  btn-success" 
