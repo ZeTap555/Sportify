@@ -303,20 +303,24 @@
                         </div>
                     </div>
 
-                    {% if not reservas %}
+                    {% if not reservas and not reservas_espera %}
                         <div class="alert alert-custom text-center py-5 my-3" role="alert">
                             <h4 class="text-white mb-2" style="font-weight: 500;">Sin reservas</h4>
                             <p class="m-0 text-white-50">No tenés ninguna clase reservada. ¡Anotate en alguna desde el cronograma!</p>
                         </div>
-                    {% else %}
+                    {% endif %}
+
+                    {% if reservas %}
                         <div class="table-responsive">
                             <table class="table table-dark table-hover align-middle m-0" style="--bs-table-bg: #1c1c1e;">
                                 <thead>
                                     <tr>
                                         <th>Actividad</th>
                                         <th>Profesor</th>
+                                        <th>Día</th>
                                         <th>Fecha</th>
                                         <th>Horario</th>
+                                        <th>Tipo</th>
                                         <th>Estado</th>
                                     </tr>
                                 </thead>
@@ -331,12 +335,18 @@
                                                 <span class="text-white-50">Sin asignar</span>
                                             {% endif %}
                                         </td>
+                                        <td>{{ reserva.clase.dia_semana_nombre }}</td>
                                         <td>{{ reserva.fecha_clase|date:"d/m/Y" }}</td>
                                         <td>{{ reserva.clase.horario|time:"H:i" }}</td>
                                         <td>
-                                            {% if reserva.en_lista_de_espera %}
-                                                <span class="badge-estado badge-espera">Lista de espera</span>
-                                            {% elif reserva.estado_pago == 'total' %}
+                                            {% if reserva.es_mensual %}
+                                                <span class="badge-estado badge-pagada">Mensual</span>
+                                            {% else %}
+                                                <span class="badge-estado badge-pendiente">Clase</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if reserva.estado_pago == 'total' %}
                                                 <span class="badge-estado badge-pagada">Pagado</span>
                                             {% elif reserva.estado_pago == 'seña' %}
                                                 <span class="badge-estado badge-senia">Seña</span>
@@ -348,6 +358,46 @@
                                     {% endfor %}
                                 </tbody>
                             </table>
+                        </div>
+                    {% endif %}
+
+                    {% if reservas_espera %}
+                        <div class="mt-5">
+                            <h4 class="text-uppercase text-warning-custom mb-3" style="font-size:1rem;">Lista de Espera</h4>
+                            <div class="table-responsive">
+                                <table class="table table-dark table-hover align-middle m-0" style="--bs-table-bg: #1c1c1e;">
+                                    <thead>
+                                        <tr>
+                                            <th>Actividad</th>
+                                            <th>Profesor</th>
+                                            <th>Día</th>
+                                            <th>Fecha</th>
+                                            <th>Horario</th>
+                                            <th>Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for reserva in reservas_espera %}
+                                        <tr>
+                                            <td>{{ reserva.clase.actividad.nombre }}</td>
+                                            <td>
+                                                {% if reserva.clase.profesor %}
+                                                    {{ reserva.clase.profesor.apellido }}, {{ reserva.clase.profesor.nombre }}
+                                                {% else %}
+                                                    <span class="text-white-50">Sin asignar</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ reserva.clase.dia_semana_nombre }}</td>
+                                            <td>{{ reserva.fecha_clase|date:"d/m/Y" }}</td>
+                                            <td>{{ reserva.clase.horario|time:"H:i" }}</td>
+                                            <td>
+                                                <span class="badge-estado badge-espera">Lista de espera</span>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     {% endif %}
                 </div>

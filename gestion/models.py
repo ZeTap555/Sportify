@@ -107,6 +107,7 @@ class Reserva(models.Model):
     clase = models.ForeignKey(Clase, on_delete=models.CASCADE, related_name='reservas')
     fecha_clase = models.DateField(null=True, blank=True)
     fecha_reserva = models.DateTimeField(auto_now_add=True)
+    asistio=models.BooleanField(default=False)
     
     # 📋 LISTA DE ESPERA INTERNA
     # Si al crearse la reserva los cupos de la clase eran 0, pasa automáticamente a True
@@ -115,7 +116,13 @@ class Reserva(models.Model):
     monto_pagado = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     estado_pago = models.CharField(max_length=20, default='pendiente') # 'seña', 'total', 'pendiente'
     medio_pago = models.CharField(max_length=30, blank=True, null=True)  # 'Tarjeta', 'Mercado Pago'
-
+    #--------------------------------------------------------------
+    MODALIDAD_CHOICES = [
+        ('individual', 'Individual'),
+        ('mensual', 'Mensual'),
+    ]
+    modalidad = models.CharField(max_length=10, choices=MODALIDAD_CHOICES, default='individual')
+    #---------------------------------------------------------------------------------------------------------
     class Meta:
         # Evita que un mismo usuario se anote dos veces a la misma clase exacta
         unique_together = ('usuario', 'clase', 'fecha_clase')

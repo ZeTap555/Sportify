@@ -40,6 +40,7 @@ from django.db.models import Sum
 from django.core.mail import send_mail, EmailMultiAlternatives
 from django.utils import translation
 from django.core.exceptions import ValidationError
+from django.db import models
 from django.db.models import Count
 import django.db.models as django_models
 
@@ -359,10 +360,34 @@ def inscribirse_clase(request, clase_id):
 @login_required
 def mis_reservas(request):
     from datetime import date
+    from reservas.models import Mensualidad
     reservas = Reserva.objects.filter(usuario=request.user, fecha_clase__gte=date.today())\
         .select_related('clase__actividad', 'clase__profesor')\
-        .order_by('-fecha_clase', '-clase__horario')
-    return render(request, 'gestion/mis_reservas.html', {'reservas': reservas})
+        .order_by('fecha_clase', 'clase__horario')
+
+    reservas_normales = []
+    reservas_espera = []
+
+    mensualidades = Mensualidad.objects.filter(
+        usuario=request.user, estado='pagada'
+    ).values_list('actividad_id', 'mes', 'anio')
+    mensualidades_set = {(m[0], m[1], m[2]) for m in mensualidades}
+
+    for r in reservas:
+        if r.en_lista_de_espera:
+            reservas_espera.append(r)
+        else:
+            r.es_mensual = (r.clase.actividad_id, r.fecha_clase.month, r.fecha_clase.year) in mensualidades_set
+            reservas_normales.append(r)
+
+    from gestion.models import Notificacion
+    cantidad_no_leidas = Notificacion.objects.filter(usuario=request.user, leida=False).count()
+
+    return render(request, 'gestion/mis_reservas.html', {
+        'reservas': reservas_normales,
+        'reservas_espera': reservas_espera,
+        'cantidad_no_leidas': cantidad_no_leidas,
+    })
 
 
 # =========================================================================
@@ -376,7 +401,6 @@ def mis_clases(request):
     clases_pendientes=[]
     clases_finalizadas=[]
     for clase in clases:
-        print("clase",clase.id,clase.fecha)
         fecha_inicio=clase.fecha
         fecha_minima=hoy-timedelta(days=90)
         fecha_maxima=hoy+timedelta(days=90)
@@ -396,7 +420,10 @@ def mis_clases(request):
             fecha_hora=timezone.datetime.combine(
                 fecha_actual,clase.horario
             )
-            if fecha_hora>=timezone.now().replace(tzinfo=None):
+            fin_clase=fecha_hora+timedelta(hours=1,minutes=15)
+            ahora=timezone.localtime().replace(tzinfo=None)
+        
+            if fin_clase>=ahora:
                     clases_pendientes.append(ocurrencia)
             else:
                     clases_finalizadas.append(ocurrencia)
@@ -425,8 +452,136 @@ def ver_inscriptos(request,clase_id,fecha):
             'nombre':reserva.usuario.first_name,
             'apellido':reserva.usuario.last_name,
             'dni':reserva.usuario.dni,
+            'asistio':reserva.asistio,
+            'estado':"✅" if reserva.asistio else("❌" if timezone.localtime()>timezone.make_aware(datetime.combine(fecha_obj,clase.horario))+timedelta(hours=1,minutes=15)else "-"),
         })
     return JsonResponse({'inscriptos':datos})
+import qrcode 
+from io import BytesIO
+@login_required
+def generar_qr(request,clase_id,fecha):
+    contenido=f"https://8d07-138-199-50-101.ngrok-free.app/registrar-asistencia/{clase_id}/{fecha}/"
+    cantidad_inscriptos=Reserva.objects.filter(
+        clase_id=clase_id,
+        fecha_clase=fecha
+    ).count()
+    qr=qrcode.make(contenido)
+    buffer=BytesIO()
+    qr.save(buffer, format='PNG')
+    buffer.seek(0)
+    return HttpResponse(buffer.getvalue(), content_type='image/png')
+
+@login_required
+def validar_horario_qr(request,clase_id,fecha):
+    clase=Clase.objects.get(id=clase_id)
+    fecha_obj=datetime.strptime(fecha,"%Y-%m-%d").date()
+    inicio=timezone.make_aware(
+        datetime.combine(fecha_obj,clase.horario)
+    )
+    fin=inicio + timedelta(hours=1)
+    ahora=timezone.localtime()
+    permitido=(
+        inicio-timedelta(minutes=15)<=ahora<=fin + timedelta(minutes=15)
+    )
+    return JsonResponse({
+        "permitido":permitido
+    })
+
+from django.contrib.auth import authenticate
+def registrar_asistencia(request, clase_id, fecha):
+    clase=Clase.objects.get(id=clase_id)
+    fecha_obj=datetime.strptime(fecha,"%Y-%m-%d").date()
+    inicio=timezone.make_aware(
+        datetime.combine(fecha_obj,clase.horario)
+    )
+    fin=inicio+timedelta(hours=1)
+    ahora=timezone.now()
+    #ESCENARIO QR EXPIRADO
+    if ahora<inicio-timedelta(minutes=15)or ahora>fin + timedelta(minutes=15):
+        return render(request,"gestion/mensaje_asistencia.html",{
+            "icono":"⌛",
+            "titulo":"QR expirado",
+            "mensaje":"El código QR ya no es válido. No se puede registrar tu asistencia a esta clase."})
+    if request.method=="GET":
+        return render(request,"gestion/registrar_asistencia.html")
+    dni=request.POST.get("dni")
+    password=request.POST.get("password")
+    usuario=authenticate(
+        request,
+        username=dni,
+        password=password
+    )
+    if usuario is None:
+        return render(request,"gestion/registrar_asistencia.html",{
+            "error":"DNI o contraseña incorrectos."
+        })
+    try:
+        reserva=Reserva.objects.get(
+            usuario=usuario,
+            clase=clase,
+            fecha_clase=fecha_obj
+        )
+    except Reserva.DoesNotExist:
+        return render(request,"gestion/mensaje_asistencia.html",{
+            "icono":"❌",
+            "titulo":"No estás inscripto",
+            "mensaje":"Lo sentimos, no estás inscripto en esta clase."        })
+    
+    if reserva.asistio:
+        return render(request,"gestion/mensaje_asistencia.html",{
+            "icono":"⚠️",
+            "titulo":"Asistencia ya registrada",
+            "mensaje":"Ya registraste tu asistencia para esta clase previamente."
+        })
+    reserva.asistio=True
+    reserva.save()
+    return render(request,"gestion/mensaje_asistencia.html",{
+        "icono":"✅",
+        "titulo":"Asistencia registrada",
+        "mensaje":"Asistencia registrada correctamente.Gracias por venir!"
+        })
+
+def estado_qr(request,clase_id,fecha):
+    clase=Clase.objects.get(id=clase_id)
+    fecha_obj=datetime.strptime(
+        fecha,
+        "%Y-%m-%d"
+    ).date()
+    inicio=timezone.make_aware(datetime.combine(fecha_obj,clase.horario))
+    fin=inicio+timedelta(hours=1)
+    ahora=timezone.localtime()
+    qr_vigente=(
+        inicio-timedelta(minutes=15)
+        <= ahora<=
+        fin + timedelta(minutes=15)
+    )
+    reservas=Reserva.objects.filter(
+        clase=clase,
+        fecha_clase=fecha_obj
+    )
+    inscriptos=reservas.count()
+    asistentes=reservas.filter(asistio=True)
+    ultimo_asistente=asistentes.order_by("-id").first()
+    lista_reservas=[]
+    for reserva in reservas:
+        lista_reservas.append({
+            "id":reserva.id,
+            "nombre":f"{reserva.usuario.first_name} {reserva.usuario.last_name}",
+            "dni":reserva.usuario.dni,
+            "asistio":reserva.asistio,
+            "estado":"✅" if reserva.asistio else("-" if qr_vigente else"❌"),
+        })
+    return JsonResponse({
+        "qr_vigente":qr_vigente,
+        "inscriptos":inscriptos,
+        "asistentes":reservas.filter(asistio=True).count(),
+        "ultimo_asistente":(
+            f"{ultimo_asistente.usuario.first_name} {ultimo_asistente.usuario.last_name}"
+            if ultimo_asistente else None
+        ),
+        "reservas":lista_reservas,
+    })
+
 def pago_tarjeta(request):
     datos = request.session.get('inscripcion_pendiente')
     if not datos:
@@ -571,7 +726,8 @@ def pago_tarjeta(request):
                         monto_pagado=Decimal(datos['monto']) / max(len(lista_fechas_reservar), 1),
                         estado_pago='total',
                         medio_pago='Tarjeta',
-                        en_lista_de_espera=sin_cupo
+                        en_lista_de_espera=sin_cupo,
+                        modalidad='mensual'  # <--- AGREGA ESTA LÍNEA
                     )
                     if not reserva_principal:
                         reserva_principal = nueva_reserva
@@ -601,6 +757,7 @@ def pago_tarjeta(request):
                     monto_pagado=datos['monto'],
                     estado_pago=estado_final,
                     medio_pago='Tarjeta',
+                    modalidad='individual' # <--- AGREGA ESTA LÍNEA
                 )
                 mensaje_notificacion = f"Se realizó con éxito tu pago para la clase: {clase.actividad.nombre}"
 
@@ -695,10 +852,22 @@ def pago_exito(request):
             defaults={
                 'monto_pagado': datos['monto'],
                 'estado_pago': 'seña' if datos['tipo_pago'] == 'senia' else 'total',
-                'medio_pago': 'Mercado Pago'
+                'medio_pago': 'Mercado Pago',
+                'modalidad': 'mensual' if datos.get('flujo_tipo') == 'mensualidad' else 'individual' # <--- ESTA LÍNEA
             }
         )
-        
+        # Si la reserva ya existía, forzamos que se guarde la modalidad correcta
+        if not creado:
+            reserva.modalidad = 'mensual' if datos.get('flujo_tipo') == 'mensualidad' else 'individual'
+            reserva.save()
+        if datos.get('flujo_tipo') == 'mensualidad':
+            Reserva.objects.filter(
+                usuario=usuario_reserva,
+                clase__actividad=clase.actividad,
+                fecha_clase__month=reserva.fecha_clase.month,
+                fecha_clase__year=reserva.fecha_clase.year
+            ).update(modalidad='mensual')
+    
     if creado:
         print(f"✅ Reserva {reserva.id} creada con éxito en la base de datos.")
         
@@ -1279,7 +1448,55 @@ def asignar_profesor_clase(request, clase_id):
 @login_required
 def historial_pagos(request):
     pagos = Reserva.objects.filter(usuario=request.user).order_by('-fecha_reserva').exclude(estado_pago='pendiente')
+    
+    for pago in pagos:
+        # Obtenemos mes y año de la clase reservada
+        mes_clase = pago.fecha_clase.month
+        anio_clase = pago.fecha_clase.year
+        
+        # Lógica para detectar si esta reserva pertenece a una mensualidad pagada
+        # Buscamos si existe una mensualidad para el mismo mes de la clase
+        # O para el mes anterior (que es donde se suele pagar la mensualidad del mes siguiente)
+        mes_anterior = mes_clase - 1 if mes_clase > 1 else 12
+        anio_anterior = anio_clase if mes_clase > 1 else anio_clase - 1
+        
+        es_mensual = Mensualidad.objects.filter(
+            usuario=request.user,
+            actividad=pago.clase.actividad,
+            estado='pagada'
+        ).filter(
+            models.Q(mes=mes_clase, anio=anio_clase) | 
+            models.Q(mes=mes_anterior, anio=anio_anterior)
+        ).exists()
+        
+        pago.es_mensual = es_mensual
+        
+        # Asignación de fechas reales para la tabla
+        pago.fecha_pago_real = pago.fecha_reserva
+        pago.fecha_clase_real = pago.fecha_clase
+    
+    '''for pago in pagos:
+        # Buscamos si existe una mensualidad pagada para esa actividad, mes y año
+        # y que además haya sido creada ANTES o EL MISMO DÍA que la reserva.
+        mensualidad = Mensualidad.objects.filter(
+            usuario=request.user,
+            actividad=pago.clase.actividad,
+            mes=pago.fecha_clase.month,
+            anio=pago.fecha_clase.year,
+            estado='pagada'
+        ).first() # Obtenemos la primera coincidencia
 
+        if mensualidad:
+            # Comparamos: Si la reserva ocurrió el mismo día o después de que se 
+            # generó la mensualidad, entonces es parte de la mensualidad.
+            # (Nota: 'fecha_pago' es el campo estándar. Si tu modelo usa otro nombre, cámbialo)
+            pago.es_mensual = (pago.fecha_reserva.date() >= mensualidad.fecha_pago)
+        else:
+            pago.es_mensual = False
+        
+        # Fechas para la tabla
+        pago.fecha_pago_real = pago.fecha_reserva
+        pago.fecha_clase_real = pago.fecha_clase'''
     hoy = date.today()
     dia_hoy = hoy.day
     mes_hoy = hoy.month
