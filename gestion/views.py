@@ -952,7 +952,7 @@ def enviar_confirmacion(usuario, clase, reserva):
 def panel_admin(request):
     if not request.user.is_authenticated or request.user.rol != 'admin':
         return redirect('login')
-
+    
     # =========================================================
     # PESCAMOS LOS ERRORES DE LA SESIÓN (Si venimos de un error)
     # =========================================================
@@ -966,6 +966,10 @@ def panel_admin(request):
     ahora = date.today()
 
     if request.method == 'POST':
+        # Limpiar mensajes previos para evitar mezclas entre formularios
+        storage = messages.get_messages(request)
+        storage.used = True 
+    
         action = request.POST.get('action')
 
         # --- A. PROCESAR NUEVA ACTIVIDAD ---
@@ -1105,6 +1109,35 @@ def panel_admin(request):
                             email_message.attach_alternative(mensaje_html,"text/html")
                             email_message.send()
                             messages.success(request, "Clases creadas con éxito.")
+                            
+        elif action == 'dar_de_baja_profesor':
+            
+            profesor_id = request.POST.get('profesor_id')
+            
+            try:
+                profesor = Profesor.objects.get(id=profesor_id)
+                
+                # Verificamos clases futuras (la misma lógica de validación)
+                clases_vigentes = Clase.objects.filter(
+                    profesor=profesor, 
+                    fecha__gte=timezone.now().date()
+                )
+                
+                if clases_vigentes.exists():
+                    # --- Cuando das de baja un profesor (Error) ---
+                    messages.error(request, f"No se ha podido dar de baja al profesor porque tiene clases asignadas", extra_tags="baja")
+                else:
+                    # Baja lógica
+                    usuario = profesor.usuario
+                    usuario.is_active = False
+                    usuario.save()
+                    # --- Cuando das de baja un profesor (Éxito) ---
+                    messages.success(request, f"El profesor {profesor.apellido}, {profesor.nombre} ha sido dado de baja correctamente.", extra_tags="baja")    
+            
+            except Profesor.DoesNotExist:
+                messages.error(request, "Error: El profesor seleccionado no existe.")
+            
+            return redirect('panel_admin')
 
         # --- C. PROCESAR REGISTRAR PROFESOR ---
         elif action == 'registrar_profesor':
@@ -1221,12 +1254,12 @@ def panel_admin(request):
                     asunto = "¡Bienvenido a Sportify! Configura tu cuenta de Profesor"
                     
                     mensaje_texto = f"""
-Hola {nombre},
-Te damos la bienvenida a Sportify. El administrador te ha dado de alta exitosamente.
-Ya podés iniciar sesión utilizando tu DNI como usuario. Si lo deseás, podés modificar tu clave ingresando aquí:
-{reset_link}
-Tu usuario de ingreso es tu DNI: {dni}
-"""
+                    Hola {nombre},
+                    Te damos la bienvenida a Sportify. El administrador te ha dado de alta exitosamente.
+                    Ya podés iniciar sesión utilizando tu DNI como usuario. Si lo deseás, podés modificar tu clave ingresando aquí:
+                    {reset_link}
+                    Tu usuario de ingreso es tu DNI: {dni}
+                    """
 
                     mensaje_html = f"""
                     <div style="background-color:#000000; padding:40px; font-family:Poppins,sans-serif; text-align:center;">
@@ -1257,7 +1290,8 @@ Tu usuario de ingreso es tu DNI: {dni}
                     email_message.attach_alternative(mensaje_html, "text/html")
                     email_message.send()
 
-                    messages.success(request, f"Profesor {apellido},{nombre} dado de alta con éxito.")
+                    # --- Cuando registras un profesor (Éxito) ---
+                    messages.success(request, f"Profesor {apellido},{nombre} dado de alta con éxito.", extra_tags="registro")
                     return redirect('panel_admin')
 
             except Exception as e:
@@ -1301,6 +1335,8 @@ Tu usuario de ingreso es tu DNI: {dni}
             except Exception as e:
                 messages.error(request, f"Error inesperado al guardar tarifas: {e}")
 
+    
+    
     # =========================================================
     # ARMADO DE DATOS (ESTO ES LO QUE SE ESTABA SALTEANDO)
     # =========================================================
@@ -1335,7 +1371,7 @@ Tu usuario de ingreso es tu DNI: {dni}
     # =========================================================
     context = {
         'actividades': Actividad.objects.all(),
-        'profesores': Profesor.objects.all(),
+        'profesores': Profesor.objects.filter(usuario__is_active=True),
         'semanas_matriz': semanas_matriz,
         'mes_nombre': meses_nombres[mes],
         'mes_actual': mes,
@@ -1350,6 +1386,20 @@ Tu usuario de ingreso es tu DNI: {dni}
         'mostrar_modal_profesor': mostrar_modal_profesor,
     }
     return render(request, 'panel_admin.html', context)
+
+def validar_baja(request):
+    profesor_id = request.POST.get('profesor_id')
+    profesor = Profesor.objects.get(id=profesor_id)
+    
+    # Verificamos si tiene clases futuras
+    tiene_clases = Clase.objects.filter(
+        profesor=profesor, 
+        fecha__gte=timezone.now().date()
+    ).exists()
+    
+    # Devolvemos un JSON que JavaScript entenderá
+    return JsonResponse({'es_valido': not tiene_clases})
+
 
 @login_required
 def guardar_precios_admin(request):

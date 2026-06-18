@@ -7,6 +7,7 @@ urlpatterns = [
     # Panel Admin y Configuraciones
     path('panel-admin/', views.panel_admin, name='panel_admin'),
     path('panel-admin/guardar-precios/', views.guardar_precios_admin, name='guardar_precios_admin'),
+    path('validar-baja/', views.validar_baja, name='validar_baja'),
     
     # Historiales y Reservas
     path('historial-pagos/', views.historial_pagos, name='historial_pagos'),
