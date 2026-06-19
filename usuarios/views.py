@@ -10,6 +10,7 @@ from django.core.exceptions import ValidationError
 import uuid
 from django.core.mail import EmailMultiAlternatives
 from django.conf import settings
+from django.utils import timezone
 
 def register_view(request):
     errores = {}
@@ -22,7 +23,7 @@ def register_view(request):
         email = request.POST.get('email', '').strip()
         passw = request.POST.get('password', '')
         apta = request.FILES.get('apta_medica')
-
+        acepta_declaracion_apto = request.POST.get('acepta_declaracion_apto') == 'on'
         # -----------------------------------------------------------------
         # 1. VALIDACIÓN DE CAMPOS VACÍOS
         # -----------------------------------------------------------------
@@ -93,7 +94,9 @@ def register_view(request):
             # 2. Si la extensión no está en la lista de confianza, clavamos el error
             if extension not in extensiones_permitidas:
                 errores['apta_medica'] = "Archivo inválido. El apta médica debe ser obligatoriamente un documento PDF o una imagen (JPG, JPEG, PNG)."
-
+        # Validar declaración de responsabilidad del apto médico (obligatoria)
+        if not acepta_declaracion_apto:
+            errores['acepta_declaracion_apto'] = "Debés aceptar la declaración de responsabilidad sobre el apto médico para poder registrarte."
         # -----------------------------------------------------------------
         # 3. CONTROL DE ERRORES SIMULTÁNEOS
         # -----------------------------------------------------------------
@@ -118,6 +121,12 @@ def register_view(request):
             user.telefono = tel
             user.fecha_nacimiento = fecha_nac
             user.apta_medica = apta
+
+            ahora = timezone.now()
+            user.fecha_carga_apto = ahora
+            user.acepto_declaracion_apto = True
+            user.fecha_aceptacion_declaracion = ahora
+
             user.save()
 
             return redirect('/login/?success=register')
@@ -422,9 +431,68 @@ def perfil_view(request):
 
     return render(
         request,
-        'perfil.html'
+        'perfil.html',
+        {
+            'estado_apto': request.user.estado_apto_medico(),
+            'dias_restantes_apto': request.user.dias_restantes_apto(),
+            'fecha_vencimiento_apto': request.user.fecha_vencimiento_apto(),
+        }
     )
+@login_required
+def actualizar_apto_medico_view(request):
+    """
+    Permite volver a cargar el apto médico desde Mi Perfil en cualquier
+    momento (esté vigente, próximo a vencer, vencido o sin cargar).
+    Exige re-aceptar la declaración de responsabilidad en cada carga.
+    """
+    user = request.user
+    errores = {}
 
+    if request.method == 'POST':
+        nueva_apta = request.FILES.get('apta_medica')
+        acepta_declaracion_apto = request.POST.get('acepta_declaracion_apto') == 'on'
+
+        if not nueva_apta:
+            errores['apta_medica'] = "Debés adjuntar el archivo del nuevo apto médico."
+        else:
+            extension = nueva_apta.name.split('.')[-1].lower()
+            extensiones_permitidas = ['pdf', 'jpg', 'jpeg', 'png']
+            if extension not in extensiones_permitidas:
+                errores['apta_medica'] = "Archivo inválido. El apto médico debe ser un documento PDF o una imagen (JPG, JPEG, PNG)."
+
+        if not acepta_declaracion_apto:
+            errores['acepta_declaracion_apto'] = "Debés aceptar nuevamente la declaración de responsabilidad para cargar el nuevo apto médico."
+
+        if errores:
+            return render(
+                request,
+                'perfil.html',
+                {
+                    'errores_apto': errores,
+                    'estado_apto': user.estado_apto_medico(),
+                    'dias_restantes_apto': user.dias_restantes_apto(),
+                    'fecha_vencimiento_apto': user.fecha_vencimiento_apto(),
+                }
+            )
+
+        ahora = timezone.now()
+        user.apta_medica = nueva_apta
+        user.fecha_carga_apto = ahora
+        user.acepto_declaracion_apto = True
+        user.fecha_aceptacion_declaracion = ahora
+        user.save()
+
+        messages.success(request, 'Apto médico actualizado correctamente. Ya podés volver a inscribirte y reservar clases.')
+        return redirect('perfil')
+
+    return redirect('perfil')
+
+
+@login_required
+def editar_perfil_view(request):
+
+    user = request.user
+    errores = {}
 @login_required
 def editar_perfil_view(request):
 

@@ -380,6 +380,26 @@
                         {% endif %}
                     </form>
 
+                    {% if request.user.is_authenticated and not apto_vigente %}
+                    <div style="
+                        background-color: rgba(255, 69, 58, 0.1);
+                        border: 1px solid #ff453a;
+                        color: #ff453a;
+                        padding: 14px 18px;
+                        border-radius: 10px;
+                        margin-top: 16px;
+                        margin-bottom: 20px;
+                        font-weight: 600;
+                        font-size: 0.9rem;
+                        text-align: center;
+                    ">
+                        Tu apto médico se encuentra vencido. Debes cargar uno nuevo para continuar
+                        utilizando las funciones de reserva e inscripción.
+                        <a href="{% url 'perfil' %}" style="color:#ffffff; text-decoration: underline; margin-left:6px;">
+                            Actualizar apto médico
+                        </a>
+                    </div>
+                {% endif %}
                 </div>
 
                 <div class="calendar-grid">
@@ -630,10 +650,32 @@
                 // ==========================================================
                 // 🍏 FLUJO DE ALUMNOS (SIN EL BOTÓN "VOLVER AL CRONOGRAMA")
                 // ==========================================================
-                let botonInscripcion = '';
-                let botonMensualidad = '';
+      let botonInscripcion = '';
+      let botonMensualidad = '';
 
-                // 1️⃣ Inscripción Individual / Choque de horarios
+        // 0️⃣ Apto médico vencido o no cargado: bloquea cualquier inscripción
+        if (!modalData.apto_vigente) {
+            botonInscripcion = `
+                <button class="modal-btn" disabled style="background-color: #2c2c2e; color: #8e8e93; cursor: not-allowed; opacity: 0.5; margin-bottom: 4px;">Inscribirse a esta clase</button>
+                <p style="color: #ff453a; font-size: 0.85rem; text-align: center; margin: 0 0 15px 0; font-weight: 600; padding: 0 10px; line-height: 1.4;">
+                    Tu apto médico se encuentra vencido. Debes cargar uno nuevo en
+                    <a href="/perfil/" style="color: #ff9f0a; text-decoration: underline;">Mi Perfil</a>
+                    para continuar utilizando las funciones de reserva e inscripción.
+                </p>
+            `;
+            botonMensualidad = `
+                <button class="modal-btn" disabled style="background-color: #2c2c2e; color: #545456; cursor: not-allowed; opacity: 0.3;">Contratar mensualidad</button>
+            `;
+            contenidoHtml = `
+                ${botonInscripcion}
+                ${botonMensualidad}
+            `;
+            document.getElementById('modal-acciones').innerHTML = contenidoHtml;
+            document.getElementById('modalDetalle').classList.add('active');
+            return;
+        }
+
+        // 1️⃣ Inscripción Individual / Choque de horarios
                 if (modalData.choque_horario) {
                     botonInscripcion = `
                         <button class="modal-btn" disabled style="background-color: #2c2c2e; color: #8e8e93; cursor: not-allowed; opacity: 0.5; margin-bottom: 4px;">Inscribirse a esta clase</button>

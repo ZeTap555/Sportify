@@ -10,6 +10,36 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <style>
+        .declaracion-apto-group {
+            background-color: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 14px 16px;
+        }
+
+        .declaracion-apto-label {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            cursor: pointer;
+        }
+
+        .declaracion-apto-label input[type="checkbox"] {
+            margin-top: 3px;
+            width: 18px;
+            height: 18px;
+            min-width: 18px;
+            accent-color: #00ff88;
+            cursor: pointer;
+        }
+
+        .declaracion-apto-texto {
+            font-size: 0.82rem;
+            line-height: 1.4;
+            color: #cfcfcf;
+        }
+    </style>
 </head>
 <body>
     <div class="overlay"></div>
@@ -70,7 +100,26 @@
                 <input type="file" name="apta_medica" accept=".pdf,image/*">
                 {% if errores.apta_medica %}<span class="error-campo">{{ errores.apta_medica }}</span>{% endif %}
             </div>
-
+            <div class="input-group declaracion-apto-group">
+                <label class="declaracion-apto-label">
+                    <input
+                        type="checkbox"
+                        name="acepta_declaracion_apto"
+                        id="acepta_declaracion_apto"
+                        {% if valores.acepta_declaracion_apto %}checked{% endif %}
+                        required
+                    >
+                    <span class="declaracion-apto-texto">
+                        Declaro bajo mi exclusiva responsabilidad que el documento que adjunto corresponde a un
+                        apto médico válido y vigente que me habilita para realizar actividad física. Asimismo,
+                        reconozco que el gimnasio y los administradores de esta plataforma no tienen la
+                        posibilidad de verificar inmediatamente la autenticidad o validez del documento
+                        presentado, siendo de mi exclusiva responsabilidad cualquier falsedad, adulteración,
+                        vencimiento o irregularidad del mismo.
+                    </span>
+                </label>
+                {% if errores.acepta_declaracion_apto %}<span class="error-campo">{{ errores.acepta_declaracion_apto }}</span>{% endif %}
+            </div>
             <div class="input-group">
                 <label>Contraseña</label>
                 <div class="password-container">

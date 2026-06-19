@@ -169,10 +169,13 @@ def grilla_actividades(request):
     
     if request.user.is_authenticated:
         cantidad_no_leidas = Notificacion.objects.filter(usuario=request.user, leida=False).count()
+        apto_vigente = request.user.tiene_apto_vigente()
     else:
         cantidad_no_leidas = 0
+        apto_vigente = False
 
     context['cantidad_no_leidas'] = cantidad_no_leidas
+    context['apto_vigente'] = apto_vigente
     return render(request, 'grilla.html', context)
 
 
@@ -213,6 +216,21 @@ def detalle_clase_fecha(request, clase_id):
 def inscribirse_clase(request, clase_id):
     clase = get_object_or_404(Clase, id=clase_id)
     fecha_clase_str = request.POST.get('fecha_clase')
+
+    # -----------------------------------------------------------------
+    # BLOQUEO POR APTO MÉDICO VENCIDO O INEXISTENTE
+    # -----------------------------------------------------------------
+    # Esta validación se hace siempre en el backend, sin importar si la
+    # petición vino del formulario de la grilla o de una llamada directa
+    # (URL, API, herramientas externas, etc), ya que el frontend no es
+    # una fuente confiable de seguridad.
+    if not request.user.tiene_apto_vigente():
+        messages.error(
+            request,
+            "Tu apto médico se encuentra vencido. Debes cargar uno nuevo para continuar "
+            "utilizando las funciones de reserva e inscripción."
+        )
+        return redirect('grilla_actividades')
 
     if not fecha_clase_str:
         return redirect('grilla_actividades')
@@ -585,6 +603,22 @@ def pago_tarjeta(request):
     if not datos:
         return redirect('grilla_actividades')
 
+    # Defensa en profundidad: aunque este flujo solo se alcanza después de
+    # pasar por inscribirse_clase (que ya valida el apto), volvemos a
+    # chequear acá porque esta vista confirma la creación real de la Reserva.
+    if not request.user.is_authenticated:
+        request.session.pop('inscripcion_pendiente', None)
+        return redirect('login')
+
+    if not request.user.tiene_apto_vigente():
+        messages.error(
+            request,
+            "Tu apto médico se encuentra vencido. Debes cargar uno nuevo para continuar "
+            "utilizando las funciones de reserva e inscripción."
+        )
+        request.session.pop('inscripcion_pendiente', None)
+        return redirect('grilla_actividades')
+
     if request.method == 'POST':
         numero = request.POST.get('numero', '')
         vto = request.POST.get('vto', '')
@@ -781,7 +815,17 @@ def pago_mercadopago(request):
     if not datos:
         messages.error(request, 'No hay ninguna inscripción pendiente.')
         return redirect('grilla_actividades')
-        
+
+    # Defensa en profundidad: mismo chequeo que en inscribirse_clase.
+    if not request.user.tiene_apto_vigente():
+        messages.error(
+            request,
+            "Tu apto médico se encuentra vencido. Debes cargar uno nuevo para continuar "
+            "utilizando las funciones de reserva e inscripción."
+        )
+        request.session.pop('inscripcion_pendiente', None)
+        return redirect('grilla_actividades')
+
     # Guardamos el ID del usuario en la sesión para recuperarlo al volver
     request.session['inscripcion_pendiente']['usuario_id'] = request.user.id
     request.session.modified = True
@@ -841,7 +885,19 @@ def pago_exito(request):
     clase = get_object_or_404(Clase, id=datos['clase_id'])
     usuario_id = datos.get('usuario_id')
     usuario_reserva = get_object_or_404(Usuario, id=usuario_id) if usuario_id else request.user
-    
+
+    # Defensa en profundidad: aunque este flujo solo se alcanza después de
+    # pasar por inscribirse_clase (que ya valida el apto), volvemos a
+    # chequear acá porque esta vista confirma la creación real de la Reserva.
+    if not usuario_reserva.tiene_apto_vigente():
+        messages.error(
+            request,
+            "Tu apto médico se encuentra vencido. Debes cargar uno nuevo para continuar "
+            "utilizando las funciones de reserva e inscripción."
+        )
+        request.session.pop('inscripcion_pendiente', None)
+        return redirect('grilla_actividades')
+
     with transaction.atomic():
         reserva, creado = Reserva.objects.get_or_create(
             usuario=usuario_reserva,
@@ -1780,5 +1836,6 @@ def detalle_clase_api(request, clase_id):
         'actividad_choque_nombre': actividad_choque_nombre,
         'cola_espera': cola_espera_data,
         'todos_los_profesores': todos_profes_data,
+        'apto_vigente': request.user.tiene_apto_vigente() if request.user.is_authenticated else False,
     }
     return JsonResponse(data)
