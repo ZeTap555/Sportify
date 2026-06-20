@@ -954,7 +954,7 @@ def enviar_confirmacion(usuario, clase, reserva):
 def panel_admin(request):
     if not request.user.is_authenticated or request.user.rol != 'admin':
         return redirect('login')
-
+    
     # =========================================================
     # PESCAMOS LOS ERRORES DE LA SESIÓN (Si venimos de un error)
     # =========================================================
@@ -968,6 +968,10 @@ def panel_admin(request):
     ahora = date.today()
 
     if request.method == 'POST':
+        # Limpiar mensajes previos para evitar mezclas entre formularios
+        storage = messages.get_messages(request)
+        storage.used = True 
+    
         action = request.POST.get('action')
 
         # --- A. PROCESAR NUEVA ACTIVIDAD ---
@@ -1136,7 +1140,6 @@ def panel_admin(request):
         elif action == 'registrar_profesor':
             pestania_activa = 'profesores'
             
-            # 1. Capturamos los datos
             dni = request.POST.get('dni', '').strip()
             nombre = request.POST.get('nombre', '').strip()
             apellido = request.POST.get('apellido', '').strip()
@@ -1150,7 +1153,6 @@ def panel_admin(request):
             
             errores = {}
 
-            # 2. Validaciones Acumulativas (Campo por campo)
             if not all([dni, nombre, apellido, fecha_nac, telefono, correo, contrasenia]):
                 errores['general'] = 'Por favor, complete todos los campos obligatorios.'
 
@@ -1198,7 +1200,6 @@ def panel_admin(request):
             if contrasenia and len(contrasenia) < 4:
                 errores['contrasenia'] = 'La contraseña debe tener al menos 4 caracteres.'
 
-            # 3. Control de Errores: Guardamos en sesión y redirigimos
             if errores:
                 request.session['errores_profesor'] = errores
                 request.session['valores_profesor'] = request.POST.dict()
@@ -1206,7 +1207,6 @@ def panel_admin(request):
                 request.session['pestania_activa'] = 'profesores'
                 return redirect('panel_admin')
 
-            # 4. Registro Exitoso (Si el diccionario está vacío, entra acá)
             try:
                 with transaction.atomic():
                     token_unico = str(uuid.uuid4())
@@ -1229,7 +1229,7 @@ def panel_admin(request):
                         usuario=user,
                         nombre=nombre,
                         apellido=apellido,
-                        dni=dni,                    
+                        dni=dni,                                    
                         telefono=telefono,           
                         correo=correo,              
                         fecha_nacimiento=fecha_nac_dt,  
@@ -1247,12 +1247,12 @@ def panel_admin(request):
                     asunto = "¡Bienvenido a Sportify! Configura tu cuenta de Profesor"
                     
                     mensaje_texto = f"""
-Hola {nombre},
-Te damos la bienvenida a Sportify. El administrador te ha dado de alta exitosamente.
-Ya podés iniciar sesión utilizando tu DNI como usuario. Si lo deseás, podés modificar tu clave ingresando aquí:
-{reset_link}
-Tu usuario de ingreso es tu DNI: {dni}
-"""
+                    Hola {nombre},
+                    Te damos la bienvenida a Sportify. El administrador te ha dado de alta exitosamente.
+                    Ya podés iniciar sesión utilizando tu DNI como usuario. Si lo deseás, podés modificar tu clave ingresando aquí:
+                    {reset_link}
+                    Tu usuario de ingreso es tu DNI: {dni}
+                    """
 
                     mensaje_html = f"""
                     <div style="background-color:#000000; padding:40px; font-family:Poppins,sans-serif; text-align:center;">
@@ -1274,12 +1274,7 @@ Tu usuario de ingreso es tu DNI: {dni}
                     </div>
                     """
 
-                    email_message = EmailMultiAlternatives(
-                        asunto,
-                        mensaje_texto,
-                        settings.EMAIL_HOST_USER,
-                        [correo]
-                    )
+                    email_message = EmailMultiAlternatives(asunto, mensaje_texto, settings.EMAIL_HOST_USER, [correo])
                     email_message.attach_alternative(mensaje_html, "text/html")
                     email_message.send()
 
@@ -1311,6 +1306,7 @@ Tu usuario de ingreso es tu DNI: {dni}
                         
                         act.save()
                 messages.success(request, "Tarifas actualizadas correctamente")
+                return redirect('panel_admin')
                 
             except ValidationError as e:
                 if hasattr(e, 'message_dict'):
@@ -1323,12 +1319,11 @@ Tu usuario de ingreso es tu DNI: {dni}
                         
             except ValueError:
                 messages.error(request, f"Error en {act.nombre}: Ingresaste un valor numérico inválido.")
-                
             except Exception as e:
                 messages.error(request, f"Error inesperado al guardar tarifas: {e}")
 
     # =========================================================
-    # ARMADO DE DATOS (ESTO ES LO QUE SE ESTABA SALTEANDO)
+    # ARMADO DE DATOS (MÉTODO GET Y RENDERIZADO)
     # =========================================================
     año = int(request.GET.get('anio', ahora.year))
     mes = int(request.GET.get('mes', ahora.month))
@@ -1340,6 +1335,8 @@ Tu usuario de ingreso es tu DNI: {dni}
     meses_nombres = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
 
     clases_por_dia = {}
+    import django.db.models as django_models
+    
     for semana in semanas_matriz:
         for dia in semana:
             if dia != 0:
@@ -1356,12 +1353,9 @@ Tu usuario de ingreso es tu DNI: {dni}
     resultado_ganancias = Reserva.objects.aggregate(total=django_models.Sum('monto_pagado'))
     total_ganancias = resultado_ganancias['total'] if resultado_ganancias['total'] is not None else 0.0
 
-    # =========================================================
-    # EL CONTEXTO FINAL (Ahora tiene todo)
-    # =========================================================
     context = {
         'actividades': Actividad.objects.all(),
-        'profesores': Profesor.objects.all(),
+        'profesores': Profesor.objects.filter(usuario__is_active=True),
         'semanas_matriz': semanas_matriz,
         'mes_nombre': meses_nombres[mes],
         'mes_actual': mes,
@@ -1370,12 +1364,25 @@ Tu usuario de ingreso es tu DNI: {dni}
         'hoy': ahora,
         'pestania_activa': pestania_activa,
         'total_ganancias': total_ganancias, 
-        # Le pasamos los errores que pescamos arriba
         'errores_profesor': errores_profesor,
         'valores_profesor': valores_profesor,
         'mostrar_modal_profesor': mostrar_modal_profesor,
     }
     return render(request, 'panel_admin.html', context)
+
+def validar_baja(request):
+    profesor_id = request.POST.get('profesor_id')
+    profesor = Profesor.objects.get(id=profesor_id)
+    
+    # Verificamos si tiene clases futuras
+    tiene_clases = Clase.objects.filter(
+        profesor=profesor, 
+        fecha__gte=timezone.now().date()
+    ).exists()
+    
+    # Devolvemos un JSON que JavaScript entenderá
+    return JsonResponse({'es_valido': not tiene_clases})
+
 
 @login_required
 def guardar_precios_admin(request):

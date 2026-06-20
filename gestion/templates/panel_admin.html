@@ -388,84 +388,186 @@
                 </div>
             </div>
 
+           
+            <!--<div id="mensaje-error-baja" style="color: #ff5252; padding: 10px; margin-bottom: 10px; display: none; border: 1px solid #ff5252; border-radius: 5px;"></div> -->
+
             <div id="pane-profesores" class="tab-pane {% if pestania_activa == 'profesores' %}active{% endif %}">
-                <div class="card-panel" style="max-width: 650px; margin: 0 auto;">
-                    <h3>Registrar Nuevo Profesor</h3>
-                    <p style="font-size: 0.85rem; color:#8e8e93; margin-bottom:25px;">Al dar de alta a un docente desde este formulario, se le otorgará de forma automática el rol y credenciales de "Profesor" en la plataforma.</p>
-                    
-                    <form method="POST" novalidate>
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="registrar_profesor">
+                <div style="display: flex; gap: 40px; flex-wrap: wrap; align-items: flex-start; padding: 20px;">
+                    <div class="card-panel" style="flex: 2; min-width: 500px;">
+                        <h3>Registrar Nuevo Profesor</h3>
+                        <p style="font-size: 0.85rem; color:#8e8e93; margin-bottom:25px;">Al dar de alta a un docente desde este formulario, se le otorgará de forma automática el rol y credenciales de "Profesor" en la plataforma.</p>
                         
-                        {% if errores_profesor.general %}
-                        <div style="background-color: rgba(255, 59, 48, 0.1); border-left: 4px solid #ff3b30; color: #ff3b30; padding: 10px; margin-bottom: 20px; border-radius: 4px; font-size: 0.9rem;">
-                            {{ errores_profesor.general }}
-                        </div>
-                        {% endif %}
-
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                            <div class="input-group">
-                                <label for="prof-nombre">Nombre</label>
-                                <input type="text" id="prof-nombre" name="nombre" class="input-field" value="{{ valores_profesor.nombre|default:'' }}">
-                                {% if errores_profesor.nombre %}
-                                    <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.nombre }}</span>
-                                {% endif %}
+                        <form method="POST" novalidate>
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="registrar_profesor">
+                            
+                            {% if errores_profesor.general %}
+                            <div style="background-color: rgba(255, 59, 48, 0.1); border-left: 4px solid #ff3b30; color: #ff3b30; padding: 10px; margin-bottom: 20px; border-radius: 4px; font-size: 0.9rem;">
+                                {{ errores_profesor.general }}
                             </div>
-                            <div class="input-group">
-                                <label for="prof-apellido">Apellido</label>
-                                <input type="text" id="prof-apellido" name="apellido" class="input-field" value="{{ valores_profesor.apellido|default:'' }}">
-                                {% if errores_profesor.apellido %}
-                                    <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.apellido }}</span>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                            <div class="input-group">
-                                <label for="prof-dni">DNI</label>
-                                <input type="text" id="prof-dni" name="dni" class="input-field" placeholder="Ej: 42333444" value="{{ valores_profesor.dni|default:'' }}" >
-                                {% if errores_profesor.dni %}
-                                    <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.dni }}</span>
-                                {% endif %}
-                            </div>
-                            <div class="input-group">
-                                <label for="prof-nac">Fecha de Nacimiento</label>
-                                <input type="date" id="prof-nac" name="fecha_nacimiento" class="input-field" value="{{ valores_profesor.fecha_nacimiento|default:'' }}">
-                                {% if errores_profesor.fecha_nacimiento %}
-                                    <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.fecha_nacimiento }}</span>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                            <div class="input-group">
-                                <label for="prof-tel">Teléfono</label>
-                                <input type="tel" id="prof-tel" name="telefono" class="input-field" placeholder="Ej: 2215556677" value="{{ valores_profesor.telefono|default:'' }}">
-                                {% if errores_profesor.telefono %}
-                                    <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.telefono }}</span>
-                                {% endif %}
-                            </div>
-                            <div class="input-group">
-                                <label for="prof-correo">Correo Electrónico</label>
-                                <input type="email" id="prof-correo" name="correo" class="input-field" placeholder="ejemplo@sportify.com" value="{{ valores_profesor.correo|default:'' }}">
-                                {% if errores_profesor.correo %}
-                                    <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.correo }}</span>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <div class="input-group" style="margin-bottom: 30px;">
-                            <label for="prof-pass">Contraseña</label>
-                            <input type="password" id="prof-pass" name="contrasenia" class="input-field" placeholder="••••••••">
-                            {% if errores_profesor.contrasenia %}
-                                <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.contrasenia }}</span>
-                            {% else %}
-                                <span style="font-size:0.75rem; color:#636366; margin-top:4px; display: block;">* El profesor podrá actualizarla al iniciar sesión por primera vez.</span>
                             {% endif %}
-                        </div>
 
-                        <button type="submit" class="btn-action">Dar de Alta Profesor</button>
-                    </form>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                <div class="input-group">
+                                    <label for="prof-nombre">Nombre</label>
+                                    <input type="text" id="prof-nombre" name="nombre" class="input-field" value="{{ valores_profesor.nombre|default:'' }}">
+                                    {% if errores_profesor.nombre %}
+                                        <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.nombre }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="input-group">
+                                    <label for="prof-apellido">Apellido</label>
+                                    <input type="text" id="prof-apellido" name="apellido" class="input-field" value="{{ valores_profesor.apellido|default:'' }}">
+                                    {% if errores_profesor.apellido %}
+                                        <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.apellido }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                <div class="input-group">
+                                    <label for="prof-dni">DNI</label>
+                                    <input type="text" id="prof-dni" name="dni" class="input-field" placeholder="Ej: 42333444" value="{{ valores_profesor.dni|default:'' }}" >
+                                    {% if errores_profesor.dni %}
+                                        <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.dni }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="input-group">
+                                    <label for="prof-nac">Fecha de Nacimiento</label>
+                                    <input type="date" id="prof-nac" name="fecha_nacimiento" class="input-field" value="{{ valores_profesor.fecha_nacimiento|default:'' }}">
+                                    {% if errores_profesor.fecha_nacimiento %}
+                                        <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.fecha_nacimiento }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                <div class="input-group">
+                                    <label for="prof-tel">Teléfono</label>
+                                    <input type="tel" id="prof-tel" name="telefono" class="input-field" placeholder="Ej: 2215556677" value="{{ valores_profesor.telefono|default:'' }}">
+                                    {% if errores_profesor.telefono %}
+                                        <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.telefono }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="input-group">
+                                    <label for="prof-correo">Correo Electrónico</label>
+                                    <input type="email" id="prof-correo" name="correo" class="input-field" placeholder="ejemplo@sportify.com" value="{{ valores_profesor.correo|default:'' }}">
+                                    {% if errores_profesor.correo %}
+                                        <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.correo }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="input-group" style="margin-bottom: 30px;">
+                                <label for="prof-pass">Contraseña</label>
+                                <input type="password" id="prof-pass" name="contrasenia" class="input-field" placeholder="••••••••">
+                                {% if errores_profesor.contrasenia %}
+                                    <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.contrasenia }}</span>
+                                {% else %}
+                                    <span style="font-size:0.75rem; color:#636366; margin-top:4px; display: block;">* El profesor podrá actualizarla al iniciar sesión por primera vez.</span>
+                                {% endif %}
+                            </div>
+
+                            <button type="submit" class="btn-action" style="background-color: #00e676; color: #000; font-weight: bold;">Dar de Alta Profesor</button>
+                        </form>
+                    </div>
+                    <div class="card-panel" style="flex: 1; min-width: 350px; border: 1px solid #00e676;">
+                        <h3 style="color: #00e676;">Dar de Baja Profesor</h3>
+                        
+                        <p style="font-size: 0.85rem; color:#8e8e93; margin-bottom:25px;">Seleccione un profesor para desactivar su acceso.</p>
+                        
+                        <form method="POST" id="form-baja" novalidate>
+                            {% csrf_token %}
+
+                            <div id="mensaje-error-baja" style="color: #ff5252; padding: 10px; margin-bottom: 15px; border: 1px solid #ff5252; border-radius: 5px; display: none;"></div>
+                            <input type="hidden" name="action" value="dar_de_baja_profesor">
+                            
+                            <div class="input-group" style="margin-bottom: 20px;">
+                                <label for="buscador-profesor">Buscar Profesor</label>
+                                <input type="text" class="input-field" list="lista-profesores" id="buscador-profesor" 
+                                    placeholder="Escriba nombre o apellido..." required autocomplete="off">
+                                
+                                <datalist id="lista-profesores">
+                                    {% for p in profesores %}
+                                        {% if p.usuario.is_active %}
+                                            <option value="{{ p.apellido }}, {{ p.nombre }} (DNI: {{ p.dni }})" data-id="{{ p.id }}">
+                                        {% endif %}
+                                    {% endfor %}
+                                </datalist>
+                                <input type="hidden" name="profesor_id" id="profesor_id_input">
+                            </div>
+
+                            <button type="button" class="btn-action" style="background-color: #00e676; color: #000;" id="btn-baja" disabled onclick="verificarBajaYMostrarModal()">
+                                Confirmar Baja
+                            </button>
+                        </form>
+                    </div>
+
+                    <dialog id="modal-baja" style="background: #1a1a1a; color: white; border: 2px solid #00e676; border-radius: 15px; padding: 25px; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                        <h4 style="color: #00e676; margin-top: 0;">¿Confirmar Baja?</h4>
+                        <p>¿Está seguro que desea eliminar a este profesor?</p>
+                        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                            <button type="button" onclick="document.getElementById('modal-baja').close()" 
+                                    style="background: transparent; border: 1px solid #555; color: white; padding: 8px 15px; border-radius: 5px; cursor: pointer;">
+                                Cancelar
+                            </button>
+                            <button type="button" 
+                                    onclick="document.getElementById('form-baja').submit()" 
+                                    style="background: #00e676; border: none; color: black; font-weight: bold; padding: 8px 15px; border-radius: 5px; cursor: pointer;">
+                                Confirmar
+                            </button>
+                        </div>
+                    </dialog>
+
+                    <script>
+                        const inputBuscador = document.getElementById('buscador-profesor');
+                        const inputId = document.getElementById('profesor_id_input');
+                        const btnBaja = document.getElementById('btn-baja');
+
+                        inputBuscador.addEventListener('input', function() {
+                            const valor = inputBuscador.value;
+                            const options = document.querySelectorAll('#lista-profesores option');
+                            let encontrado = false;
+                            options.forEach(opt => {
+                                if (opt.value === valor) {
+                                    inputId.value = opt.getAttribute('data-id');
+                                    btnBaja.disabled = false;
+                                    encontrado = true;
+                                }
+                            });
+                            if (!encontrado) { btnBaja.disabled = true; inputId.value = ''; }
+                            document.getElementById('mensaje-error-baja').style.display = 'none';
+                        });
+                    </script>
+                    <script>
+                        async function verificarBajaYMostrarModal() {
+                            const profesorId = document.getElementById('profesor_id_input').value;
+                            
+                            const response = await fetch('/validar-baja/', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                    'X-CSRFToken': '{{ csrf_token }}'
+                                },
+                                body: 'profesor_id=' + profesorId
+                            });
+                            
+                            const data = await response.json();
+                            
+                            if (data.es_valido) {
+                                document.getElementById('modal-baja').showModal();
+                            } else {
+                                // Usamos tu función existente que ya posiciona el mensaje arriba
+                                mostrarErrorGym("No se ha podido dar de baja al profesor porque tiene clases asignadas.");
+                                
+                                // OPCIONAL: Hacer que desaparezca solo después de 5 segundos
+                                setTimeout(() => {
+                                    const contenedor = document.getElementById('contenedor-mensajes-gym');
+                                    contenedor.innerHTML = ''; // Limpia el mensaje
+                                }, 5000); 
+                            }
+                        }
+                    </script>
                 </div>
             </div>
         </div>
