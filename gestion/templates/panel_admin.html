@@ -161,7 +161,7 @@
         .ganancias-box { display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at top right, rgba(0,255,136,0.05), transparent), #1c1c1e; border: 1px solid #2c2c2e; border-radius: 16px; padding: 35px; margin-top: 30px; text-align: center; }
         .ganancias-monto { font-size: 3.5rem; font-weight: 700; color: #00ff88; letter-spacing: -1px; margin: 0; line-height: 1; }
 
-        /* Mensajes del sistema */
+        /* Mensajes del system */
         .alert-toast { padding: 12px 20px; border-radius: 8px; font-weight: 600; margin-bottom: 25px; border-left: 4px solid; background-color: #1c1c1e; }
     </style>
 </head>
@@ -222,7 +222,7 @@
                 {% endif %}
             </div>
 
-        <div id="pane-clases" class="tab-pane {% if pestania_activa == 'clases' or not pestania_activa %}active{% endif %}">
+            <div id="pane-clases" class="tab-pane {% if pestania_activa == 'clases' or not pestania_activa %}active{% endif %}">
                 
                 <div style="display: flex; flex-direction: column; gap: 30px; max-width: 650px; margin: 0 auto 30px auto;">
                     
@@ -388,9 +388,6 @@
                 </div>
             </div>
 
-           
-            <!--<div id="mensaje-error-baja" style="color: #ff5252; padding: 10px; margin-bottom: 10px; display: none; border: 1px solid #ff5252; border-radius: 5px;"></div> -->
-
             <div id="pane-profesores" class="tab-pane {% if pestania_activa == 'profesores' %}active{% endif %}">
                 <div style="display: flex; gap: 40px; flex-wrap: wrap; align-items: flex-start; padding: 20px;">
                     <div class="card-panel" style="flex: 2; min-width: 500px;">
@@ -471,8 +468,8 @@
                             <button type="submit" class="btn-action" style="background-color: #00e676; color: #000; font-weight: bold;">Dar de Alta Profesor</button>
                         </form>
                     </div>
-                    <div class="card-panel" style="flex: 1; min-width: 350px; border: 1px solid #00e676;">
-                        <h3 style="color: #00e676;">Dar de Baja Profesor</h3>
+                    <div class="card-panel" style="flex: 1; min-width: 350px;">
+                        <h3 style="color:#8e8e93;">Dar de Baja Profesor</h3>
                         
                         <p style="font-size: 0.85rem; color:#8e8e93; margin-bottom:25px;">Seleccione un profesor para desactivar su acceso.</p>
                         
@@ -557,13 +554,11 @@
                             if (data.es_valido) {
                                 document.getElementById('modal-baja').showModal();
                             } else {
-                                // Usamos tu función existente que ya posiciona el mensaje arriba
                                 mostrarErrorGym("No se ha podido dar de baja al profesor porque tiene clases asignadas.");
                                 
-                                // OPCIONAL: Hacer que desaparezca solo después de 5 segundos
                                 setTimeout(() => {
                                     const contenedor = document.getElementById('contenedor-mensajes-gym');
-                                    contenedor.innerHTML = ''; // Limpia el mensaje
+                                    contenedor.innerHTML = ''; 
                                 }, 5000); 
                             }
                         }
@@ -573,11 +568,37 @@
         </div>
     </div>
 
+    {{ valores_clase|json_script:"datos-clase-persistentes" }}
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const diaSelect = document.getElementById('id_dia_semana');
             const fechaInput = document.getElementById('id_fecha');
             const avisoDiv = document.getElementById('aviso-recursivo');
+
+            // --- LÓGICA INTEGRADORA DE AUTOCOMPLETADO (RESTURA SI FALLA) ---
+            try {
+                const jsonContenido = document.getElementById('datos-clase-persistentes').textContent;
+                if (jsonContenido && jsonContenido.trim() !== "") {
+                    const datosViejos = JSON.parse(jsonContenido);
+                    
+                    if (datosViejos && Object.keys(datosViejos).length > 0) {
+                        if (datosViejos.actividad) document.getElementById('id_actividad').value = datosViejos.actividad;
+                        if (datosViejos.profesor) document.getElementById('id_profesor').value = datosViejos.profesor;
+                        if (datosViejos.dia_semana) document.getElementById('id_dia_semana').value = datosViejos.dia_semana;
+                        if (datosViejos.cupo) document.getElementById('id_cupo').value = datosViejos.cupo;
+                        if (datosViejos.fecha) document.getElementById('id_fecha').value = datosViejos.fecha;
+                        if (datosViejos.horario) document.getElementById('id_horario').value = datosViejos.horario;
+                    }
+                }
+            } catch (e) {
+                console.error("Error al inyectar persistencia de clase de forma nativa:", e);
+            }
+
+            // Disparador manual para el cartel de aviso dinámico (por si cargó con datos viejos)
+            if (diaSelect && diaSelect.value !== "") {
+                setTimeout(() => { diaSelect.dispatchEvent(new Event('change')); }, 100);
+            }
 
             if (diaSelect && fechaInput && avisoDiv) {
                 function actualizarAviso() {
@@ -616,7 +637,6 @@
             document.querySelector('.panel-content').scrollTop = 0;
         }
 
-        // Validaciones JS adaptadas al nuevo comportamiento del formulario
         document.getElementById('form-crear-clase').addEventListener('submit', function(event) {
             const actividad = document.getElementById('id_actividad').value;
             const profesor = document.getElementById('id_profesor').value;
@@ -625,7 +645,6 @@
             const horarioStr = document.getElementById('id_horario').value;
             const cupo = document.getElementById('id_cupo').value;
 
-            // Validar requeridos estructurales
             if (!actividad || !horarioStr || !diaSemana || !cupo) {
                 event.preventDefault();
                 mostrarErrorGym("Error: Por favor, complete todos los campos obligatorios (Actividad, Profesor, Día y Cupo).");
@@ -638,7 +657,6 @@
                 return;
             }
 
-            // Validar fecha únicamente si el administrador ingresó una
             if (fechaStr) {
                 const ahora = new Date();
                 const hoySoloFecha = new Date(ahora.getTime());

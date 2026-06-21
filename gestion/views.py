@@ -961,6 +961,7 @@ def panel_admin(request):
     errores_profesor = request.session.pop('errores_profesor', {})
     valores_profesor = request.session.pop('valores_profesor', {})
     mostrar_modal_profesor = request.session.pop('mostrar_modal_profesor', False)
+    valores_clase = request.session.pop('valores_clase', {})
     
     # Tomamos la pestaña activa de la sesión si falló algo, sino por defecto 'clases'
     pestania_activa = request.session.pop('pestania_activa', 'clases') 
@@ -999,8 +1000,23 @@ def panel_admin(request):
             horario_str = request.POST.get('horario')
             cupo_str = request.POST.get('cupo')
 
+            # 💾 Función auxiliar para guardar el estado actual del formulario ante fallos
+            # 💾 Nueva función con casteo explícito a String para el HTML
+            def persistir_formulario_clase():
+                request.session['valores_clase'] = {
+                    'actividad': str(request.POST.get('actividad', '')), # 🌟 Forzamos String
+                    'profesor': str(request.POST.get('profesor', '')),   # 🌟 Forzamos String
+                    'dia_semana': str(request.POST.get('dia_semana', '')), # 🌟 Forzamos String
+                    'cupo': request.POST.get('cupo', '30'),
+                    'fecha': request.POST.get('fecha', ''),
+                    'horario': request.POST.get('horario', ''),
+                }
+                request.session['pestania_activa'] = 'clases'
+                request.session.modified = True
             if not profesor_id or not actividad_id or not horario_str or not cupo_str or not dia_semana_str:
+                persistir_formulario_clase() # 👈 Agregado acá
                 messages.error(request, "Por favor, complete todos los campos obligatorios (Actividad, Profesor, Día y Cupo).")
+                return redirect('panel_admin') # 👈 Redirección limpia
             else:
                 try:
                     horario_obj = datetime.strptime(horario_str, "%H:%M").time()
@@ -1017,21 +1033,36 @@ def panel_admin(request):
                 else:
                     fecha_obj = datetime.strptime(fecha_str, "%Y-%m-%d").date()
 
-                # Validaciones de negocio del gimnasio
+                # === VALIDACIONES DE NEGOCIO (Con persistencia agregada) ===
                 if horario_obj.minute != 0 or horario_obj.second != 0:
+                    persistir_formulario_clase() # 👈 Copiar los datos a la sesión
                     messages.error(request, "Error: Las clases deben comenzar estrictamente en punto (Ej: 19:00).")
+                    return redirect('panel_admin')
+                
                 elif horario_obj.hour < 8 or horario_obj.hour > 20:
+                    persistir_formulario_clase() # 👈 Copiar los datos a la sesión
                     messages.error(request, "Error: El gimnasio se encuentra cerrado. Las clases se dictan únicamente de 08 a 20 hs.")
+                    return redirect('panel_admin')
+                
                 elif fecha_obj < ahora:
+                    persistir_formulario_clase() # 👈 Copiar los datos a la sesión
                     messages.error(request, "Error: No se pueden programar clases en una fecha que ya pasó.")
+                    return redirect('panel_admin')
+                
                 elif fecha_obj.weekday() != dia_semana_target:
+                    persistir_formulario_clase() # 👈 Copiar los datos a la sesión
                     messages.error(request, f"Error: La fecha seleccionada en el calendario no coincide con el día de la semana elegido.")
+                    return redirect('panel_admin')
+                
                 elif cupo_nuevo < 1 or cupo_nuevo > 30:
+                    persistir_formulario_clase() # 👈 Copiar los datos a la sesión
                     messages.error(request, "Error: El cupo de la clase debe estar entre 1 y 30.")
+                    return redirect('panel_admin')
+                
                 else:
                     fin_de_anio = date(fecha_obj.year, 12, 31)
 
-                    # 1. Generar lista de fechas recursivas (mismo día hasta fin de año)
+                    # 1. Generar lista de fechas recursivas
                     fechas_a_crear = []
                     curr = fecha_obj
                     while curr <= fin_de_anio:
@@ -1039,7 +1070,7 @@ def panel_admin(request):
                             fechas_a_crear.append(curr)
                         curr += timedelta(days=1)
 
-                    # 2. VALIDACIÓN MATEMÁTICA DE CAPACIDAD DEL GIMNASIO (Máximo 30 total)
+                    # 2. VALIDACIÓN MATEMÁTICA DE CAPACIDAD DEL GIMNASIO
                     from django.db.models import Sum
                     cupo_excedido = False
                     fecha_conflicto = None
@@ -1060,6 +1091,7 @@ def panel_admin(request):
                             break
 
                     if cupo_excedido:
+                        persistir_formulario_clase()
                         cupos_restantes = 30 - cupos_ya_asignados
                         messages.error(
                             request, 
@@ -1068,6 +1100,8 @@ def panel_admin(request):
                             f"ya tenés {cupos_ya_asignados} cupos tomados por otras clases. "
                             f"Solo podés asignar un cupo de hasta {cupos_restantes} para esta franja."
                         )
+                        return redirect('panel_admin')
+                    
                     else:
                         # 3. VERIFICACIÓN DE DISPONIBILIDAD DEL PROFESOR Y CHOQUE DE LA MISMA ACTIVIDAD
                         profesor_ocupado = False
@@ -1084,9 +1118,15 @@ def panel_admin(request):
                                 break
 
                         if profesor_ocupado:
+                            persistir_formulario_clase()
                             messages.error(request, f"Error: El profesor ya tiene otra clase asignada en ese horario el día {fecha_conflicto.strftime('%d/%m/%Y')}.")
+                            return redirect('panel_admin')
+                        
                         elif ya_existe_choque:
+                            persistir_formulario_clase() # 👈 Guardamos datos ante choque de actividad
                             messages.error(request, f"Error: Ya existe una clase de esa misma actividad en ese horario el día {fecha_conflicto.strftime('%d/%m/%Y')}.")
+                            return redirect('panel_admin') # 👈 Agregado el return para que no intente crear clases si hay choque
+                        
                         else:
                             # 4. CREACIÓN ATÓMICA DE LA SERIE
                             actividad = Actividad.objects.get(id=actividad_id)
@@ -1113,7 +1153,7 @@ def panel_admin(request):
                                         leida=False
                                     )
                                     
-                                    # Envío de Correo
+                                    # Envío de Correo (Tus bloques de email quedan igual...)
                                     asunto = "Nueva serie de clases asignada - Sportify"
                                     mensaje_texto = f"Hola {profesor.nombre},\nSe te ha asignado una serie de clases de {actividad.nombre} desde el {fecha_obj.strftime('%d/%m/%Y')} hasta fin de año."
                                     mensaje_html = f"""
@@ -1133,9 +1173,13 @@ def panel_admin(request):
                                     email_message.send()
 
                                 messages.success(request, f"Serie de clases fijas creada con éxito ({cupo_nuevo} cupos por clase).")
+                                return redirect('panel_admin')
+                            
                             except Exception as e:
+                                persistir_formulario_clase() # 👈 Guardamos si falla la base de datos o el mail
                                 messages.error(request, f"Error al procesar la creación masiva: {e}")
-
+                                return redirect('panel_admin')
+                            
         # --- C. PROCESAR REGISTRAR PROFESOR ---
         elif action == 'registrar_profesor':
             pestania_activa = 'profesores'
@@ -1367,6 +1411,7 @@ def panel_admin(request):
         'errores_profesor': errores_profesor,
         'valores_profesor': valores_profesor,
         'mostrar_modal_profesor': mostrar_modal_profesor,
+        'valores_clase': valores_clase,
     }
     return render(request, 'panel_admin.html', context)
 
