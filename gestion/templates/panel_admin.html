@@ -228,7 +228,7 @@
                     
                     <div class="card-panel">
                         <h3>Crear Clase</h3>
-                        <form method="POST" id="form-crear-clase">
+                        <form method="POST" id="form-crear-clase" novalidate>
                             {% csrf_token %}
                             <input type="hidden" name="action" value="crear_clase">
                             
@@ -657,12 +657,22 @@
                 return;
             }
 
+            const cupoNum = parseInt(cupo, 10);
+            if (cupoNum < 1 || cupoNum > 30) {
+                event.preventDefault();
+                mostrarErrorGym("Error: El cupo de la clase debe ser un valor válido entre 1 y 30.");
+                return;
+            }
+
             if (fechaStr) {
                 const ahora = new Date();
                 const hoySoloFecha = new Date(ahora.getTime());
                 hoySoloFecha.setHours(0, 0, 0, 0);
                 const fechaSeleccionada = new Date(fechaStr + 'T00:00:00');
                 
+                const margenPasado = new Date(hoySoloFecha.getTime());
+                margenPasado.setDate(margenPasado.getDate() - 7);
+
                 if (fechaSeleccionada < hoySoloFecha) {
                     event.preventDefault();
                     mostrarErrorGym("Error: No se pueden programar clases en una fecha que ya pasó.");
@@ -678,11 +688,6 @@
                     }
                 }
 
-                if (fechaSeleccionada.getDay() === 0) {
-                    event.preventDefault();
-                    mostrarErrorGym("Error: El gimnasio permanece cerrado los domingos. Por favor, elija un día válido.");
-                    return;
-                }
             }
         });
     </script>

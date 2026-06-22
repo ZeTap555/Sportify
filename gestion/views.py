@@ -109,24 +109,26 @@ def grilla_actividades(request):
                 clases_por_dia[dia] = []
                 for clase in todas_las_clases:
                     # Se repite si coincide el día de la semana Y el casillero es posterior o igual al inicio
-                    if clase.dia_semana_num == dia_semana_casillero and fecha_casillero >= clase.fecha:
+                    if clase.fecha == fecha_casillero:
                         clase.cupos_mostrar = clase.cupos_para_fecha(fecha_casillero)
                         clases_por_dia[dia].append(clase)
 
     # 5. Lógica para el detalle del día seleccionado (Abajo a la derecha)
     clases_detalle_dia = []
     if fecha_seleccionada >= ahora:
-        dia_semana_sel = fecha_seleccionada.weekday()
         for clase in todas_las_clases:
-            if clase.dia_semana_num == dia_semana_sel and fecha_seleccionada >= clase.fecha:
+            # 🌟 ACÁ: Igualdad estricta en lugar de la lógica de arrastre vieja
+            if clase.fecha == fecha_seleccionada:
+                # Calculamos cupos y evitamos las clases que ya pasaron en el día de hoy
                 clase.cupos_mostrar = clase.cupos_para_fecha(fecha_seleccionada)
-                # No mostrar clases que ya pasaron en el detalle del día
+                
                 if fecha_seleccionada == ahora:
                     fecha_hora_clase = timezone.make_aware(
                         datetime.combine(fecha_seleccionada, clase.horario)
                     )
                     if fecha_hora_clase < timezone.now():
                         continue
+                        
                 clases_detalle_dia.append(clase)
         
         # Las ordenamos por horario para que no queden mezcladas
@@ -137,10 +139,7 @@ def grilla_actividades(request):
             if dia !=0:
                 fecha_casillero=date(año,mes,dia)
                 for clase in todas_las_clases:
-                    if(
-                        clase.dia_semana_num==fecha_casillero.weekday()
-                        and fecha_casillero>=clase.fecha
-                    ):
+                    if clase.fecha == fecha_casillero:
                         hay_clases_mes=True
                         break
                 if hay_clases_mes:
@@ -1044,15 +1043,11 @@ def panel_admin(request):
                     messages.error(request, "Error: El gimnasio se encuentra cerrado. Las clases se dictan únicamente de 08 a 20 hs.")
                     return redirect('panel_admin')
                 
-                elif fecha_obj < ahora:
+                elif fecha_obj < ahora - timedelta(days=7):
                     persistir_formulario_clase() # 👈 Copiar los datos a la sesión
                     messages.error(request, "Error: No se pueden programar clases en una fecha que ya pasó.")
                     return redirect('panel_admin')
                 
-                elif fecha_obj.weekday() != dia_semana_target:
-                    persistir_formulario_clase() # 👈 Copiar los datos a la sesión
-                    messages.error(request, f"Error: La fecha seleccionada en el calendario no coincide con el día de la semana elegido.")
-                    return redirect('panel_admin')
                 
                 elif cupo_nuevo < 1 or cupo_nuevo > 30:
                     persistir_formulario_clase() # 👈 Copiar los datos a la sesión
@@ -1069,6 +1064,11 @@ def panel_admin(request):
                         if curr.weekday() == dia_semana_target:
                             fechas_a_crear.append(curr)
                         curr += timedelta(days=1)
+
+                    if not fechas_a_crear:
+                        persistir_formulario_clase()
+                        messages.error(request, "Error: No se encontraron fechas válidas para crear clases en este año.")
+                        return redirect('panel_admin')
 
                     # 2. VALIDACIÓN MATEMÁTICA DE CAPACIDAD DEL GIMNASIO
                     from django.db.models import Sum
@@ -1119,12 +1119,12 @@ def panel_admin(request):
 
                         if profesor_ocupado:
                             persistir_formulario_clase()
-                            messages.error(request, f"Error: El profesor ya tiene otra clase asignada en ese horario el día {fecha_conflicto.strftime('%d/%m/%Y')}.")
+                            messages.error(request, f"Error: El profesor ya se encuentra asignado a otra clase en ese mismo día y horario.")
                             return redirect('panel_admin')
                         
                         elif ya_existe_choque:
                             persistir_formulario_clase() # 👈 Guardamos datos ante choque de actividad
-                            messages.error(request, f"Error: Ya existe una clase de esa misma actividad en ese horario el día {fecha_conflicto.strftime('%d/%m/%Y')}.")
+                            messages.error(request, f"Error: ya existen clases de esa actividad en el horario y dia seleccionado.")
                             return redirect('panel_admin') # 👈 Agregado el return para que no intente crear clases si hay choque
                         
                         else:
@@ -1172,7 +1172,7 @@ def panel_admin(request):
                                     email_message.attach_alternative(mensaje_html, "text/html")
                                     email_message.send()
 
-                                messages.success(request, f"Serie de clases fijas creada con éxito ({cupo_nuevo} cupos por clase).")
+                                messages.success(request, f"Clases creadas con exito")
                                 return redirect('panel_admin')
                             
                             except Exception as e:
@@ -1385,12 +1385,14 @@ def panel_admin(request):
         for dia in semana:
             if dia != 0:
                 fecha_casillero = date(año, mes, dia)
-                dia_semana_casillero = fecha_casillero.weekday()
                 
                 clases_por_dia[dia] = []
                 for clase in todas_las_clases:
-                    if clase.dia_semana_num == dia_semana_casillero and fecha_casillero >= clase.fecha:
-                        clase.cupos_mostrar = clase.cupos_para_fecha(fecha_casillero)
+                    if clase.fecha == fecha_casillero:
+                        # Si usás un método para ver cupos, se mantiene igual
+                        if hasattr(clase, 'cupos_para_fecha'):
+                            clase.cupos_mostrar = clase.cupos_para_fecha(fecha_casillero)
+                            
                         clases_por_dia[dia].append(clase)
 
     # Cálculo de ganancias en tiempo real
