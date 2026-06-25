@@ -57,24 +57,29 @@ class Clase(models.Model):
     actividad = models.ForeignKey(Actividad, on_delete=models.CASCADE)
     profesor = models.ForeignKey(Profesor, on_delete=models.SET_NULL, null=True, blank=True)
     
-    # 📆 Fecha en la que inicia la recurrencia de esta clase fija
+    # 📆 Fecha en la que inicia o se dicta la clase fija de la serie
     fecha = models.DateField(default=timezone.now) 
     horario = models.TimeField()
 
-    # Corregido el formato para que no tire error en Python
+    # 🔢 Cupo máximo configurable a mano por el administrador (pedido por Lucho)
+    cupo_maximo = models.PositiveIntegerField(default=30)
+
+    # Formato de representación en consola/admin
     def __str__(self):
         return f"{self.actividad.nombre} - Desde el {self.fecha.strftime('%d/%m')} a las {self.horario.strftime('%H:%M')}"
 
+    # 👇 Propiedad que da el nombre del día en español
     @property
     def dia_semana_nombre(self):
         dias = {0: 'Lunes', 1: 'Martes', 2: 'Miércoles', 3: 'Jueves', 4: 'Viernes', 5: 'Sábado', 6: 'Domingo'}
         return dias[self.fecha.weekday()]
 
-    # 👇 NUEVA PROPIEDAD: Nos da el número de día de la semana (0=Lunes, 1=Martes...)
+    # 👇 Propiedad clave para la grilla (0=Lunes, 1=Martes, etc.)
     @property
     def dia_semana_num(self):
         return self.fecha.weekday()
 
+    # 👇 Valida si la clase ya expiró en base al tiempo real actual
     @property
     def ya_paso(self):
         ahora = timezone.now()
@@ -83,17 +88,16 @@ class Clase(models.Model):
         )
         return ahora > clase_datetime
 
+    # 👇 Calcula cuántas vacantes quedan disponibles REALES para reservar en una fecha
     def cupos_para_fecha(self, fecha):
-        CAPACIDAD_MAXIMA_GIMNASIO = 30
-        
-        # 🌟 FILTRADO GLOBAL: Contamos las reservas de CUALQUIER clase 
-        # que coincida en la misma fecha y en el mismo horario.
-        total_reservas_franja = Reserva.objects.filter(
+        # Cuenta las reservas de alumnos hechas específicamente para esta clase en la fecha dada
+        total_reservas_clase = Reserva.objects.filter(
             fecha_clase=fecha,
-            clase__horario=self.horario  # <-- Mapea por el horario compartido
+            clase=self
         ).count()
         
-        disponibles = CAPACIDAD_MAXIMA_GIMNASIO - total_reservas_franja
+        # Restamos de su propio cupo configurado a mano (15, 19, 30, etc.)
+        disponibles = self.cupo_maximo - total_reservas_clase
         return max(0, disponibles)
 
 

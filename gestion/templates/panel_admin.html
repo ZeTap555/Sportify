@@ -42,7 +42,6 @@
             justify-content: center;
             padding: 0 15px;              
             margin-bottom: 25px;          
-
         }
 
         .sidebar-brand-link {
@@ -156,14 +155,13 @@
         /* ESTILOS DE LA PESTAÑA PAGOS */
         .item-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #2c2c2e; }
         .item-row:last-child { border-bottom: none; }
-        /* Clases específicas para inputs de precios */
         .price-input { width: 120px; text-align: right; background-color: rgba(0, 255, 136, 0.05); font-weight: bold; color: #00ff88; }
 
         /* Dashboard de ganancias corporativas */
         .ganancias-box { display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at top right, rgba(0,255,136,0.05), transparent), #1c1c1e; border: 1px solid #2c2c2e; border-radius: 16px; padding: 35px; margin-top: 30px; text-align: center; }
         .ganancias-monto { font-size: 3.5rem; font-weight: 700; color: #00ff88; letter-spacing: -1px; margin: 0; line-height: 1; }
 
-        /* Mensajes del sistema */
+        /* Mensajes del system */
         .alert-toast { padding: 12px 20px; border-radius: 8px; font-weight: 600; margin-bottom: 25px; border-left: 4px solid; background-color: #1c1c1e; }
     </style>
 </head>
@@ -181,7 +179,6 @@
                 <a href="{% url 'grilla_actividades' %}" class="menu-item">Cronograma</a>
                 <a href="{% url 'perfil' %}" class="menu-item">Mi Perfil</a>
                 <a href="{% url 'panel_admin' %}" class="menu-item active">Panel Admin</a>
-
             </div>
         </div>
 
@@ -226,31 +223,19 @@
             </div>
 
             <div id="pane-clases" class="tab-pane {% if pestania_activa == 'clases' or not pestania_activa %}active{% endif %}">
-                <div class="bento-grid-two">
+                
+                <div style="display: flex; flex-direction: column; gap: 30px; max-width: 650px; margin: 0 auto 30px auto;">
+                    
                     <div class="card-panel">
-                        <h3>Nueva Actividad</h3>
-                        <form method="POST">
-                        {% csrf_token %}
-                            <input type="hidden" name="action" value="crear_actividad">
-                            
-                            <div class="input-group">
-                                <label for="act-nombre">Nombre de la Disciplina</label>
-                                <input type="text" id="act-nombre" name="nombre" class="input-field" placeholder="Ej: Ritmos, CrossFit, Pilates" required>
-                            </div>
-                            <button type="submit" class="btn-action">Registrar Actividad</button>
-                        </form>
-                    </div>
-
-                   <div class="card-panel">
                         <h3>Crear Clase</h3>
-                        <form method="POST" id="form-crear-clase">
+                        <form method="POST" id="form-crear-clase" novalidate>
                             {% csrf_token %}
                             <input type="hidden" name="action" value="crear_clase">
                             
                             <div class="input-group">
                                 <label>Seleccionar Actividad</label>
-                                <select name="actividad" id="id_actividad" class="select-field">
-                                    <option value="" selected>-- Seleccione disciplina --</option>
+                                <select name="actividad" id="id_actividad" class="select-field" required>
+                                    <option value="" selected disabled>-- Seleccione disciplina --</option>
                                     {% for act in actividades %}
                                         <option value="{{ act.id }}">{{ act.nombre }}</option>
                                     {% endfor %}
@@ -259,8 +244,8 @@
 
                             <div class="input-group">
                                 <label>Asignar Profesor</label>
-                                <select name="profesor" id="id_profesor" class="select-field">
-                                    <option value="" selected>-- Seleccione un Profesor Obligatoriamente --</option>
+                                <select name="profesor" id="id_profesor" class="select-field" required>
+                                    <option value="" selected disabled>-- Seleccione un Profesor Obligatoriamente --</option>
                                     {% for prof in profesores %}
                                         <option value="{{ prof.id }}">{{ prof.apellido }}, {{ prof.nombre }}</option>
                                     {% endfor %}
@@ -269,13 +254,32 @@
 
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                                 <div class="input-group">
-                                    <label>Fecha de Inicio de la Clase</label>
+                                    <label>Día de la semana fijo</label>
+                                    <select name="dia_semana" id="id_dia_semana" class="select-field" required>
+                                        <option value="" selected disabled>-- Seleccione Día --</option>
+                                        <option value="0">Lunes</option>
+                                        <option value="1">Martes</option>
+                                        <option value="2">Miércoles</option>
+                                        <option value="3">Jueves</option>
+                                        <option value="4">Viernes</option>
+                                        <option value="5">Sábado</option>
+                                    </select>
+                                </div>
+                                <div class="input-group">
+                                    <label>Cupo de esta clase (1 a 30)</label>
+                                    <input type="number" name="cupo" id="id_cupo" class="input-field" min="1" max="30" value="30" required>
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                                <div class="input-group">
+                                    <label>Fecha de Inicio (Opcional)</label>
                                     <input type="date" name="fecha" id="id_fecha" class="input-field">
                                 </div>
                                 <div class="input-group">
                                     <label>Horario (Horas en punto)</label>
-                                    <select name="horario" id="id_horario" class="select-field">
-                                        <option value="" selected>-- Seleccione Hora --</option>
+                                    <select name="horario" id="id_horario" class="select-field" required>
+                                        <option value="" selected disabled>-- Seleccione Hora --</option>
                                         <option value="08:00">08:00 hs</option>
                                         <option value="09:00">09:00 hs</option>
                                         <option value="10:00">10:00 hs</option>
@@ -292,7 +296,24 @@
                                     </select>
                                 </div>
                             </div>
-                            <button type="submit" class="btn-action">Añadir al Cronograma</button>
+
+                            <div id="aviso-recursivo" style="color: #00ff88; font-weight: bold; font-size: 0.9rem; margin-top: 15px; min-height: 20px;"></div>
+
+                            <button type="submit" class="btn-action" style="margin-top: 15px;">Añadir al Cronograma</button>
+                        </form>
+                    </div>
+
+                    <div class="card-panel">
+                        <h3>Nueva Actividad</h3>
+                        <form method="POST" style="display: flex; align-items: flex-end; gap: 20px;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="crear_actividad">
+                            
+                            <div class="input-group" style="flex-grow: 1; margin-bottom: 0;">
+                                <label for="act-nombre">Nombre de la Disciplina</label>
+                                <input type="text" id="act-nombre" name="nombre" class="input-field" placeholder="Ej: Ritmos, CrossFit, Pilates" required>
+                            </div>
+                            <button type="submit" class="btn-action" style="width: auto; padding: 11px 24px; white-space: nowrap;">Registrar Actividad</button>
                         </form>
                     </div>
                 </div>
@@ -329,14 +350,11 @@
                     </div>
                 </div>
             </div>
-
             <div id="pane-pagos" class="tab-pane {% if pestania_activa == 'pagos' %}active{% endif %}">
-                
                 <form method="POST">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="actualizar_precios_globales">
 
-                    <div class="bento-grid-two">
                         <div class="card-panel">
                             <h3>Precio por Clase</h3>
                             <p style="font-size:0.82rem; color:#8e8e93; margin-bottom:20px;">Precio por asistencia única a cada Clase.</p>
@@ -356,26 +374,6 @@
                             </div>
                         </div>
 
-                        <div class="card-panel">
-                            <h3>Precio por Mensualidad</h3>
-                            <p style="font-size:0.82rem; color:#8e8e93; margin-bottom:20px;">Precio fijo para todas las clases del mes de una actividad.</p>
-                            
-                            <div style="max-height: 280px; overflow-y:auto; padding-right:5px;">
-                                {% for act in actividades %}
-                                    <div class="item-row">
-                                        <span>Mensualidad de <strong>{{ act.nombre }}</strong></span>
-                                        <div style="display:flex; align-items:center; gap:10px;">
-                                            <span style="color:#00ff88; font-weight:600; min-width:60px;">${{ act.precio_mensualidad }}</span>
-                                            <input type="number" step="0.01" name="precio_mes_{{ act.id }}" class="input-field price-input" value="{{ act.precio_mensualidad }}" placeholder="0.00" style="width:120px;">
-                                        </div>
-                                    </div>
-                                {% empty %}
-                                    <p style="font-style:italic; color:#636366;">No hay actividades cargadas.</p>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-
                     <button type="submit" class="btn-action" style="max-width: 400px; margin: 0 auto; display: block;">
                         Guardar Tarifas
                     </button>
@@ -391,92 +389,240 @@
             </div>
 
             <div id="pane-profesores" class="tab-pane {% if pestania_activa == 'profesores' %}active{% endif %}">
-                <div class="card-panel" style="max-width: 650px; margin: 0 auto;">
-                    <h3>Registrar Nuevo Profesor</h3>
-                    <p style="font-size: 0.85rem; color:#8e8e93; margin-bottom:25px;">Al dar de alta a un docente desde este formulario, se le otorgará de forma automática el rol y credenciales de "Profesor" en la plataforma.</p>
-                    
-                    <form method="POST" novalidate>
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="registrar_profesor">
+                <div style="display: flex; gap: 40px; flex-wrap: wrap; align-items: flex-start; padding: 20px;">
+                    <div class="card-panel" style="flex: 2; min-width: 500px;">
+                        <h3>Registrar Nuevo Profesor</h3>
+                        <p style="font-size: 0.85rem; color:#8e8e93; margin-bottom:25px;">Al dar de alta a un docente desde este formulario, se le otorgará de forma automática el rol y credenciales de "Profesor" en la plataforma.</p>
                         
-                        {% if errores_profesor.general %}
-                        <div style="background-color: rgba(255, 59, 48, 0.1); border-left: 4px solid #ff3b30; color: #ff3b30; padding: 10px; margin-bottom: 20px; border-radius: 4px; font-size: 0.9rem;">
-                            {{ errores_profesor.general }}
-                        </div>
-                        {% endif %}
-
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                            <div class="input-group">
-                                <label for="prof-nombre">Nombre</label>
-                                <input type="text" id="prof-nombre" name="nombre" class="input-field" value="{{ valores_profesor.nombre|default:'' }}">
-                                {% if errores_profesor.nombre %}
-                                    <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.nombre }}</span>
-                                {% endif %}
+                        <form method="POST" novalidate>
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="registrar_profesor">
+                            
+                            {% if errores_profesor.general %}
+                            <div style="background-color: rgba(255, 59, 48, 0.1); border-left: 4px solid #ff3b30; color: #ff3b30; padding: 10px; margin-bottom: 20px; border-radius: 4px; font-size: 0.9rem;">
+                                {{ errores_profesor.general }}
                             </div>
-                            <div class="input-group">
-                                <label for="prof-apellido">Apellido</label>
-                                <input type="text" id="prof-apellido" name="apellido" class="input-field" value="{{ valores_profesor.apellido|default:'' }}">
-                                {% if errores_profesor.apellido %}
-                                    <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.apellido }}</span>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                            <div class="input-group">
-                                <label for="prof-dni">DNI</label>
-                                <input type="text" id="prof-dni" name="dni" class="input-field" placeholder="Ej: 42333444" value="{{ valores_profesor.dni|default:'' }}" >
-                                {% if errores_profesor.dni %}
-                                    <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.dni }}</span>
-                                {% endif %}
-                            </div>
-                            <div class="input-group">
-                                <label for="prof-nac">Fecha de Nacimiento</label>
-                                <input type="date" id="prof-nac" name="fecha_nacimiento" class="input-field" value="{{ valores_profesor.fecha_nacimiento|default:'' }}">
-                                {% if errores_profesor.fecha_nacimiento %}
-                                    <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.fecha_nacimiento }}</span>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                            <div class="input-group">
-                                <label for="prof-tel">Teléfono</label>
-                                <input type="tel" id="prof-tel" name="telefono" class="input-field" placeholder="Ej: 2215556677" value="{{ valores_profesor.telefono|default:'' }}">
-                                {% if errores_profesor.telefono %}
-                                    <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.telefono }}</span>
-                                {% endif %}
-                            </div>
-                            <div class="input-group">
-                                <label for="prof-correo">Correo Electrónico</label>
-                                <input type="email" id="prof-correo" name="correo" class="input-field" placeholder="ejemplo@sportify.com" value="{{ valores_profesor.correo|default:'' }}">
-                                {% if errores_profesor.correo %}
-                                    <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.correo }}</span>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <div class="input-group" style="margin-bottom: 30px;">
-                            <label for="prof-pass">Contraseña</label>
-                            <input type="password" id="prof-pass" name="contrasenia" class="input-field" placeholder="••••••••">
-                            {% if errores_profesor.contrasenia %}
-                                <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.contrasenia }}</span>
-                            {% else %}
-                                <span style="font-size:0.75rem; color:#636366; margin-top:4px; display: block;">* El profesor podrá actualizarla al iniciar sesión por primera vez.</span>
                             {% endif %}
-                        </div>
 
-                        <button type="submit" class="btn-action">Dar de Alta Profesor</button>
-                    </form>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                <div class="input-group">
+                                    <label for="prof-nombre">Nombre</label>
+                                    <input type="text" id="prof-nombre" name="nombre" class="input-field" value="{{ valores_profesor.nombre|default:'' }}">
+                                    {% if errores_profesor.nombre %}
+                                        <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.nombre }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="input-group">
+                                    <label for="prof-apellido">Apellido</label>
+                                    <input type="text" id="prof-apellido" name="apellido" class="input-field" value="{{ valores_profesor.apellido|default:'' }}">
+                                    {% if errores_profesor.apellido %}
+                                        <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.apellido }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                <div class="input-group">
+                                    <label for="prof-dni">DNI</label>
+                                    <input type="text" id="prof-dni" name="dni" class="input-field" placeholder="Ej: 42333444" value="{{ valores_profesor.dni|default:'' }}" >
+                                    {% if errores_profesor.dni %}
+                                        <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.dni }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="input-group">
+                                    <label for="prof-nac">Fecha de Nacimiento</label>
+                                    <input type="date" id="prof-nac" name="fecha_nacimiento" class="input-field" value="{{ valores_profesor.fecha_nacimiento|default:'' }}">
+                                    {% if errores_profesor.fecha_nacimiento %}
+                                        <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.fecha_nacimiento }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                <div class="input-group">
+                                    <label for="prof-tel">Teléfono</label>
+                                    <input type="tel" id="prof-tel" name="telefono" class="input-field" placeholder="Ej: 2215556677" value="{{ valores_profesor.telefono|default:'' }}">
+                                    {% if errores_profesor.telefono %}
+                                        <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.telefono }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="input-group">
+                                    <label for="prof-correo">Correo Electrónico</label>
+                                    <input type="email" id="prof-correo" name="correo" class="input-field" placeholder="ejemplo@sportify.com" value="{{ valores_profesor.correo|default:'' }}">
+                                    {% if errores_profesor.correo %}
+                                        <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.correo }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="input-group" style="margin-bottom: 30px;">
+                                <label for="prof-pass">Contraseña</label>
+                                <input type="password" id="prof-pass" name="contrasenia" class="input-field" placeholder="••••••••">
+                                {% if errores_profesor.contrasenia %}
+                                    <span style="color: #ff3b30; font-size: 0.8rem; margin-top: 4px; display: block;">{{ errores_profesor.contrasenia }}</span>
+                                {% else %}
+                                    <span style="font-size:0.75rem; color:#636366; margin-top:4px; display: block;">* El profesor podrá actualizarla al iniciar sesión por primera vez.</span>
+                                {% endif %}
+                            </div>
+
+                            <button type="submit" class="btn-action" style="background-color: #00e676; color: #000; font-weight: bold;">Dar de Alta Profesor</button>
+                        </form>
+                    </div>
+                    <div class="card-panel" style="flex: 1; min-width: 350px;">
+                        <h3 style="color:#8e8e93;">Dar de Baja Profesor</h3>
+                        
+                        <p style="font-size: 0.85rem; color:#8e8e93; margin-bottom:25px;">Seleccione un profesor para desactivar su acceso.</p>
+                        
+                        <form method="POST" id="form-baja" novalidate>
+                            {% csrf_token %}
+
+                            <div id="mensaje-error-baja" style="color: #ff5252; padding: 10px; margin-bottom: 15px; border: 1px solid #ff5252; border-radius: 5px; display: none;"></div>
+                            <input type="hidden" name="action" value="dar_de_baja_profesor">
+                            
+                            <div class="input-group" style="margin-bottom: 20px;">
+                                <label for="buscador-profesor">Buscar Profesor</label>
+                                <input type="text" class="input-field" list="lista-profesores" id="buscador-profesor" 
+                                    placeholder="Escriba nombre o apellido..." required autocomplete="off">
+                                
+                                <datalist id="lista-profesores">
+                                    {% for p in profesores %}
+                                        {% if p.usuario.is_active %}
+                                            <option value="{{ p.apellido }}, {{ p.nombre }} (DNI: {{ p.dni }})" data-id="{{ p.id }}">
+                                        {% endif %}
+                                    {% endfor %}
+                                </datalist>
+                                <input type="hidden" name="profesor_id" id="profesor_id_input">
+                            </div>
+
+                            <button type="button" class="btn-action" style="background-color: #00e676; color: #000;" id="btn-baja" disabled onclick="verificarBajaYMostrarModal()">
+                                Confirmar Baja
+                            </button>
+                        </form>
+                    </div>
+
+                    <dialog id="modal-baja" style="background: #1a1a1a; color: white; border: 2px solid #00e676; border-radius: 15px; padding: 25px; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                        <h4 style="color: #00e676; margin-top: 0;">¿Confirmar Baja?</h4>
+                        <p>¿Está seguro que desea eliminar a este profesor?</p>
+                        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                            <button type="button" onclick="document.getElementById('modal-baja').close()" 
+                                    style="background: transparent; border: 1px solid #555; color: white; padding: 8px 15px; border-radius: 5px; cursor: pointer;">
+                                Cancelar
+                            </button>
+                            <button type="button" 
+                                    onclick="document.getElementById('form-baja').submit()" 
+                                    style="background: #00e676; border: none; color: black; font-weight: bold; padding: 8px 15px; border-radius: 5px; cursor: pointer;">
+                                Confirmar
+                            </button>
+                        </div>
+                    </dialog>
+
+                    <script>
+                        const inputBuscador = document.getElementById('buscador-profesor');
+                        const inputId = document.getElementById('profesor_id_input');
+                        const btnBaja = document.getElementById('btn-baja');
+
+                        inputBuscador.addEventListener('input', function() {
+                            const valor = inputBuscador.value;
+                            const options = document.querySelectorAll('#lista-profesores option');
+                            let encontrado = false;
+                            options.forEach(opt => {
+                                if (opt.value === valor) {
+                                    inputId.value = opt.getAttribute('data-id');
+                                    btnBaja.disabled = false;
+                                    encontrado = true;
+                                }
+                            });
+                            if (!encontrado) { btnBaja.disabled = true; inputId.value = ''; }
+                            document.getElementById('mensaje-error-baja').style.display = 'none';
+                        });
+                    </script>
+                    <script>
+                        async function verificarBajaYMostrarModal() {
+                            const profesorId = document.getElementById('profesor_id_input').value;
+                            
+                            const response = await fetch('/validar-baja/', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                    'X-CSRFToken': '{{ csrf_token }}'
+                                },
+                                body: 'profesor_id=' + profesorId
+                            });
+                            
+                            const data = await response.json();
+                            
+                            if (data.es_valido) {
+                                document.getElementById('modal-baja').showModal();
+                            } else {
+                                mostrarErrorGym("No se ha podido dar de baja al profesor porque tiene clases asignadas.");
+                                
+                                setTimeout(() => {
+                                    const contenedor = document.getElementById('contenedor-mensajes-gym');
+                                    contenedor.innerHTML = ''; 
+                                }, 5000); 
+                            }
+                        }
+                    </script>
                 </div>
             </div>
         </div>
     </div>
 
+    {{ valores_clase|json_script:"datos-clase-persistentes" }}
+
     <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const diaSelect = document.getElementById('id_dia_semana');
+            const fechaInput = document.getElementById('id_fecha');
+            const avisoDiv = document.getElementById('aviso-recursivo');
+
+            // --- LÓGICA INTEGRADORA DE AUTOCOMPLETADO (RESTURA SI FALLA) ---
+            try {
+                const jsonContenido = document.getElementById('datos-clase-persistentes').textContent;
+                if (jsonContenido && jsonContenido.trim() !== "") {
+                    const datosViejos = JSON.parse(jsonContenido);
+                    
+                    if (datosViejos && Object.keys(datosViejos).length > 0) {
+                        if (datosViejos.actividad) document.getElementById('id_actividad').value = datosViejos.actividad;
+                        if (datosViejos.profesor) document.getElementById('id_profesor').value = datosViejos.profesor;
+                        if (datosViejos.dia_semana) document.getElementById('id_dia_semana').value = datosViejos.dia_semana;
+                        if (datosViejos.cupo) document.getElementById('id_cupo').value = datosViejos.cupo;
+                        if (datosViejos.fecha) document.getElementById('id_fecha').value = datosViejos.fecha;
+                        if (datosViejos.horario) document.getElementById('id_horario').value = datosViejos.horario;
+                    }
+                }
+            } catch (e) {
+                console.error("Error al inyectar persistencia de clase de forma nativa:", e);
+            }
+
+            // Disparador manual para el cartel de aviso dinámico (por si cargó con datos viejos)
+            if (diaSelect && diaSelect.value !== "") {
+                setTimeout(() => { diaSelect.dispatchEvent(new Event('change')); }, 100);
+            }
+
+            if (diaSelect && fechaInput && avisoDiv) {
+                function actualizarAviso() {
+                    if (diaSelect.value !== "") {
+                        const textoDia = diaSelect.options[diaSelect.selectedIndex].text;
+                        if (fechaInput.value) {
+                            avisoDiv.innerText = `⚠️ A partir del día ${fechaInput.value} se crearán clases todos los ${textoDia} hasta terminar el año.`;
+                        } else {
+                            avisoDiv.innerText = `⚠️ Se crearán clases automáticamente todos los ${textoDia} a partir del próximo día disponible hasta terminar el año.`;
+                        }
+                    } else {
+                        avisoDiv.innerText = "";
+                    }
+                }
+
+                diaSelect.addEventListener('change', actualizarAviso);
+                fechaInput.addEventListener('change', actualizarAviso);
+            }
+        });
+
         function switchTab(tabId) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+            
             event.currentTarget.classList.add('active');
             document.getElementById('pane-' + tabId).classList.add('active');
         }
@@ -494,12 +640,14 @@
         document.getElementById('form-crear-clase').addEventListener('submit', function(event) {
             const actividad = document.getElementById('id_actividad').value;
             const profesor = document.getElementById('id_profesor').value;
+            const diaSemana = document.getElementById('id_dia_semana').value;
             const fechaStr = document.getElementById('id_fecha').value;
             const horarioStr = document.getElementById('id_horario').value;
+            const cupo = document.getElementById('id_cupo').value;
 
-            if (!actividad || !fechaStr || !horarioStr) {
+            if (!actividad || !horarioStr || !diaSemana || !cupo) {
                 event.preventDefault();
-                mostrarErrorGym("Error: Por favor, complete todos los campos obligatorios del formulario.");
+                mostrarErrorGym("Error: Por favor, complete todos los campos obligatorios (Actividad, Profesor, Día y Cupo).");
                 return;
             }
 
@@ -509,30 +657,37 @@
                 return;
             }
 
-            const ahora = new Date();
-            const hoySoloFecha = new Date(ahora.getTime());
-            hoySoloFecha.setHours(0, 0, 0, 0);
-            const fechaSeleccionada = new Date(fechaStr + 'T00:00:00');
-            
-            if (fechaSeleccionada < hoySoloFecha) {
+            const cupoNum = parseInt(cupo, 10);
+            if (cupoNum < 1 || cupoNum > 30) {
                 event.preventDefault();
-                mostrarErrorGym("Error: No se pueden programar clases en una fecha que ya pasó.");
+                mostrarErrorGym("Error: El cupo de la clase debe ser un valor válido entre 1 y 30.");
                 return;
             }
 
-            if (fechaSeleccionada.getTime() === hoySoloFecha.getTime()) {
-                const horaSeleccionada = parseInt(horarioStr.split(':')[0], 10);
-                if (horaSeleccionada <= ahora.getHours()) {
+            if (fechaStr) {
+                const ahora = new Date();
+                const hoySoloFecha = new Date(ahora.getTime());
+                hoySoloFecha.setHours(0, 0, 0, 0);
+                const fechaSeleccionada = new Date(fechaStr + 'T00:00:00');
+                
+                const margenPasado = new Date(hoySoloFecha.getTime());
+                margenPasado.setDate(margenPasado.getDate() - 7);
+
+                if (fechaSeleccionada < hoySoloFecha) {
                     event.preventDefault();
-                    mostrarErrorGym(`Error: El horario seleccionado (${horarioStr} hs) ya pasó para el día de hoy.`);
+                    mostrarErrorGym("Error: No se pueden programar clases en una fecha que ya pasó.");
                     return;
                 }
-            }
 
-            if (fechaSeleccionada.getDay() === 0) {
-                event.preventDefault();
-                mostrarErrorGym("Error: El gimnasio permanece cerrado los domingos. Por favor, elija un día de lunes a sábado.");
-                return;
+                if (fechaSeleccionada.getTime() === hoySoloFecha.getTime()) {
+                    const horaSeleccionada = parseInt(horarioStr.split(':')[0], 10);
+                    if (horaSeleccionada <= ahora.getHours()) {
+                        event.preventDefault();
+                        mostrarErrorGym(`Error: El horario seleccionado (${horarioStr} hs) ya pasó para el día de hoy.`);
+                        return;
+                    }
+                }
+
             }
         });
     </script>
