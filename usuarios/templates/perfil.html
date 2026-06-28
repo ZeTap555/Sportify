@@ -615,7 +615,8 @@
                         </div>
                     </div>
 
-                    <div class="card apto-medico-card">
+        {% if request.user.rol != 'admin' %}
+        <div class="card apto-medico-card">
                         <div class="titulo-info">
                             Apto Médico
                         </div>
@@ -683,8 +684,9 @@
                             </div>
 
                             <button type="submit" class="btn-actualizar-apto">Guardar nuevo apto médico</button>
-                        </form>
-                    </div>
+                    </form>
+                </div>
+                {% endif %}
 
                 </div>
 
