@@ -129,16 +129,14 @@ def grilla_actividades(request):
                 fecha_casillero = date(año, mes, dia)
                 clases_por_dia[dia] = []
                 for clase in todas_las_clases:
-                    if (clase.fecha.weekday() == fecha_casillero.weekday()
-                            and fecha_casillero >= clase.fecha):
+                    if clase.fecha == fecha_casillero:
                         clase.cupos_mostrar = clase.cupos_para_fecha(fecha_casillero)
                         clases_por_dia[dia].append(clase)
 
     # 6. Detalle del día seleccionado
     clases_detalle_dia = []
     for clase in todas_las_clases:
-        if (clase.fecha.weekday() == fecha_seleccionada.weekday()
-                and fecha_seleccionada >= clase.fecha):
+        if clase.fecha == fecha_seleccionada:
             clase.cupos_mostrar = clase.cupos_para_fecha(fecha_seleccionada)
             if fecha_seleccionada == ahora:
                 fecha_hora_clase = timezone.make_aware(
@@ -157,8 +155,7 @@ def grilla_actividades(request):
             if dia != 0:
                 fecha_casillero = date(año, mes, dia)
                 for clase in todas_las_clases:
-                    if (clase.fecha.weekday() == fecha_casillero.weekday()
-                            and fecha_casillero >= clase.fecha):
+                    if clase.fecha == fecha_casillero:
                         hay_clases_mes = True
                         break
                 if hay_clases_mes:
@@ -191,7 +188,7 @@ def grilla_actividades(request):
         context['cantidad_no_leidas'] = Notificacion.objects.filter(
             usuario=request.user, leida=False
         ).count()
-        context['apto_vigente'] = request.user.tiene_apto_vigente()
+        context['apto_vigente'] = True if request.user.rol != 'cliente' else request.user.tiene_apto_vigente()
     else:
         context['cantidad_no_leidas'] = 0
         context['apto_vigente'] = False
@@ -244,7 +241,7 @@ def inscribirse_clase(request, clase_id):
     # petición vino del formulario de la grilla o de una llamada directa
     # (URL, API, herramientas externas, etc), ya que el frontend no es
     # una fuente confiable de seguridad.
-    if not request.user.tiene_apto_vigente():
+    if request.user.rol == 'cliente' and not request.user.tiene_apto_vigente():
         messages.error(
             request,
             "Tu apto médico se encuentra vencido. Debes cargar uno nuevo para continuar "
@@ -702,7 +699,7 @@ def pago_tarjeta(request):
         request.session.pop('inscripcion_pendiente', None)
         return redirect('login')
 
-    if not request.user.tiene_apto_vigente():
+    if request.user.rol == 'cliente' and not request.user.tiene_apto_vigente():
         messages.error(
             request,
             "Tu apto médico se encuentra vencido. Debes cargar uno nuevo para continuar "
@@ -909,7 +906,7 @@ def pago_mercadopago(request):
         return redirect('grilla_actividades')
 
     # Defensa en profundidad: mismo chequeo que en inscribirse_clase.
-    if not request.user.tiene_apto_vigente():
+    if request.user.rol == 'cliente' and not request.user.tiene_apto_vigente():
         messages.error(
             request,
             "Tu apto médico se encuentra vencido. Debes cargar uno nuevo para continuar "
@@ -2017,7 +2014,7 @@ def detalle_clase_api(request, clase_id):
         'actividad_choque_nombre': actividad_choque_nombre,
         'cola_espera': cola_espera_data,
         'todos_los_profesores': todos_profes_data,
-        'apto_vigente': request.user.tiene_apto_vigente() if request.user.is_authenticated else False,
+        'apto_vigente': (True if request.user.rol != 'cliente' else request.user.tiene_apto_vigente()) if request.user.is_authenticated else False,
         'es_admin':es_admin,
         'clase_finalizada':clase_finalizada if fecha_str else False,
     }
