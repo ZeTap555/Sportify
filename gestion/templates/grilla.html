@@ -645,7 +645,8 @@
                                 sinInscriptos.style.display = 'none';
                                 
                                 resInscriptos.inscriptos.forEach(inscripto => {
-                                    const estado = inscripto.asistio ? '✅' : '❌';
+                                    let estado='-';
+                                    if(inscripto.asistio){estado='✅';}else if(modalData.clase_finalizada){estado='❌';}
                                     tablaBody.innerHTML += `
                                         <tr>
                                             <td class="py-3">${inscripto.nombre}</td>
