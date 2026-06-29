@@ -537,6 +537,10 @@ def cancelar_reserva(request,reserva_id):
         )
         email_message.attach_alternative(mensaje_html,"text/html")
         email_message.send()
+        messages.success(
+            request,
+            "Cancelación exitosa. Se acreditó un voucher en tu cuenta"
+        )
     else:
         Notificacion.objects.create(
             usuario=request.user,
@@ -556,11 +560,15 @@ def cancelar_reserva(request,reserva_id):
         )
         email_message.attach_alternative(mensaje_html,"text/html")
         email_message.send()
+        messages.success(
+            request,
+            "Cancelación exitosa."
+        )
         
 
     reserva.delete()
     
-    return redirect("mis_vouchers")
+    return redirect("mis_reservas")
 import qrcode 
 from io import BytesIO
 @login_required
