@@ -62,20 +62,23 @@ Usuario = get_user_model()
 def grilla_actividades(request):
     ahora = timezone.now().date()
     translation.activate('es')
+
     # 1. Capturar mes y año seleccionados (por defecto el mes actual)
     año = int(request.GET.get('anio', ahora.year))
     mes = int(request.GET.get('mes', ahora.month))
     dia_seleccionado_str = request.GET.get('dia_sel', str(ahora.day))
     actividad_id = request.GET.get('actividad')
     if actividad_id and not actividad_id.isdigit():
-     actividad_id = None
+        actividad_id = None
 
-    
     fecha_seleccionada = date(año, mes, int(dia_seleccionado_str))
+    fecha_vista = date(año, mes, 1)
+    mes_actual_date = date(ahora.year, ahora.month, 1)
 
-    # 2. Generar la lista de los próximos 6 meses para el panel superior derecho
-    proximos_meses = []
     meses_nombres = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+
+    # 2. Próximos 6 meses desde hoy (para todos los roles)
+    proximos_meses = []
     for i in range(6):
         futuro = ahora + relativedelta(months=i)
         proximos_meses.append({
@@ -85,73 +88,88 @@ def grilla_actividades(request):
             'activo': futuro.year == año and futuro.month == mes
         })
 
-    # 3. Traemos todas las clases del sistema para evaluar en qué casilleros se repiten
+    # 3. Meses anteriores solo para admins
+    meses_anteriores = []
+    if fecha_vista < mes_actual_date:
+        # Admin navegando un mes pasado: ventana centrada con tope en mes actual
+        for i in range(-2, 3):
+            m = fecha_vista + relativedelta(months=i)
+            if date(m.year, m.month, 1) < mes_actual_date:
+                meses_anteriores.append({
+                    'anio': m.year,
+                    'mes': m.month,
+                    'nombre': f"{meses_nombres[m.month]} {m.year}",
+                    'activo': m.year == año and m.month == mes
+                })
+    else:
+        # Admin en mes actual o futuro: muestra los 5 meses anteriores fijos
+        for i in range(5, 0, -1):
+            m = mes_actual_date - relativedelta(months=i)
+            meses_anteriores.append({
+                'anio': m.year,
+                'mes': m.month,
+                'nombre': f"{meses_nombres[m.month]} {m.year}",
+                'activo': False
+            })
+
+    # 4. Traemos todas las clases
     todas_las_clases = Clase.objects.all()
-    
-    # Validamos que actividad_id tenga un valor real y no sea el string 'None' o un texto vacío
     if actividad_id and actividad_id != 'None' and actividad_id != '':
-        todas_las_clases = todas_las_clases.filter(
-            actividad_id=actividad_id
-        )
-    
-    # 4. Construir las semanas del calendario usando el módulo de Python
-    cal = calendar.Calendar(firstweekday=0) # 0 = Lunes
+        todas_las_clases = todas_las_clases.filter(actividad_id=actividad_id)
+
+    # 5. Construir las semanas del calendario
+    cal = calendar.Calendar(firstweekday=0)
     semanas_matriz = cal.monthdayscalendar(año, mes)
 
-    # Mapeamos qué clases se repiten en cada casillero numérico del mes
+    # Mapeamos clases por día con lógica de recurrencia semanal
     clases_por_dia = {}
     for semana in semanas_matriz:
         for dia in semana:
             if dia != 0:
                 fecha_casillero = date(año, mes, dia)
-                dia_semana_casillero = fecha_casillero.weekday() # 0 = Lunes, 1 = Martes, etc.
-                
                 clases_por_dia[dia] = []
                 for clase in todas_las_clases:
-                    # Se repite si coincide el día de la semana Y el casillero es posterior o igual al inicio
-                    if clase.fecha == fecha_casillero:
+                    if (clase.fecha.weekday() == fecha_casillero.weekday()
+                            and fecha_casillero >= clase.fecha):
                         clase.cupos_mostrar = clase.cupos_para_fecha(fecha_casillero)
                         clases_por_dia[dia].append(clase)
 
-    # 5. Lógica para el detalle del día seleccionado (Abajo a la derecha)
+    # 6. Detalle del día seleccionado
     clases_detalle_dia = []
-    if fecha_seleccionada >= ahora:
-        for clase in todas_las_clases:
-            # 🌟 ACÁ: Igualdad estricta en lugar de la lógica de arrastre vieja
-            if clase.fecha == fecha_seleccionada:
-                # Calculamos cupos y evitamos las clases que ya pasaron en el día de hoy
-                clase.cupos_mostrar = clase.cupos_para_fecha(fecha_seleccionada)
-                
-                if fecha_seleccionada == ahora:
-                    fecha_hora_clase = timezone.make_aware(
-                        datetime.combine(fecha_seleccionada, clase.horario)
-                    )
-                    if fecha_hora_clase < timezone.now():
-                        continue
-                        
-                clases_detalle_dia.append(clase)
-        
-        # Las ordenamos por horario para que no queden mezcladas
-        clases_detalle_dia.sort(key=lambda x: x.horario)
-    hay_clases_mes=False
+    for clase in todas_las_clases:
+        if (clase.fecha.weekday() == fecha_seleccionada.weekday()
+                and fecha_seleccionada >= clase.fecha):
+            clase.cupos_mostrar = clase.cupos_para_fecha(fecha_seleccionada)
+            if fecha_seleccionada == ahora:
+                fecha_hora_clase = timezone.make_aware(
+                    datetime.combine(fecha_seleccionada, clase.horario)
+                )
+                if fecha_hora_clase < timezone.now():
+                    continue
+            clases_detalle_dia.append(clase)
+
+    clases_detalle_dia.sort(key=lambda x: x.horario)
+
+    # 7. Detectar si hay clases en el mes para el mensaje de filtro
+    hay_clases_mes = False
     for semana in semanas_matriz:
         for dia in semana:
-            if dia !=0:
-                fecha_casillero=date(año,mes,dia)
+            if dia != 0:
+                fecha_casillero = date(año, mes, dia)
                 for clase in todas_las_clases:
-                    if clase.fecha == fecha_casillero:
-                        hay_clases_mes=True
+                    if (clase.fecha.weekday() == fecha_casillero.weekday()
+                            and fecha_casillero >= clase.fecha):
+                        hay_clases_mes = True
                         break
                 if hay_clases_mes:
                     break
         if hay_clases_mes:
             break
-    actividades=Actividad.objects.all()
-    mensaje_filtro=None
+
+    actividades = Actividad.objects.all()
+    mensaje_filtro = None
     if actividad_id and not hay_clases_mes:
-        mensaje_filtro=(
-            "No se encontraron clases disponibles para los filtros seleccionados"
-        )
+        mensaje_filtro = "No se encontraron clases disponibles para los filtros seleccionados"
 
     context = {
         'semanas_matriz': semanas_matriz,
@@ -159,24 +177,25 @@ def grilla_actividades(request):
         'mes_actual': mes,
         'anio_actual': año,
         'proximos_meses': proximos_meses,
+        'meses_anteriores': meses_anteriores,
         'clases_por_dia': clases_por_dia,
         'fecha_seleccionada': fecha_seleccionada,
         'clases_detalle_dia': clases_detalle_dia,
         'hoy': ahora,
-        'actividades':actividades,
-        'actividad_seleccionada':actividad_id,
-        'mensaje_filtro':mensaje_filtro,
+        'actividades': actividades,
+        'actividad_seleccionada': actividad_id,
+        'mensaje_filtro': mensaje_filtro,
     }
-    
-    if request.user.is_authenticated:
-        cantidad_no_leidas = Notificacion.objects.filter(usuario=request.user, leida=False).count()
-        apto_vigente = request.user.tiene_apto_vigente()
-    else:
-        cantidad_no_leidas = 0
-        apto_vigente = False
 
-    context['cantidad_no_leidas'] = cantidad_no_leidas
-    context['apto_vigente'] = apto_vigente
+    if request.user.is_authenticated:
+        context['cantidad_no_leidas'] = Notificacion.objects.filter(
+            usuario=request.user, leida=False
+        ).count()
+        context['apto_vigente'] = request.user.tiene_apto_vigente()
+    else:
+        context['cantidad_no_leidas'] = 0
+        context['apto_vigente'] = False
+
     return render(request, 'grilla.html', context)
 
 
@@ -1821,7 +1840,13 @@ def detalle_clase_api(request, clase_id):
     
     if fecha_str:
         fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+        clase_finalizada=fecha<date.today()
         cupos = clase.cupos_para_fecha(fecha)
+        cantidad_inscriptos=Reserva.objects.filter(
+            clase=clase,
+            fecha_clase=fecha,
+            en_lista_de_espera=False,
+        ).count()
         if request.user.is_authenticated:
             reserva_user = Reserva.objects.filter(
                 usuario=request.user, clase=clase, fecha_clase=fecha
@@ -1904,7 +1929,9 @@ def detalle_clase_api(request, clase_id):
         'horario': clase.horario.strftime('%H:%M'),
         'profesor': f"{clase.profesor.apellido}, {clase.profesor.nombre}" if clase.profesor else 'Sin asignar',
         'profesor_id': clase.profesor.id if clase.profesor else '',
-        'cupos_disponibles': cupos,
+        'cupos_disponibles': (
+            cantidad_inscriptos if es_admin and clase_finalizada else cupos
+        ),
         'precio_clase': float(clase.actividad.precio_clase),
         'precio_mensualidad': float(clase.actividad.precio_mensualidad),
         'logueado': request.user.is_authenticated,
@@ -1917,5 +1944,7 @@ def detalle_clase_api(request, clase_id):
         'cola_espera': cola_espera_data,
         'todos_los_profesores': todos_profes_data,
         'apto_vigente': request.user.tiene_apto_vigente() if request.user.is_authenticated else False,
+        'es_admin':es_admin,
+        'clase_finalizada':clase_finalizada if fecha_str else False,
     }
     return JsonResponse(data)

@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sportify - Grilla de Actividades</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     
     <style>
         /* Base e Interfaz estilo macOS Split View */
@@ -446,16 +448,32 @@
             </div>
 
             <div class="details-section">
-                <div>
-                    <p style="font-size: 0.78rem; font-weight: 600; color: #8e8e93; text-transform: uppercase; margin-bottom: 10px;">Próximos Meses</p>
-                    <div class="months-selector">
-                        {% for m in proximos_meses %}
-                            <a href="?anio={{ m.anio }}&mes={{ m.mes }}&dia_sel=1&actividad={{ actividad_seleccionada }}" class="month-btn {% if m.activo %}active{% endif %}">
-                                {{ m.nombre }}
-                            </a>
-                        {% endfor %}
-                    </div>
-                </div>
+
+    {% if request.user.is_authenticated and request.user.rol == 'admin' and meses_anteriores %}
+        <div>
+            <p style="font-size: 0.78rem; font-weight: 600; color: #8e8e93; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.5px;">Meses Anteriores</p>
+            <div class="months-selector">
+                {% for m in meses_anteriores %}
+                    <a href="?anio={{ m.anio }}&mes={{ m.mes }}&dia_sel=1&actividad={{ actividad_seleccionada }}"
+                       class="month-btn {% if m.activo %}active{% endif %}"
+                       style="{% if m.activo %}border-color: #ff9f0a;{% else %}opacity: 0.75;{% endif %}">
+                        {{ m.nombre }}
+                    </a>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <div>
+        <p style="font-size: 0.78rem; font-weight: 600; color: #8e8e93; text-transform: uppercase; margin-bottom: 10px;">Próximos Meses</p>
+        <div class="months-selector">
+            {% for m in proximos_meses %}
+                <a href="?anio={{ m.anio }}&mes={{ m.mes }}&dia_sel=1&actividad={{ actividad_seleccionada }}" class="month-btn {% if m.activo %}active{% endif %}">
+                    {{ m.nombre }}
+                </a>
+            {% endfor %}
+        </div>
+    </div>
 
                 <div class="day-detail-box">
                     <h2>Detalles del Día</h2>
@@ -509,16 +527,56 @@
             <span class="modal-info-value" id="modal-profesor"></span>
         </div>
         <div class="modal-info-row" id="fila-cupos">
-            <span class="modal-info-label">Cupos disponibles</span>
+            <span class="modal-info-label" id="label-cupos">Cupos disponibles</span>
             <span class="modal-info-value" id="modal-cupos"></span>
         </div>
 
         <hr class="modal-divider">
 
         <div id="modal-acciones"></div>
+        <div style="margin-top:15px; text-align:center;display:none;" id="contenedor-ver-inscriptos">
+            <button
+                id="btn-ver-inscriptos-admin"
+                class="btn btn-success"
+                style="background:#1db954;
+                       border:none;
+                       color:white;
+                       padding:10px 20px;
+                       border-radius:10px;
+                       font-weight:600;"
+                >
+                👥 Ver inscriptos
+            </button>
+        </div>
     </div>
 </div>
+<div class="modal fade" id="modalInscriptos" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark text-white" style="border: 1px solid #2c2c2e; border-radius: 14px;">
+            <div class="modal-header" style="border-bottom: 1px solid #2c2c2e;">
+                <h5 class="modal-title fw-bold" id="tituloModalInscriptos">Inscriptos</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="sinInscriptos" class="text-center py-5" style="display: none;">
+                    <h5 class="text-white fw-semibold m-0">No hay clientes inscriptos para esta clase.</h5>
+                </div>
 
+                <table id="tablaContenedor" class="table table-dark table-hover m-0">
+                    <thead>
+                        <tr>
+                            <th>Nombre completo</th>
+                            <th>DNI</th>
+                            <th class="text-center">Asistió?</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaInscriptos">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 <script>
     var modalData = null;
     var modalFecha = null;
@@ -531,33 +589,87 @@
     }
 
     function abrirModalDetalle(claseId, fecha) {
-        modalFecha = fecha;
-        fetch('/clase/' + claseId + '/datos/?fecha=' + fecha)
-            .then(r => r.json())
-            .then(data => {
-                modalData = data;
-                document.getElementById('modal-actividad').textContent = data.actividad;
-                document.getElementById('modal-fecha').textContent = data.fecha;
-                document.getElementById('modal-horario').textContent = data.horario + ' hs';
-                document.getElementById('modal-profesor').textContent = data.profesor || 'Sin asignar';
+    modalFecha = fecha;
+    fetch('/clase/' + claseId + '/datos/?fecha=' + fecha)
+        .then(r => r.json())
+        .then(data => {
+            modalData = data;
+            const btnVerInscriptos = document.getElementById("btn-ver-inscriptos-admin");
+            const contenedorVerInscriptos = document.getElementById("contenedor-ver-inscriptos");
+            
+            document.getElementById('modal-actividad').textContent = data.actividad;
+            document.getElementById('modal-fecha').textContent = data.fecha;
+            document.getElementById('modal-horario').textContent = data.horario + ' hs';
+            document.getElementById('modal-profesor').textContent = data.profesor || 'Sin asignar';
 
-                const cuposEl = document.getElementById('modal-cupos');
-                cuposEl.textContent = data.cupos_disponibles;
-                cuposEl.className = 'modal-info-value ' + (data.cupos_disponibles > 0 ? 'cupos-verde' : 'cupos-rojo');
-                const filaprofesor=document.getElementById('fila-profesor');
-                const filacupos=document.getElementById('fila-cupos');
-                if(!data.logueado){
-                    filaprofesor.style.display='none';
-                    filacupos.style.display='none';
-                }
-                else{
-                    filaprofesor.style.display='flex';
-                    filacupos.style.display='flex';
-                }
+            const cuposEl = document.getElementById('modal-cupos');
+            const labelCupos = document.getElementById('label-cupos');
+            
+            if (data.es_admin && data.clase_finalizada) {
+                labelCupos.textContent = "Inscriptos";
+            } else {
+                labelCupos.textContent = "Cupos disponibles";
+            }
+            cuposEl.textContent = data.cupos_disponibles;
+            cuposEl.className = 'modal-info-value ' + (data.cupos_disponibles > 0 ? 'cupos-verde' : 'cupos-rojo');
+            
+            const filaprofesor = document.getElementById('fila-profesor');
+            const filacupos = document.getElementById('fila-cupos');
+            
+            if (!data.logueado) {
+                filaprofesor.style.display = 'none';
+                filacupos.style.display = 'none';
+            } else {
+                filaprofesor.style.display = 'flex';
+                filacupos.style.display = 'flex';
+            }
+            
+            if (data.es_admin) {
+                contenedorVerInscriptos.style.display = "block";
+                
+                btnVerInscriptos.onclick = function() {
+                    fetch(`/ver-inscriptos/${claseId}/${fecha}/`)
+                        .then(response => response.json())
+                        .then(resInscriptos => {
+                            const tablaContenedor = document.getElementById('tablaContenedor');
+                            const sinInscriptos = document.getElementById('sinInscriptos');
+                            const tablaBody = document.getElementById('tablaInscriptos');
+                            
+                            tablaBody.innerHTML = '';
+                            
+                            if (resInscriptos.inscriptos.length === 0) {
+                                tablaContenedor.style.display = 'none';
+                                sinInscriptos.style.display = 'block';
+                            } else {
+                                tablaContenedor.style.display = 'table';
+                                sinInscriptos.style.display = 'none';
+                                
+                                resInscriptos.inscriptos.forEach(inscripto => {
+                                    const estado = inscripto.asistio ? '✅' : '❌';
+                                    tablaBody.innerHTML += `
+                                        <tr>
+                                            <td class="py-3">${inscripto.nombre}</td>
+                                            <td class="py-3">${inscripto.dni}</td>
+                                            <td class="py-3 text-center">${estado}</td>
+                                        </tr>
+                                    `;
+                                });
+                            }
+                            
+                            document.getElementById('tituloModalInscriptos').textContent =
+                                `Inscriptos - ${data.actividad} - ${data.fechaMostrar || data.fecha} - ${data.horario} hs`;
+                            
+                            const modal = new bootstrap.Modal(document.getElementById('modalInscriptos'));
+                            modal.show();
+                        }); // Aquí cierra el .then(resInscriptos => { ... })
+                }; // Aquí cierra el btnVerInscriptos.onclick = function() { ... }
+            } else {
+                contenedorVerInscriptos.style.display = "none";
+            }
 
-                mostrarPasoSel('');
-            });
-    }
+            mostrarPasoSel('');
+        }); // Aquí cierra el .then(data => { ... }) del primer fetch
+}
 
     function mostrarPasoSel(paso) {
         const acciones = document.getElementById('modal-acciones');
@@ -573,6 +685,7 @@
         }
 
         // 🍏 VISTA EXCLUSIVA PARA EL ADMINISTRADOR
+        // 🍏 VISTA EXCLUSIVA PARA EL ADMINISTRADOR
         if (modalData.rol === 'admin') {
             let opcionesProfesores = `<option value="">--- Sin Profesor Asignado ---</option>`;
             if (modalData.todos_los_profesores) {
@@ -583,36 +696,41 @@
                 });
             }
 
+            // MODIFICADO: Solo armamos el HTML de la lista de espera si la clase NO ha finalizado
             let listaEsperaHTML = '';
-            if (modalData.cola_espera && modalData.cola_espera.length > 0) {
-                modalData.cola_espera.forEach(u => {
-                    let badgeMensualidad = u.pase_mensual 
-                        ? `<span style="background: rgba(48, 209, 88, 0.2); color: #30d158; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; margin-left: 8px;">Mensualidad</span>`
-                        : `<span style="background: rgba(255, 159, 10, 0.2); color: #ff9f0a; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; margin-left: 8px;">Por Clase</span>`;
+            if (!modalData.clase_finalizada) { 
+                if (modalData.cola_espera && modalData.cola_espera.length > 0) {
+                    modalData.cola_espera.forEach(u => {
+                        let badgeMensualidad = u.pase_mensual 
+                            ? `<span style="background: rgba(48, 209, 88, 0.2); color: #30d158; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; margin-left: 8px;">Mensualidad</span>`
+                            : `<span style="background: rgba(255, 159, 10, 0.2); color: #ff9f0a; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; margin-left: 8px;">Por Clase</span>`;
 
-                    listaEsperaHTML += `
-                        <li style="font-size:0.9rem; color:#fff; margin-bottom:8px; display: flex; align-items: center; justify-content: space-between;">
-                            <div>
-                                ⏳ <strong>${u.last_name}, ${u.first_name}</strong> 
-                                <span style="color:#8e8e93; font-size:0.85rem;">(DNI: ${u.username})</span>
-                            </div>
-                            ${badgeMensualidad}
-                        </li>`;
-                });
-            } else {
-                listaEsperaHTML = `<li style="font-size:0.9rem; color:#636366; font-style:italic;">No hay alumnos en espera</li>`;
+                        listaEsperaHTML += `
+                            <li style="font-size:0.9rem; color:#fff; margin-bottom:8px; display: flex; align-items: center; justify-content: space-between;">
+                                <div>
+                                    ⏳ <strong>${u.last_name}, ${u.first_name}</strong> 
+                                    <span style="color:#8e8e93; font-size:0.85rem;">(DNI: ${u.username})</span>
+                                </div>
+                                ${badgeMensualidad}
+                            </li>`;
+                    });
+                } else {
+                    listaEsperaHTML = `<li style="font-size:0.9rem; color:#636366; font-style:italic;">No hay alumnos en espera</li>`;
+                }
             }
 
+            // MODIFICADO: Si la clase terminó, el contenedor de la lista no se renderiza en absoluto
             acciones.innerHTML = `
-                <div style="background:#2c2c2e; padding:15px; border-radius:10px; margin-bottom:20px;">
-                    <h3 style="font-size:1rem; margin:0 0 10px 0; color:#ff9f0a;"> Lista de Espera del Día</h3>
-                    <ul style="padding-left:15px; margin:0;">${listaEsperaHTML}</ul>
-                </div>
+                ${!modalData.clase_finalizada ? `
+                    <div style="background:#2c2c2e; padding:15px; border-radius:10px; margin-bottom:20px;">
+                        <h3 style="font-size:1rem; margin:0 0 10px 0; color:#ff9f0a;"> Lista de Espera del Día</h3>
+                        <ul style="padding-left:15px; margin:0;">${listaEsperaHTML}</ul>
+                    </div>
+                ` : ''}
 
                 <form method="POST" action="/clase/${modalData.id}/asignar-profesor/">
                     <input type="hidden" name="csrfmiddlewaretoken" value="${getCSRFToken()}">
                     <input type="hidden" name="fecha_clase" value="${modalFecha}">
-                    
                 </form>
             `;
             document.getElementById('modalDetalle').classList.add('active');
