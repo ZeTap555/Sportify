@@ -492,6 +492,78 @@ def ver_inscriptos(request,clase_id,fecha):
             'estado':"✅" if reserva.asistio else("❌" if timezone.localtime()>timezone.make_aware(datetime.combine(fecha_obj,clase.horario))+timedelta(hours=1,minutes=15)else "-"),
         })
     return JsonResponse({'inscriptos':datos})
+
+
+from.models import Voucher
+@login_required
+def mis_vouchers(request):
+    vouchers=Voucher.objects.filter(cliente=request.user,utilizado=False).order_by("fecha_vencimiento")
+    cantidad_no_leidas = Notificacion.objects.filter(usuario=request.user, leida=False).count()
+
+    return render(request,"mis_vouchers.html",{"vouchers":vouchers,"cantidad_no_leidas":cantidad_no_leidas,})
+
+import calendar
+@login_required
+def cancelar_reserva(request,reserva_id):
+    reserva=get_object_or_404(
+        Reserva,
+        id=reserva_id,
+        usuario=request.user
+    )
+    if  reserva.modalidad.strip().lower()!="mensual":
+        return redirect("mis_reservas")
+    hoy=timezone.localdate()
+    tiene_voucher=(reserva.fecha_clase - hoy)>=timedelta(days=2)
+    ultimo_dia=calendar.monthrange(hoy.year,hoy.month)[1]
+    fecha_vencimiento=hoy.replace(day=ultimo_dia)
+    if tiene_voucher:
+        Voucher.objects.create(
+            cliente=request.user,
+            fecha_vencimiento=fecha_vencimiento,
+        )
+        Notificacion.objects.create(
+            usuario=request.user,
+            mensaje="Cancelaste tu reserva correctamente. Se acreditó un voucher en tu cuenta, usalo antes de que expire!!!",
+            leida=False
+        )
+        asunto="Voucher acreditado - Sportify"
+        mensaje_html=f"""
+        <div style="background:#000000;padding:40px;font-family:Poppins,sans-serif,text-aling:center;">
+            <h1 style="color:#00ff88;">SPORTIFY</h1>
+            <h2>Tu reserva fue cancelada correctamente</h2>
+            <p> Como la cancelación se realizó con al menos 2 días de anticipación,se acreditó un voucher en tu cuenta</p>
+            <p>Podrás utilizarlo para reservar otra clase hasta que finalice el mes corriente</p>
+        </div>
+        """
+        email_message=EmailMultiAlternatives(
+            asunto,"",settings.EMAIL_HOST_USER,[request.user.email]
+        )
+        email_message.attach_alternative(mensaje_html,"text/html")
+        email_message.send()
+    else:
+        Notificacion.objects.create(
+            usuario=request.user,
+            mensaje="Cancelaste tu reserva correctamente. Como la cancelación se dió con menos de 2 días de anticipación, no se generó ningun voucher",
+            leida=False
+        )
+        asunto="Reserva cancelada - Sportify"
+        mensaje_html=f"""
+        <div style="background:#000000;padding:40px;font-family:Poppins,sans-serif,text-aling:center;">
+            <h1 style="color:#00ff88;">SPORTIFY</h1>
+            <h2>Tu reserva fue cancelada correctamente</h2>
+            <p> Como la cancelación se realizó con  menos 2 días de anticipación,no se acreditó un voucher en tu cuenta</p>
+        </div>
+        """
+        email_message=EmailMultiAlternatives(
+            asunto,"",settings.EMAIL_HOST_USER,[request.user.email]
+        )
+        email_message.attach_alternative(mensaje_html,"text/html")
+        email_message.send()
+        
+
+    reserva.delete()
+    
+    return redirect("mis_vouchers")
 import qrcode 
 from io import BytesIO
 @login_required
@@ -1692,10 +1764,12 @@ def historial_pagos(request):
             'estado': 'sin_mensualidad',
             'mensaje': 'Usted no posee ninguna mensualidad vigente. Puede solicitar su mensualidad desde el cronograma.'
         })
+    cantidad_no_leidas=Notificacion.objects.filter(usuario=request.user,leida=False).count()
 
     context = {
         'pagos': pagos,
         'resultados_mensualidad': resultados_mensualidad,
+        "cantidad_no_leidas":cantidad_no_leidas,
     }
     return render(request, 'gestion/historial_pagos.html', context)
 

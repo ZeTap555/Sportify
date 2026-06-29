@@ -203,7 +203,24 @@
             letter-spacing: 0.5px;
             z-index: 10;
         }
-        
+        .btn-cancelar{
+            display:inline-block;
+            width:80%;
+            background:#dc3545;
+            color:white;
+            text-decoration:none;
+            text-align:center;
+            padding:8px 12px;
+            border-radius:6px;
+            border:none;
+            font-weight:600;
+            transition:0.2s;
+        }
+        .btn-cancelar:hover{
+            backgorund:#bb2d3b;
+            color:white;
+            text-decoration:none;
+        }
     </style>
 </head>
 <body>
@@ -224,6 +241,8 @@
                 {% endif %}
                 <a href="{% if request.user.is_authenticated %}{% url 'mis_reservas' %}{% else %}{% url 'login' %}{% endif %}" class="menu-item active">Mis Reservas</a>
                 <a href="{% if request.user.is_authenticated %}{% url 'historial_pagos' %}{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Pagos</a>
+                <a href="{% if request.user.is_authenticated %}{% url 'mis_vouchers' %}{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Vouchers</a>
+
             </div>
         </div>
 
@@ -322,6 +341,7 @@
                                         <th>Horario</th>
                                         <th>Tipo</th>
                                         <th>Estado</th>
+                                        <th>Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -353,6 +373,11 @@
                                             {% else %}
                                                 <span class="badge-estado badge-pendiente">{{ reserva.estado_pago }}</span>
                                             {% endif %}
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'cancelar_reserva' reserva.id %}" class="btn-cancelar">
+                                                Cancelar clase
+                                            </a>
                                         </td>
                                     </tr>
                                     {% endfor %}

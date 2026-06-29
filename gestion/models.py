@@ -138,3 +138,12 @@ class Notificacion(models.Model):
     fecha=models.DateTimeField(auto_now_add=True)
     def __str__(self):
         return f"Notificación para {self.usuario.username} - {self.mensaje[:50]}..."
+
+class Voucher(models.Model):
+    cliente=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.CASCADE,related_name="vouchers")
+    fecha_otorgado=models.DateTimeField(auto_now_add=True)
+    fecha_vencimiento=models.DateField()
+    utilizado=models.BooleanField(default=False)
+    motivo=models.CharField(max_length=100,blank=True)
+    def __str__(self):
+        return f"Voucher #{self.id} - {self.cliente}"

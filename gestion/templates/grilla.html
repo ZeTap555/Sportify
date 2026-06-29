@@ -233,6 +233,8 @@
                 {% if request.user.is_authenticated and request.user.rol != 'admin' and request.user.rol != 'profesor' %}
                 <a href="{% if request.user.is_authenticated %}{% url 'mis_reservas' %}{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Reservas</a>
                 <a href="{% if request.user.is_authenticated %}{% url 'historial_pagos' %}{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Pagos</a>
+                 <a href="{% if request.user.is_authenticated %}{% url 'mis_vouchers' %}{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Vouchers</a>
+              
                 {% endif %}
             </div>
         </div>
