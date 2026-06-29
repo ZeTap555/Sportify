@@ -13,6 +13,7 @@ urlpatterns = [
     path('historial-pagos/', views.historial_pagos, name='historial_pagos'),
     path('mis-reservas/', views.mis_reservas, name='mis_reservas'),
     path('mis-clases/', views.mis_clases, name='mis_clases'),
+    path("mis-vouchers/",views.mis_vouchers,name="mis_vouchers"),
     
     # Lógica de Clases
     path('clase/<int:clase_id>/datos/', views.detalle_clase_api, name='detalle_clase_api'),
@@ -24,6 +25,7 @@ urlpatterns = [
     path('registrar-asistencia/<int:clase_id>/<str:fecha>/', views.registrar_asistencia, name='registrar_asistencia'),
     path('estado-qr/<int:clase_id>/<str:fecha>/',views.estado_qr,name='estado_qr'),
     path('validar-horario-qr/<int:clase_id>/<str:fecha>/',views.validar_horario_qr,name='validar_horario_qr'),
+    path("cancelar-reserva/<int:reserva_id>/",views.cancelar_reserva,name="cancelar_reserva"),
     
     # Pasarela de Pagos
     path('pago/tarjeta/', views.pago_tarjeta, name='pago_tarjeta'),

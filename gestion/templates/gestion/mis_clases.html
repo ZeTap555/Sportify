@@ -200,6 +200,8 @@
                 {% if request.user.is_authenticated and request.user.rol != 'admin' and request.user.rol != 'profesor' %}
                     <a href="{% url 'mis_reservas' %}" class="menu-item">Mis Reservas</a>
                     <a href="{% url 'historial_pagos' %}" class="menu-item">Mis Pagos</a>
+                    <a href="{% url 'mis_vouchers' %}" class="menu-item">Mis Vouchers</a>
+
                 {% endif %}
             </div>
         </div>

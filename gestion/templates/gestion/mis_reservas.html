@@ -143,6 +143,17 @@
             border: 1px solid #3a3a3c;
             color: #aeaeae;
         }
+        .alert-success-custom{
+            background-color:#1c1c1e;
+            border:2px solid #34c759;
+            color:#34c759;
+            border-radius:10px;
+            padding:15px;
+            text-align:center;
+            font-weight:600;
+            margin-bottom:25px;
+
+        }
 
         .btn-sportify {
             background-color: #34c759;
@@ -203,7 +214,45 @@
             letter-spacing: 0.5px;
             z-index: 10;
         }
-        
+        .btn-cancelar{
+            display:inline-block;
+            width:80%;
+            background:#dc3545;
+            color:white;
+            text-decoration:none;
+            text-align:center;
+            padding:8px 12px;
+            border-radius:6px;
+            border:none;
+            font-weight:600;
+            transition:0.2s;
+        }
+        .btn-cancelar:hover{
+            backgorund:#bb2d3b;
+            color:white;
+            text-decoration:none;
+        }
+        .btn-confirmar-cancelacion{
+            background-color:#dc3545;
+            border:1px solid #dc3545;
+            color:white;
+        }
+        .btn-confrimar-cancelacion:hover{
+            background-color:#bb2d3b;
+            border-color:#bb2d3b;
+            color:white;
+        }
+        .success-message{
+            max-width:650px;
+            margin:0 auto 25px;
+            padding:14px;
+            border:2px solid #34c759;
+            border-radius:10px;
+            color:#34c759;
+            background:rgba(52,199,89,.08);
+            font-weight:700;
+            text-align:center;
+        }
     </style>
 </head>
 <body>
@@ -224,6 +273,8 @@
                 {% endif %}
                 <a href="{% if request.user.is_authenticated %}{% url 'mis_reservas' %}{% else %}{% url 'login' %}{% endif %}" class="menu-item active">Mis Reservas</a>
                 <a href="{% if request.user.is_authenticated %}{% url 'historial_pagos' %}{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Pagos</a>
+                <a href="{% if request.user.is_authenticated %}{% url 'mis_vouchers' %}{% else %}{% url 'login' %}{% endif %}" class="menu-item">Mis Vouchers</a>
+
             </div>
         </div>
 
@@ -293,6 +344,13 @@
         <div class="main-content">
             <div class="container my-5">
                 <div class="card card-custom text-white shadow-lg p-4">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-success-custom text-center mb-4" role="alert">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
                 
                     <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3" style="border-color: #2c2c2e !important;">
                         <div>
@@ -322,6 +380,7 @@
                                         <th>Horario</th>
                                         <th>Tipo</th>
                                         <th>Estado</th>
+                                        <th>Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -354,7 +413,46 @@
                                                 <span class="badge-estado badge-pendiente">{{ reserva.estado_pago }}</span>
                                             {% endif %}
                                         </td>
+                                        <td>
+                                            <button
+                                                type="button"
+                                                class="btn-cancelar"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#modalCancelar{{ reserva.id }}">
+                                                Cancelar Inscripción
+                                        </button>
+                                        </td>
                                     </tr>
+                                    <div class="modal fade" id="modalCancelar{{ reserva.id }}" tabindex="-1">
+                                        <div class="modal-dialog modal-dialog-centered">
+                                            <div class="modal-content bg-dark text-white">
+                                                <div class="modal-header border-secondary">
+                                                    <h5 class="modal-title">Cancelar inscripción</h5>
+                                                    <button type="button" class="btn-close btn-close-white"
+                                                            data-bs-dismiss="modal"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <p>
+                                                        ¿Estás seguro de que querés cancelar la inscripción a esta clase?
+                                                    </p>
+                                                    <small class="text-white-50">
+                                                        Si la cancelación se realiza con al menos 2 días de anticipación recibirás un voucher. En caso contrario, perderás tu lugar.
+                                                    </small>
+                                                </div>
+                                                <div class="modal-footer border-secondary">
+                                                    <button class="btn btn-secondary"
+                                                            data-bs-dismiss="modal">
+                                                        Volver
+                                                    </button>
+                                                    <a href="{% url 'cancelar_reserva' reserva.id %}"
+                                                       class="btn btn-confirmar-cancelacion">
+                                                        Sí, cancelar inscripción
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     {% endfor %}
                                 </tbody>
                             </table>
@@ -406,5 +504,19 @@
         </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded",function(){
+        const alertas=document.querySelectorAll(".alert");
+        alertas.forEach(function(alerta){
+            setTimeout(function(){
+                alerta.style.transition="opacity 0.6s";
+                alerta.style.opacity="0";
+                setTimeout(function(){
+                    alerta.remove();
+                },600);
+            },8000);
+        });
+    });
+</script>
 </body>
 </html>

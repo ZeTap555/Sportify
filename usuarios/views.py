@@ -425,10 +425,14 @@ def reset_password_view(request, token):
          'errores': errores
      }
  )
-
+from gestion.models import Notificacion
 @login_required
 def perfil_view(request):
-
+    
+    cantidad_no_leidas=Notificacion.objects.filter(
+        usuario=request.user,
+        leida=False
+    ).count()
     return render(
         request,
         'perfil.html',
@@ -436,6 +440,7 @@ def perfil_view(request):
             'estado_apto': request.user.estado_apto_medico(),
             'dias_restantes_apto': request.user.dias_restantes_apto(),
             'fecha_vencimiento_apto': request.user.fecha_vencimiento_apto(),
+            "cantidad_no_leidas":cantidad_no_leidas,
         }
     )
 @login_required
