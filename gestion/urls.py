@@ -26,6 +26,7 @@ urlpatterns = [
     path('estado-qr/<int:clase_id>/<str:fecha>/',views.estado_qr,name='estado_qr'),
     path('validar-horario-qr/<int:clase_id>/<str:fecha>/',views.validar_horario_qr,name='validar_horario_qr'),
     path("cancelar-reserva/<int:reserva_id>/",views.cancelar_reserva,name="cancelar_reserva"),
+    path("cancelar-clase-individual/<int:reserva_id>/",views.cancelar_clase_individual,name="cancelar_clase_individual"),
     path("salir-lista-espera/<int:reserva_id>/",views.salir_lista_espera,name="salir_lista_espera"),
     
     # Pasarela de Pagos

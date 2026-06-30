@@ -216,15 +216,16 @@
         }
         .btn-cancelar{
             display:inline-block;
-            width:80%;
+            width:auto;
             background:#dc3545;
             color:white;
             text-decoration:none;
             text-align:center;
-            padding:8px 12px;
+            padding:4px 10px;
             border-radius:6px;
             border:none;
-            font-weight:600;
+            font-weight:500;
+            font-size:0.8rem;
             transition:0.2s;
         }
         .btn-cancelar:hover{
@@ -448,7 +449,7 @@
                                                 class="btn-cancelar"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#modalCancelar{{ reserva.id }}">
-                                                Cancelar Inscripción
+                                                Cancelar
                                         </button>
                                         </td>
                                     </tr>
@@ -465,7 +466,11 @@
                                                         ¿Estás seguro de que querés cancelar la inscripción a esta clase?
                                                     </p>
                                                     <small class="text-white-50">
+                                                        {% if reserva.modalidad == 'individual' %}
+                                                        Si la cancelación se realiza con al menos 1 día de anticipación recibirás un ticket de reintegro. En caso contrario, no podrás acceder al reintegro.
+                                                        {% else %}
                                                         Si la cancelación se realiza con al menos 2 días de anticipación recibirás un voucher. En caso contrario, perderás tu lugar.
+                                                        {% endif %}
                                                     </small>
                                                 </div>
                                                 <div class="modal-footer border-secondary">
@@ -473,10 +478,17 @@
                                                             data-bs-dismiss="modal">
                                                         Volver
                                                     </button>
+                                                    {% if reserva.modalidad == 'individual' %}
+                                                    <a href="{% url 'cancelar_clase_individual' reserva.id %}"
+                                                       class="btn btn-confirmar-cancelacion">
+                                                        Sí, cancelar inscripción
+                                                    </a>
+                                                    {% else %}
                                                     <a href="{% url 'cancelar_reserva' reserva.id %}"
                                                        class="btn btn-confirmar-cancelacion">
                                                         Sí, cancelar inscripción
                                                     </a>
+                                                    {% endif %}
                                                 </div>
                                             </div>
                                         </div>

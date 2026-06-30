@@ -571,6 +571,65 @@ def cancelar_reserva(request,reserva_id):
     reserva.delete()
     
     return redirect("mis_vouchers")
+
+@login_required
+def cancelar_clase_individual(request, reserva_id):
+    reserva = get_object_or_404(Reserva, id=reserva_id, usuario=request.user)
+
+    if reserva.modalidad.strip().lower() != "individual":
+        return redirect("mis_reservas")
+
+    ahora = timezone.localtime()
+    fecha_clase_dt = timezone.make_aware(
+        datetime.combine(reserva.fecha_clase, reserva.clase.horario)
+    )
+    con_reintegro = (fecha_clase_dt - ahora) >= timedelta(days=1) and reserva.estado_pago in ('seña', 'total')
+
+    if con_reintegro:
+        monto = reserva.clase.actividad.precio_clase / 2
+        actividad = reserva.clase.actividad.nombre
+        fecha = reserva.fecha_clase.strftime("%d/%m/%Y")
+        horario = reserva.clase.horario.strftime("%H:%M")
+        Notificacion.objects.create(
+            usuario=request.user,
+            mensaje=f"Cancelaste tu clase individual de {actividad} el {fecha} a las {horario}hs. Se te otorgó un ticket de reintegro por ${monto} para retirar en recepción.",
+            leida=False
+        )
+        asunto = "Ticket de reintegro - Sportify"
+        mensaje_html = f"""
+        <div style="background:#ffffff;padding:40px;font-family:Poppins,sans-serif;">
+            <h1 style="color:#00ff88;">SPORTIFY</h1>
+            <h2>Cancelacion exitosa</h2>
+            <p>Cancelacion exitosa de la clase de {actividad} el {fecha} a las {horario}hs, se le ha otorgado un ticket por ${monto} para que pueda retirar su dinero de manera presencial. Muestre este email en recepcion.</p>
+        </div>
+        """
+    else:
+        actividad = reserva.clase.actividad.nombre
+        fecha = reserva.fecha_clase.strftime("%d/%m/%Y")
+        horario = reserva.clase.horario.strftime("%H:%M")
+        Notificacion.objects.create(
+            usuario=request.user,
+            mensaje=f"Cancelaste tu clase individual de {actividad} el {fecha} a las {horario}hs.",
+            leida=False
+        )
+        asunto = "Clase cancelada - Sportify"
+        mensaje_html = f"""
+        <div style="background:#ffffff;padding:40px;font-family:Poppins,sans-serif;">
+            <h1 style="color:#00ff88;">SPORTIFY</h1>
+            <h2>Cancelacion exitosa</h2>
+            <p>Cancelacion exitosa de la clase de {actividad} el {fecha} a las {horario}hs.</p>
+        </div>
+        """
+
+    email_message = EmailMultiAlternatives(
+        asunto, "", settings.EMAIL_HOST_USER, [request.user.email]
+    )
+    email_message.attach_alternative(mensaje_html, "text/html")
+    email_message.send()
+
+    reserva.delete()
+    return redirect("mis_reservas")
+
 import qrcode 
 from io import BytesIO
 @login_required
