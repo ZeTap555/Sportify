@@ -422,7 +422,17 @@ def mis_reservas(request):
         'cantidad_no_leidas': cantidad_no_leidas,
     })
 
-
+@login_required
+def salir_lista_espera(request,reserva_id):
+    reserva=get_object_or_404(
+        Reserva,
+        id=reserva_id,
+        usuario=request.user,
+        en_lista_de_espera=True
+    )
+    reserva.delete()
+    messages.success(request,"Te has dado de baja de la lista de espera exitosamente. No recibirás avisos sobre esa clase")
+    return redirect("mis_reservas")
 # =========================================================================
 # 3. PASARELAS DE PAGO Y CONFIRMACIONES
 # =========================================================================
@@ -537,10 +547,6 @@ def cancelar_reserva(request,reserva_id):
         )
         email_message.attach_alternative(mensaje_html,"text/html")
         email_message.send()
-        messages.success(
-            request,
-            "Cancelación exitosa. Se acreditó un voucher en tu cuenta"
-        )
     else:
         Notificacion.objects.create(
             usuario=request.user,
@@ -560,15 +566,11 @@ def cancelar_reserva(request,reserva_id):
         )
         email_message.attach_alternative(mensaje_html,"text/html")
         email_message.send()
-        messages.success(
-            request,
-            "Cancelación exitosa."
-        )
         
 
     reserva.delete()
     
-    return redirect("mis_reservas")
+    return redirect("mis_vouchers")
 import qrcode 
 from io import BytesIO
 @login_required
