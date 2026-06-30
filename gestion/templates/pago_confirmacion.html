@@ -83,8 +83,19 @@
                     <polyline points="22 4 12 14.01 9 11.01"></polyline>
                 </svg>
             </div>
-            <h1>Inscripción Exitosa</h1>
-            <p>Tu lugar en la clase ya está asegurado.</p>
+            {% if es_mensualidad %}
+                <h1>Mensualidad contratada exitosamente</h1>
+                <p>Tus clases para el mes de {{ reserva.fecha_clase|date:"F" }} quedaron reservadas.</p>
+            {% else %}
+                <h1>Inscripción Exitosa</h1>
+                <p>Tu lugar en la clase ya está asegurado.</p>
+            {% endif %}
+
+            {% if mensaje_sin_cupo %}
+            <div style="background:#2c2c2e; border-left:4px solid #ff9f0a; border-radius:8px; padding:12px 16px; margin:15px 0; text-align:left; font-size:0.85rem; color:#aeaeae;">
+                {{ mensaje_sin_cupo }}
+            </div>
+            {% endif %}
 
             <div class="detalle">
                 <div class="row">
@@ -95,14 +106,28 @@
                     <span class="label">Actividad</span>
                     <span class="value">{{ reserva.clase.actividad.nombre }}</span>
                 </div>
+                {% if es_mensualidad %}
+                <div class="row">
+                    <span class="label">Mes</span>
+                    <span class="value">{{ reserva.fecha_clase|date:"F Y" }}</span>
+                </div>
+                {% else %}
                 <div class="row">
                     <span class="label">Fecha y Horario</span>
                     <span class="value">{{ reserva.fecha_clase|date:"d/m/Y" }} - {{ reserva.clase.horario|time:"H:i" }} hs</span>
                 </div>
+                {% endif %}
+                {% if es_mensualidad %}
+                <div class="row">
+                    <span class="label">Total mensualidad</span>
+                    <span class="value" style="color: #00ff88;">${{ total_mensualidad|floatformat:2 }}</span>
+                </div>
+                {% else %}
                 <div class="row">
                     <span class="label">Monto pagado</span>
                     <span class="value" style="color: #00ff88;">${{ reserva.monto_pagado }}</span>
                 </div>
+                {% endif %}
                 <div class="row">
                     <span class="label">Medio de pago</span>
                     <span class="value">{{ reserva.medio_pago }}</span>
