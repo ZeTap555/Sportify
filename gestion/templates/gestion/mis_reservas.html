@@ -253,6 +253,31 @@
             font-weight:700;
             text-align:center;
         }
+        .tabs-reservas{
+            display:flex;
+            background:#3b3538;
+            border-radius:12px;
+            padding:6px;
+            width:fit-content;
+            margin-bottom:25px;
+        }
+        .tab-btn{
+            background:transparent;
+            color:#d7d7d7;
+            border:none;
+            padding:12px 28px;
+            border-radius:10px;
+            cursor:pointer;
+            font-weight:600;
+            transition:.2s;
+        }
+        .tab-btn:hover{
+            color:#fff;
+        }
+        .tab-btn.active{
+            background:#2b2628;
+            color:#fff;
+        }
     </style>
 </head>
 <body>
@@ -360,13 +385,17 @@
                         <div class="d-flex gap-2">
                         </div>
                     </div>
+                    <div class="tabs-reservas mt-4">
+                        <button class="tab-btn active" onclick="mostrarTab('confirmadas',this)">
+                            Reservas confirmadas
+                        </button>
+                        <button class="tab-btn" onclick="mostrarTab('espera', this)">
+                            Lista de Espera
+                        </button>
+                    </div>
 
-                    {% if not reservas and not reservas_espera %}
-                        <div class="alert alert-custom text-center py-5 my-3" role="alert">
-                            <h4 class="text-white mb-2" style="font-weight: 500;">Sin reservas</h4>
-                            <p class="m-0 text-white-50">No tenés ninguna clase reservada. ¡Anotate en alguna desde el cronograma!</p>
-                        </div>
-                    {% endif %}
+                   
+                    <div id="tab-confirmadas">
 
                     {% if reservas %}
                         <div class="table-responsive">
@@ -457,7 +486,18 @@
                                 </tbody>
                             </table>
                         </div>
+                    {% else %}
+                        <div class="card card-custom text-center py-5 my-3" role="alert">
+                            <h4 class="text-white mb-2" style="font-weight:500;">
+                                Sin reservas
+                            </h4>
+                            <p class="m-0 text-white-50">
+                                No tenés ninguna clase reservada.¡Anotate en alguna desde el cronograma!
+                            </p>
+                        </div>
                     {% endif %}
+                    </div>
+                    <div id="tab-espera" style="display:none;">
 
                     {% if reservas_espera %}
                         <div class="mt-5">
@@ -472,6 +512,7 @@
                                             <th>Fecha</th>
                                             <th>Horario</th>
                                             <th>Estado</th>
+                                            <th>Acciones</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -491,13 +532,66 @@
                                             <td>
                                                 <span class="badge-estado badge-espera">Lista de espera</span>
                                             </td>
+                                            <td>
+                                                <button
+                                                   type="button"
+                                                   class="btn-cancelar"
+                                                   data-bs-toggle="modal"
+                                                   data-bs-target="#modalSalirEspera{{ reserva.id }}">
+                                                   Salir de lista de espera
+                                                </button>
+                                            </td>
+
                                         </tr>
+                                        <div class="modal fade" id="modalSalirEspera{{ reserva.id }}" tabindex="-1">
+                                            <div class="modal-dialog modal-dialog-centered">
+                                                <div class="modal-content bg-dark text-white">
+                                                    <div class="modal-header border-secondary">
+                                                        <h5 class="modal-title">Salir de la lista de espera</h5>
+                                                        <button
+                                                            type="button"
+                                                            class="btn-close btn-close-white"
+                                                            data-bs-dismiss="modal">
+                                                        </button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <p>
+                                                            ¿Estás seguro de que querés salir de la lista de espera?
+                                                        </p>
+                                                        <small class="text-white-50">
+                                                            Si se libera un cupo ya no serás considerado para ocupar ese lugar.
+                                                        </small>
+                                                    </div>
+                                                    <div class="modal-footer border-secondary">
+                                                        <button
+                                                            class="btn btn-secondary"
+                                                            data-bs-dismiss="modal">
+                                                            Volver
+                                                        </button>
+                                                        <a href="{% url 'salir_lista_espera' reserva.id %}"
+                                                           class="btn btn-confirmar-cancelacion">
+                                                           Salir de lista de espera
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                         {% endfor %}
                                     </tbody>
                                 </table>
                             </div>
                         </div>
+                    {% else %}
+                        <div class="card card-custom text-center py-5 my-3" role="alert">
+                            <h4 class="text-white mb-2" style="font-weight:500;">
+                                Sin clases en lista de espera
+                            </h4>
+                            <p class="m-0 text-white-50">
+                                Actualmente no te encontrás en la lista de espera de ninguna clase.
+                            </p>
+                        </div>
                     {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
@@ -517,6 +611,17 @@
             },8000);
         });
     });
+    function mostrarTab(tab,boton){
+        document.getElementById("tab-confirmadas").style.display=
+            tab==="confirmadas" ? "block":"none";
+        document.getElementById("tab-espera").style.display=
+            tab==="espera"?"block":"none";
+        document.querySelectorAll(".tab-btn").forEach(btn=>{
+            btn.classList.remove("active");
+        });
+        boton.classList.add("active");
+    }
 </script>
+
 </body>
 </html>
