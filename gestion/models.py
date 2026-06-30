@@ -90,15 +90,18 @@ class Clase(models.Model):
 
     # 👇 Calcula cuántas vacantes quedan disponibles REALES para reservar en una fecha
     def cupos_para_fecha(self, fecha):
-        # Cuenta las reservas de alumnos hechas específicamente para esta clase en la fecha dada
-        total_reservas_clase = Reserva.objects.filter(
+        total_reservas = Reserva.objects.filter(
             fecha_clase=fecha,
-            clase=self
+            clase__horario=self.horario,
+            clase__actividad=self.actividad,
         ).count()
-        
-        # Restamos de su propio cupo configurado a mano (15, 19, 30, etc.)
-        disponibles = self.cupo_maximo - total_reservas_clase
-        return max(0, disponibles)
+        try:
+            cupo = Clase.objects.get(
+                actividad=self.actividad, horario=self.horario, fecha=fecha
+            ).cupo_maximo
+        except Clase.DoesNotExist:
+            cupo = self.cupo_maximo
+        return max(0, cupo - total_reservas)
 
 
 class Reserva(models.Model):

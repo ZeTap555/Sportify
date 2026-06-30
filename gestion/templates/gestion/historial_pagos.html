@@ -409,9 +409,9 @@
                     <div class="resultado-card {{ resultado.estado }}" style="margin-bottom: 15px;">
 
                         {% if resultado.actividad %}
-                            <p class="mb-1 text-white-50" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
-                                 {{ resultado.actividad }}
-                            </p>
+                             <p class="mb-1 text-white-50" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
+                                  {{ resultado.actividad }}{% if resultado.clase_dia %} - {{ resultado.clase_dia }} {{ resultado.clase_horario }}{% endif %}
+                             </p>
                         {% endif %}
 
                         <p class="mb-0 text-white" style="font-size: 0.95rem; line-height: 1.4;">

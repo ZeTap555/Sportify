@@ -860,6 +860,15 @@
                         </p>
                         <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver al detalle</button> </div>
                 `;
+            } else if (!modalData.mensualidad_viable) {
+                acciones.innerHTML = `
+                    <div style="text-align: center; margin: 20px 0;">
+                        <p style="color: #ff453a; font-weight: 600; font-size: 1rem; margin-bottom: 15px; line-height: 1.4;">
+                            ${modalData.mensualidad_mensaje}
+                        </p>
+                        <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver</button>
+                    </div>
+                `;
             } else {
                 mostrarPasoSel('pago', 'total', 'mensualidad');
             }

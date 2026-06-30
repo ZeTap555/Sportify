@@ -197,9 +197,14 @@
         }
 
         .badge-espera {
-            background-color: rgba(90, 200, 250, 0.2);
-            color: #5ac8fa;
-            border: 1px solid #5ac8fa;
+            background:#ffc10722;
+            color:#ffc107;
+            border:1px solid #ffc10744;
+        }
+        .badge-mensual-pendiente {
+            background:#ffd60a22;
+            color:#ffd60a;
+            border:1px solid #ffd60a44;
         }
 
         .brand-top {
@@ -216,15 +221,16 @@
         }
         .btn-cancelar{
             display:inline-block;
-            width:80%;
+            width:auto;
             background:#dc3545;
             color:white;
             text-decoration:none;
             text-align:center;
-            padding:8px 12px;
+            padding:4px 10px;
             border-radius:6px;
             border:none;
-            font-weight:600;
+            font-weight:500;
+            font-size:0.8rem;
             transition:0.2s;
         }
         .btn-cancelar:hover{
@@ -389,6 +395,9 @@
                         <button class="tab-btn active" onclick="mostrarTab('confirmadas',this)">
                             Reservas confirmadas
                         </button>
+                        <button class="tab-btn" onclick="mostrarTab('pendientes', this)">
+                            Pendientes de pago
+                        </button>
                         <button class="tab-btn" onclick="mostrarTab('espera', this)">
                             Lista de Espera
                         </button>
@@ -427,7 +436,9 @@
                                         <td>{{ reserva.fecha_clase|date:"d/m/Y" }}</td>
                                         <td>{{ reserva.clase.horario|time:"H:i" }}</td>
                                         <td>
-                                            {% if reserva.es_mensual %}
+                                            {% if reserva.es_mensual_pendiente %}
+                                                <span class="badge-estado badge-mensual-pendiente">Mensual (Pendiente)</span>
+                                            {% elif reserva.es_mensual %}
                                                 <span class="badge-estado badge-pagada">Mensual</span>
                                             {% else %}
                                                 <span class="badge-estado badge-pendiente">Clase</span>
@@ -448,7 +459,7 @@
                                                 class="btn-cancelar"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#modalCancelar{{ reserva.id }}">
-                                                Cancelar Inscripción
+                                                Cancelar
                                         </button>
                                         </td>
                                     </tr>
@@ -465,7 +476,11 @@
                                                         ¿Estás seguro de que querés cancelar la inscripción a esta clase?
                                                     </p>
                                                     <small class="text-white-50">
+                                                        {% if reserva.modalidad == 'individual' %}
+                                                        Si la cancelación se realiza con al menos 1 día de anticipación recibirás un ticket de reintegro. En caso contrario, no podrás acceder al reintegro.
+                                                        {% else %}
                                                         Si la cancelación se realiza con al menos 2 días de anticipación recibirás un voucher. En caso contrario, perderás tu lugar.
+                                                        {% endif %}
                                                     </small>
                                                 </div>
                                                 <div class="modal-footer border-secondary">
@@ -473,10 +488,17 @@
                                                             data-bs-dismiss="modal">
                                                         Volver
                                                     </button>
+                                                    {% if reserva.modalidad == 'individual' %}
+                                                    <a href="{% url 'cancelar_clase_individual' reserva.id %}"
+                                                       class="btn btn-confirmar-cancelacion">
+                                                        Sí, cancelar inscripción
+                                                    </a>
+                                                    {% else %}
                                                     <a href="{% url 'cancelar_reserva' reserva.id %}"
                                                        class="btn btn-confirmar-cancelacion">
                                                         Sí, cancelar inscripción
                                                     </a>
+                                                    {% endif %}
                                                 </div>
                                             </div>
                                         </div>
@@ -493,6 +515,58 @@
                             </h4>
                             <p class="m-0 text-white-50">
                                 No tenés ninguna clase reservada.¡Anotate en alguna desde el cronograma!
+                            </p>
+                        </div>
+                    {% endif %}
+                    </div>
+                    <div id="tab-pendientes" style="display:none;">
+
+                    {% if reservas_pendientes_pago %}
+                        <div class="table-responsive">
+                            <table class="table table-dark table-hover align-middle m-0" style="--bs-table-bg: #1c1c1e;">
+                                <thead>
+                                    <tr>
+                                        <th>Actividad</th>
+                                        <th>Profesor</th>
+                                        <th>Día</th>
+                                        <th>Fecha</th>
+                                        <th>Horario</th>
+                                        <th>Tipo</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for reserva in reservas_pendientes_pago %}
+                                    <tr>
+                                        <td>{{ reserva.clase.actividad.nombre }}</td>
+                                        <td>
+                                            {% if reserva.clase.profesor %}
+                                                {{ reserva.clase.profesor.apellido }}, {{ reserva.clase.profesor.nombre }}
+                                            {% else %}
+                                                <span class="text-white-50">Sin asignar</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ reserva.clase.dia_semana_nombre }}</td>
+                                        <td>{{ reserva.fecha_clase|date:"d/m/Y" }}</td>
+                                        <td>{{ reserva.clase.horario|time:"H:i" }}</td>
+                                        <td>
+                                            <span class="badge-estado badge-mensual-pendiente">Mensual</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge-estado badge-pendiente">Pendiente</span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="card card-custom text-center py-5 my-3" role="alert">
+                            <h4 class="text-white mb-2" style="font-weight:500;">
+                                Sin clases pendientes de pago
+                            </h4>
+                            <p class="m-0 text-white-50">
+                                No tenés clases pendientes de pago.
                             </p>
                         </div>
                     {% endif %}
@@ -614,6 +688,8 @@
     function mostrarTab(tab,boton){
         document.getElementById("tab-confirmadas").style.display=
             tab==="confirmadas" ? "block":"none";
+        document.getElementById("tab-pendientes").style.display=
+            tab==="pendientes"?"block":"none";
         document.getElementById("tab-espera").style.display=
             tab==="espera"?"block":"none";
         document.querySelectorAll(".tab-btn").forEach(btn=>{
