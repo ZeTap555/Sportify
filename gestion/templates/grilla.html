@@ -535,6 +535,11 @@
 
         <hr class="modal-divider">
 
+        <div id="banner-clase-suspendida" style="display:none; background:rgba(255,69,58,0.15); border:1px solid #ff453a44; border-radius:12px; padding:16px; margin-bottom:15px; text-align:center;">
+            <h5 style="color:#ff453a; font-weight:700; margin-bottom:5px;">Clase suspendida</h5>
+            <p style="color:#aeaeae; margin:0;" id="motivo-suspension-text"></p>
+        </div>
+
         <div id="modal-acciones"></div>
         <div style="margin-top:15px; text-align:center;display:none;" id="contenedor-ver-inscriptos">
             <button
@@ -550,8 +555,56 @@
                 👥 Ver inscriptos
             </button>
         </div>
+        <div style="margin-top:10px; text-align:center;display:none;" id="contenedor-suspender-clase">
+            <button id="btn-suspender-clase" class="btn" style="background:#1db954; color:#fff; font-weight:600; border:none; padding:10px 20px; border-radius:10px;">
+                Suspender Clase
+            </button>
+        </div>
     </div>
 </div>
+
+<div class="modal fade" id="modalSuspenderGrilla" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-white" style="border: 1px solid #2c2c2e; border-radius: 14px;">
+            <form method="POST" id="form-suspender-clase">
+                {% csrf_token %}
+                <input type="hidden" name="fecha" id="suspender-fecha-input">
+                <div class="modal-header" style="border-bottom: 1px solid #2c2c2e;">
+                    <h5 class="modal-title fw-bold">Suspender clase</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-white-50 mb-3">Fecha a suspender: <strong id="suspender-fecha-label"></strong></p>
+                    <div class="mb-3">
+                        <label style="color:#8e8e93; font-size:0.85rem; margin-bottom:5px; display:block;">Causa de suspensión <span style="color:#ff453a;">*</span></label>
+                        <select name="motivo" id="suspender-motivo" class="form-select" style="background:#2c2c2e; border:1px solid #3a3a3c; color:#fff; border-radius:8px;" required>
+                            <option value="">-- Seleccione una causa --</option>
+                            <option value="profesor_ausente">Profesor ausente</option>
+                            <option value="feriado">Feriado</option>
+                            <option value="problemas_climaticos">Problemas climáticos</option>
+                            <option value="mantenimiento">Mantenimiento</option>
+                            <option value="evento_especial">Evento especial</option>
+                            <option value="otro">Otro</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="suspender-otro-container" style="display:none;">
+                        <label style="color:#8e8e93; font-size:0.85rem; margin-bottom:5px; display:block;">Especifique el motivo <span style="color:#ff453a;">*</span></label>
+                        <input type="text" name="otro_motivo" id="suspender-otro-input" class="form-control" style="background:#2c2c2e; border:1px solid #3a3a3c; color:#fff; border-radius:8px;" placeholder="Describa el motivo...">
+                    </div>
+                    <div class="mb-3">
+                        <label style="color:#8e8e93; font-size:0.85rem; margin-bottom:5px; display:block;">Comentario adicional (opcional)</label>
+                        <textarea name="comentario" class="form-control" style="background:#2c2c2e; border:1px solid #3a3a3c; color:#fff; border-radius:8px;" rows="3" placeholder="Agregue un comentario si lo desea..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-top: 1px solid #2c2c2e;">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="background:#3a3a3c; border:none; color:#fff;">Cancelar</button>
+                    <button type="submit" class="btn" style="background:#1db954; color:#fff; font-weight:600;">Confirmar suspensión</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="modalInscriptos" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content bg-dark text-white" style="border: 1px solid #2c2c2e; border-radius: 14px;">
@@ -626,8 +679,32 @@
                 filacupos.style.display = 'flex';
             }
             
+            const contenedorSuspender = document.getElementById('contenedor-suspender-clase');
+            const bannerSuspendida = document.getElementById('banner-clase-suspendida');
+            const motivoText = document.getElementById('motivo-suspension-text');
+
+            if (data.suspendida) {
+                bannerSuspendida.style.display = 'block';
+                motivoText.textContent = data.motivo_suspension || '';
+            } else {
+                bannerSuspendida.style.display = 'none';
+            }
+
             if (data.es_admin) {
                 contenedorVerInscriptos.style.display = "block";
+
+                if (!data.suspendida) {
+                    contenedorSuspender.style.display = "block";
+                } else {
+                    contenedorSuspender.style.display = "none";
+                }
+
+                document.getElementById('btn-suspender-clase').onclick = function() {
+                    document.getElementById('suspender-fecha-input').value = modalFecha;
+                    document.getElementById('suspender-fecha-label').textContent = modalFecha;
+                    document.getElementById('form-suspender-clase').action = '/clase/' + claseId + '/suspender/';
+                    new bootstrap.Modal(document.getElementById('modalSuspenderGrilla')).show();
+                };
                 
                 btnVerInscriptos.onclick = function() {
                     fetch(`/ver-inscriptos/${claseId}/${fecha}/`)
@@ -668,6 +745,7 @@
                 }; // Aquí cierra el btnVerInscriptos.onclick = function() { ... }
             } else {
                 contenedorVerInscriptos.style.display = "none";
+                contenedorSuspender.style.display = "none";
             }
 
             mostrarPasoSel('');
@@ -683,6 +761,12 @@
                 <p style="color:#8e8e93; text-align:center; margin-bottom:20px;">Necesita registrarse para asistir a una clase</p>
                 <a href="/login/" class="modal-btn primary">Iniciar sesión</a>
             `;
+            document.getElementById('modalDetalle').classList.add('active');
+            return;
+        }
+
+        if (modalData.suspendida) {
+            acciones.innerHTML = '';
             document.getElementById('modalDetalle').classList.add('active');
             return;
         }
@@ -970,6 +1054,21 @@
 
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') cerrarModal();
+    });
+
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.id === 'suspender-motivo') {
+            var container = document.getElementById('suspender-otro-container');
+            var input = document.getElementById('suspender-otro-input');
+            if (e.target.value === 'otro') {
+                container.style.display = 'block';
+                input.required = true;
+            } else {
+                container.style.display = 'none';
+                input.required = false;
+                input.value = '';
+            }
+        }
     });
 </script>
 

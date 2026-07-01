@@ -133,7 +133,29 @@ class Reserva(models.Model):
     def __str__(self):
         estado = "Lista de Espera" if self.en_lista_de_espera else "Confirmado"
         return f"{self.usuario.first_name} en {self.clase.actividad.nombre} ({estado})"
-    
+
+class SuspensionClase(models.Model):
+    MOTIVO_CHOICES = [
+        ('profesor_ausente', 'Profesor ausente'),
+        ('feriado', 'Feriado'),
+        ('problemas_climaticos', 'Problemas climáticos'),
+        ('mantenimiento', 'Mantenimiento'),
+        ('evento_especial', 'Evento especial'),
+        ('otro', 'Otro'),
+    ]
+    clase = models.ForeignKey(Clase, on_delete=models.CASCADE, related_name='suspensiones')
+    fecha = models.DateField()
+    motivo = models.CharField(max_length=50, choices=MOTIVO_CHOICES)
+    otro_motivo = models.CharField(max_length=100, blank=True)
+    comentario = models.TextField(blank=True)
+    fecha_suspension = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('clase', 'fecha')
+
+    def __str__(self):
+        return f"{self.clase} - {self.fecha} ({self.get_motivo_display()})"
+
 class Notificacion(models.Model):
     usuario=models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     mensaje=models.TextField()

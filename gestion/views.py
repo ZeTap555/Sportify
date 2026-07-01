@@ -47,7 +47,7 @@ import django.db.models as django_models
 # =========================================================================
 # MODELOS LOCALES
 # =========================================================================
-from .models import Clase, Actividad, Profesor, Reserva, Notificacion
+from .models import Clase, Actividad, Profesor, Reserva, Notificacion, SuspensionClase, Voucher
 from reservas.models import Mensualidad
 from usuarios.models import Usuario
 
@@ -223,6 +223,145 @@ def detalle_clase_fecha(request, clase_id):
     # Si es un usuario común, lo mandás al HTML genial que armó tu equipo
     context = {'clase': clase, 'fecha_clase': fecha_str}
     return render(request, 'gestion/detalle_clase_usuario.html', context)
+
+
+@login_required
+def suspender_clase(request, clase_id):
+    if request.user.rol != 'admin':
+        messages.error(request, 'No tenés permisos para realizar esta acción.')
+        return redirect('grilla_actividades')
+
+    clase = get_object_or_404(Clase, id=clase_id)
+
+    if request.method == 'POST':
+        fecha_str = request.POST.get('fecha')
+        if not fecha_str:
+            messages.error(request, 'Debe seleccionar una fecha para la suspensión.')
+            return redirect('grilla_actividades')
+
+        fecha_susp = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+        ahora = timezone.localtime()
+        clase_datetime = timezone.make_aware(
+            datetime.combine(fecha_susp, clase.horario)
+        )
+
+        if ahora > clase_datetime:
+            messages.error(request, 'La clase se encuentra en curso, no es posible suspenderla.')
+            return redirect('grilla_actividades')
+
+        if SuspensionClase.objects.filter(clase=clase, fecha=fecha_susp).exists():
+            messages.error(request, 'Esta clase ya se encuentra suspendida.')
+            return redirect('grilla_actividades')
+
+        motivo = request.POST.get('motivo')
+        otro_motivo = request.POST.get('otro_motivo', '')
+        comentario = request.POST.get('comentario', '')
+
+        if motivo == 'otro' and not otro_motivo:
+            messages.error(request, 'Debe completar el motivo cuando selecciona "Otro".')
+            return redirect('grilla_actividades')
+
+        with transaction.atomic():
+            SuspensionClase.objects.create(
+                clase=clase,
+                fecha=fecha_susp,
+                motivo=motivo,
+                otro_motivo=otro_motivo,
+                comentario=comentario,
+            )
+
+            if clase.profesor and clase.profesor.usuario:
+                msg_prof = (
+                    f"La clase de {clase.actividad.nombre} del "
+                    f"{fecha_susp.strftime('%d/%m/%Y')} a las "
+                    f"{clase.horario.strftime('%H:%M')} hs fue suspendida."
+                )
+                if comentario:
+                    msg_prof += f" Motivo: {comentario}"
+                Notificacion.objects.create(
+                    usuario=clase.profesor.usuario,
+                    mensaje=msg_prof,
+                )
+                asunto_prof = f"Clase suspendida - {clase.actividad.nombre}"
+                html_prof = f"""
+                <div style="background:#000000;padding:40px;font-family:Poppins,sans-serif;">
+                    <h1 style="color:#00ff88;">SPORTIFY</h1>
+                    <h2>Clase suspendida</h2>
+                    <p>{msg_prof}</p>
+                </div>
+                """
+                email_prof = EmailMultiAlternatives(
+                    asunto_prof, "", settings.EMAIL_HOST_USER,
+                    [clase.profesor.usuario.email]
+                )
+                email_prof.attach_alternative(html_prof, "text/html")
+                try:
+                    email_prof.send()
+                except Exception:
+                    pass
+
+            reservas_afectadas = Reserva.objects.filter(
+                clase=clase,
+                fecha_clase=fecha_susp,
+                en_lista_de_espera=False,
+            ).select_related('usuario')
+
+            for reserva in reservas_afectadas:
+                usuario = reserva.usuario
+                fecha_fmt = fecha_susp.strftime('%d/%m/%Y')
+                horario_str = clase.horario.strftime('%H:%M')
+                actividad_nombre = clase.actividad.nombre
+
+                if reserva.modalidad == 'mensual':
+                    ultimo_dia = calendar.monthrange(fecha_susp.year, fecha_susp.month)[1]
+                    Voucher.objects.create(
+                        cliente=usuario,
+                        fecha_vencimiento=date(fecha_susp.year, fecha_susp.month, ultimo_dia),
+                    )
+                    mensaje = (
+                        f"La clase {actividad_nombre} del {fecha_fmt} a las {horario_str} hs "
+                        f"fue suspendida. Se generó automáticamente un voucher "
+                        f"para utilizar en cualquier otra clase disponible."
+                    )
+                else:
+                    mensaje = (
+                        f"La clase {actividad_nombre} del {fecha_fmt} a las {horario_str} hs "
+                        f"fue suspendida. Comunícate con el personal para solicitar "
+                        f"la devolución correspondiente."
+                    )
+
+                Notificacion.objects.create(usuario=usuario, mensaje=mensaje)
+
+                asunto = f"Clase suspendida - {actividad_nombre}"
+                mensaje_html = f"""
+                <div style="background:#000000;padding:40px;font-family:Poppins,sans-serif;">
+                    <h1 style="color:#00ff88;">SPORTIFY</h1>
+                    <h2>Clase suspendida</h2>
+                    <p>{mensaje}</p>
+                </div>
+                """
+                email_message = EmailMultiAlternatives(
+                    asunto, "", settings.EMAIL_HOST_USER, [usuario.email]
+                )
+                email_message.attach_alternative(mensaje_html, "text/html")
+                try:
+                    email_message.send()
+                except Exception:
+                    pass
+
+                reserva.delete()
+
+        dias = {0: 'Lunes', 1: 'Martes', 2: 'Miércoles', 3: 'Jueves', 4: 'Viernes', 5: 'Sábado', 6: 'Domingo'}
+        dia_nombre = dias[fecha_susp.weekday()]
+        messages.success(
+            request,
+            f'La clase {clase.actividad.nombre} del {fecha_susp.strftime("%d/%m/%Y")} '
+            f'a las {clase.horario.strftime("%H:%M")} hs '
+            f'fue suspendida correctamente.'
+        )
+        return redirect('grilla_actividades')
+
+    return redirect('grilla_actividades')
 
 
 # =========================================================================
@@ -2098,6 +2237,9 @@ def detalle_clase_api(request, clase_id):
     choque_horario = False
     actividad_choque_nombre = None
     
+    suspendida = False
+    motivo_suspension = ''
+
     if fecha_str:
         fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
         clase_finalizada=fecha<date.today()
@@ -2121,10 +2263,10 @@ def detalle_clase_api(request, clase_id):
 
             # Mensualidad mes actual
             mensualidad_mes_actual = Mensualidad.objects.filter(
-                usuario=request.user, 
-                clase=clase,  
-                mes=fecha.month, 
-                anio=fecha.year, 
+                usuario=request.user,
+                clase=clase,
+                mes=fecha.month,
+                anio=fecha.year,
                 estado='pagada'
             ).exists()
 
@@ -2137,10 +2279,10 @@ def detalle_clase_api(request, clase_id):
                     mes_ant, anio_ant = fecha.month - 1, fecha.year
 
                 mensualidad_mes_anterior = Mensualidad.objects.filter(
-                    usuario=request.user, 
-                    clase=clase, 
-                    mes=mes_ant, 
-                    anio=anio_ant, 
+                    usuario=request.user,
+                    clase=clase,
+                    mes=mes_ant,
+                    anio=anio_ant,
                     estado='pagada'
                 ).exists()
 
@@ -2157,6 +2299,13 @@ def detalle_clase_api(request, clase_id):
             if reserva_choque:
                 actividad_choque_nombre = reserva_choque.clase.actividad.nombre
                 choque_horario = True
+
+        suspension = SuspensionClase.objects.filter(clase=clase, fecha=fecha).first()
+        if suspension:
+            suspendida = True
+            motivo_suspension = suspension.get_motivo_display()
+            if suspension.otro_motivo:
+                motivo_suspension += f' - {suspension.otro_motivo}'
     else:
         cupos = getattr(clase.actividad, 'capacidad_maxima', 30)
 
@@ -2233,6 +2382,8 @@ def detalle_clase_api(request, clase_id):
         'todos_los_profesores': todos_profes_data,
         'apto_vigente': (True if request.user.rol != 'cliente' else request.user.tiene_apto_vigente()) if request.user.is_authenticated else False,
         'es_admin':es_admin,
+        'suspendida': suspendida,
+        'motivo_suspension': motivo_suspension,
         'clase_finalizada':clase_finalizada if fecha_str else False,
         'mensualidad_viable': mensualidad_viable,
         'mensualidad_mensaje': mensualidad_mensaje,
