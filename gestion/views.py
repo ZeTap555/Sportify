@@ -331,6 +331,14 @@ def inscribirse_clase(request, clase_id):
             for d in range(dia_inicio, ultimo_dia_mes + 1):
                 fecha_evaluar = date(anio_solicitado, mes_solicitado, d)
                 if fecha_evaluar.weekday() == dia_semana_objetivo:
+                    if Reserva.objects.filter(
+                        usuario=request.user,
+                        fecha_clase=fecha_evaluar,
+                        clase__horario=clase.horario,
+                        clase__actividad=clase.actividad,
+                        en_lista_de_espera=False
+                    ).exists():
+                        continue
                     if clase.cupos_para_fecha(fecha_evaluar) > 0:
                         fechas_con_cupo.append(fecha_evaluar)
                     else:
@@ -905,7 +913,13 @@ def pago_tarjeta(request):
 
                 for f_str in fechas_con_cupo:
                     fecha_evaluar = datetime.strptime(f_str, '%Y-%m-%d').date()
-                    if Reserva.objects.filter(usuario=request.user, clase=clase, fecha_clase=fecha_evaluar).exists():
+                    if Reserva.objects.filter(
+                        usuario=request.user,
+                        fecha_clase=fecha_evaluar,
+                        clase__horario=clase.horario,
+                        clase__actividad=clase.actividad,
+                        en_lista_de_espera=False
+                    ).exists():
                         continue
                     nueva_reserva = Reserva.objects.create(
                         usuario=request.user,
@@ -933,7 +947,13 @@ def pago_tarjeta(request):
                     f_sig = date(anio_siguiente, mes_siguiente, d)
                     if f_sig.weekday() != dia_semana_objetivo:
                         continue
-                    if Reserva.objects.filter(usuario=request.user, clase=clase, fecha_clase=f_sig).exists():
+                    if Reserva.objects.filter(
+                        usuario=request.user,
+                        fecha_clase=f_sig,
+                        clase__horario=clase.horario,
+                        clase__actividad=clase.actividad,
+                        en_lista_de_espera=False
+                    ).exists():
                         continue
                     Reserva.objects.create(
                         usuario=request.user,
@@ -1076,6 +1096,7 @@ def pago_exito(request):
     from .models import Clase, Reserva, Notificacion 
     
     clase = get_object_or_404(Clase, id=datos['clase_id'])
+    fecha_clase = datetime.strptime(datos['fecha_clase'], '%Y-%m-%d').date()
     usuario_id = datos.get('usuario_id')
     usuario_reserva = get_object_or_404(Usuario, id=usuario_id) if usuario_id else request.user
 
@@ -1095,25 +1116,18 @@ def pago_exito(request):
         reserva, creado = Reserva.objects.get_or_create(
             usuario=usuario_reserva,
             clase=clase,
-            fecha_clase=datos['fecha_clase'],
+            fecha_clase=fecha_clase,
             defaults={
                 'monto_pagado': datos['monto'],
                 'estado_pago': 'seña' if datos['tipo_pago'] == 'senia' else 'total',
                 'medio_pago': 'Mercado Pago',
-                'modalidad': 'mensual' if datos.get('flujo_tipo') == 'mensualidad' else 'individual' # <--- ESTA LÍNEA
+                'modalidad': 'mensual' if datos.get('flujo_tipo') == 'mensualidad' else 'individual'
             }
         )
         # Si la reserva ya existía, forzamos que se guarde la modalidad correcta
         if not creado:
             reserva.modalidad = 'mensual' if datos.get('flujo_tipo') == 'mensualidad' else 'individual'
             reserva.save()
-        if datos.get('flujo_tipo') == 'mensualidad':
-            Reserva.objects.filter(
-                usuario=usuario_reserva,
-                clase__actividad=clase.actividad,
-                fecha_clase__month=reserva.fecha_clase.month,
-                fecha_clase__year=reserva.fecha_clase.year
-            ).update(modalidad='mensual')
     
     if creado:
         print(f"✅ Reserva {reserva.id} creada con éxito en la base de datos.")
