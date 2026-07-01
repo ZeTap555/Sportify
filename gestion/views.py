@@ -890,6 +890,8 @@ def pago_tarjeta(request):
             fecha_inicial = datetime.strptime(datos['fecha_clase'], '%Y-%m-%d').date()
             hoy = datetime.now().date()
             
+            mensaje_sin_cupo = None
+            
             if datos['flujo_tipo'] == 'mensualidad':
                 mes_current = fecha_inicial.month
                 anio_actual = fecha_inicial.year
@@ -960,7 +962,6 @@ def pago_tarjeta(request):
                 reserva = reserva_principal
                 fechas_sin_cupo = datos.get('fechas_sin_cupo', [])
                 mensaje_notificacion = f"Se realizó con éxito el pago de tu MENSUALIDAD para: {clase.actividad.nombre}. Las clases del próximo mes quedaron reservadas pendientes de pago."
-                mensaje_sin_cupo = None
                 if fechas_sin_cupo:
                     dia_nombre = clase.dia_semana_nombre.lower()
                     mensaje_sin_cupo = (
