@@ -575,7 +575,7 @@ def mis_reservas(request):
             r.es_mensual = False
             reservas_pendientes_pago.append(r)
         else:
-            r.es_mensual = (r.clase.actividad_id, r.fecha_clase.month, r.fecha_clase.year) in mensualidades_set
+            r.es_mensual = r.modalidad == 'mensual' and r.estado_pago != 'pendiente'
             reservas_normales.append(r)
 
     from gestion.models import Notificacion
@@ -616,8 +616,9 @@ def mis_clases(request):
         fecha_actual=fecha_inicio
         while fecha_actual<=fecha_maxima:
             cantidad_inscriptos=Reserva.objects.filter(
-                clase=clase,
                 fecha_clase=fecha_actual,
+                clase__horario=clase.horario,
+                clase__actividad=clase.actividad,
                 en_lista_de_espera=False
             ).count()
             ocurrencia={
@@ -651,8 +652,9 @@ def ver_inscriptos(request,clase_id,fecha):
     clase=Clase.objects.get(id=clase_id)
     fecha_obj=datetime.strptime(fecha, "%Y-%m-%d").date()
     reservas=Reserva.objects.filter(
-        clase=clase,
         fecha_clase=fecha_obj,
+        clase__horario=clase.horario,
+        clase__actividad=clase.actividad,
         en_lista_de_espera=False
     ).select_related('usuario')
     datos=[]
@@ -800,7 +802,7 @@ import qrcode
 from io import BytesIO
 @login_required
 def generar_qr(request,clase_id,fecha):
-    contenido=f"https://8d07-138-199-50-101.ngrok-free.app/registrar-asistencia/{clase_id}/{fecha}/"
+    contenido=f"{request.scheme}://{request.get_host()}/registrar-asistencia/{clase_id}/{fecha}/"
     cantidad_inscriptos=Reserva.objects.filter(
         clase_id=clase_id,
         fecha_clase=fecha
@@ -858,8 +860,9 @@ def registrar_asistencia(request, clase_id, fecha):
     try:
         reserva=Reserva.objects.get(
             usuario=usuario,
-            clase=clase,
-            fecha_clase=fecha_obj
+            fecha_clase=fecha_obj,
+            clase__horario=clase.horario,
+            clase__actividad=clase.actividad,
         )
     except Reserva.DoesNotExist:
         return render(request,"gestion/mensaje_asistencia.html",{
@@ -896,8 +899,9 @@ def estado_qr(request,clase_id,fecha):
         fin + timedelta(minutes=15)
     )
     reservas=Reserva.objects.filter(
-        clase=clase,
-        fecha_clase=fecha_obj
+        fecha_clase=fecha_obj,
+        clase__horario=clase.horario,
+        clase__actividad=clase.actividad,
     )
     inscriptos=reservas.count()
     asistentes=reservas.filter(asistio=True)
