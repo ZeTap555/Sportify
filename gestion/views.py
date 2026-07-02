@@ -295,11 +295,9 @@ def suspender_clase(request, clase_id):
                     [clase.profesor.usuario.email]
                 )
                 email_prof.attach_alternative(html_prof, "text/html")
-                try:
-                    email_prof.send()
-                except Exception:
-                    pass
-
+                
+                email_prof.send()
+                
             reservas_afectadas = Reserva.objects.filter(
                 clase=clase,
                 fecha_clase=fecha_susp,
@@ -344,10 +342,9 @@ def suspender_clase(request, clase_id):
                     asunto, "", settings.EMAIL_HOST_USER, [usuario.email]
                 )
                 email_message.attach_alternative(mensaje_html, "text/html")
-                try:
-                    email_message.send()
-                except Exception:
-                    pass
+                
+                email_message.send()
+                
 
                 reserva.delete()
 
@@ -1803,6 +1800,15 @@ def panel_admin(request):
                 messages.error(request, f"Error en {act.nombre}: Ingresaste un valor numérico inválido.")
             except Exception as e:
                 messages.error(request, f"Error inesperado al guardar tarifas: {e}")
+
+        # --- E. DAR DE BAJA PROFESOR ---
+        elif action == 'dar_de_baja_profesor':
+            pestania_activa = 'profesores'
+            profesor = Profesor.objects.get(id=request.POST.get('profesor_id'))
+            profesor.usuario.is_active = False
+            profesor.usuario.save()
+            messages.success(request, f"El profesor {profesor.nombre} ha sido dado de baja correctamente.")
+            return redirect('panel_admin')
 
     # =========================================================
     # ARMADO DE DATOS (MÉTODO GET Y RENDERIZADO)
