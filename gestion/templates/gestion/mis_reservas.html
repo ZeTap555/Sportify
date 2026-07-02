@@ -201,10 +201,16 @@
             color:#ffc107;
             border:1px solid #ffc10744;
         }
+        
         .badge-mensual-pendiente {
-            background:#ffd60a22;
-            color:#ffd60a;
-            border:1px solid #ffd60a44;
+            background-color: rgba(10, 132, 255, 0.2);
+            color: #0a84ff;
+            border: 1px solid #0a84ff;
+        }
+        .badge-clase-personalizado {
+            background-color: rgba(191, 90, 242, 0.2);
+            color: #bf5af2;
+            border: 1px solid #bf5af2;
         }
 
         .brand-top {
@@ -439,9 +445,9 @@
                                             {% if reserva.es_mensual_pendiente %}
                                                 <span class="badge-estado badge-mensual-pendiente">Mensual (Pendiente)</span>
                                             {% elif reserva.es_mensual %}
-                                                <span class="badge-estado badge-pagada">Mensual</span>
+                                                <span class="badge-estado badge-mensual-pendiente">Mensual</span>
                                             {% else %}
-                                                <span class="badge-estado badge-pendiente">Clase</span>
+                                                <span class="badge-estado badge-clase-personalizado">Clase</span>
                                             {% endif %}
                                         </td>
                                         <td>
