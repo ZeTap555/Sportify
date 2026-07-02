@@ -1319,6 +1319,7 @@ def pago_pendiente(request):
 
 @login_required
 def pago_confirmacion(request, reserva_id):
+    translation.activate('es')
     if reserva_id == 0:
         return render(request, 'pago_confirmacion.html', {'exito': False})
     reserva = get_object_or_404(Reserva, id=reserva_id, usuario=request.user)
