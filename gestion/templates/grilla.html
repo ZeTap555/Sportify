@@ -933,7 +933,7 @@
                 acciones.innerHTML = `
                     <div style="text-align: center; margin: 20px 0;">
                         <p style="color: #30d158; font-weight: 600; font-size: 1.1rem; margin-bottom: 15px; line-height: 1.4;">Ya tenés una mensualidad activa de esta actividad.</p>
-                        <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver al detalle</button> </div>
+                        <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver</button> </div>
                 `;
             } else if (modalData.choque_horario) {
                 acciones.innerHTML = `
@@ -942,7 +942,7 @@
                             ⚠️ No podés contratar la mensualidad desde esta clase.<br>
                             <span style="font-size: 0.85rem; font-weight: 400; color: #aeaeae;">Choca con tu reserva de <strong style="color: #ff9f0a;">${modalData.actividad_choque_nombre}</strong> hoy a las ${modalData.horario}.</span>
                         </p>
-                        <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver al detalle</button> </div>
+                        <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver</button> </div>
                 `;
             } else if (!modalData.mensualidad_viable) {
                 acciones.innerHTML = `

@@ -74,6 +74,11 @@ class Clase(models.Model):
         dias = {0: 'Lunes', 1: 'Martes', 2: 'Miércoles', 3: 'Jueves', 4: 'Viernes', 5: 'Sábado', 6: 'Domingo'}
         return dias[self.fecha.weekday()]
 
+    @property
+    def dia_semana_plural(self):
+        nombre = self.dia_semana_nombre
+        return nombre if nombre.endswith('s') else nombre + 's'
+
     # 👇 Propiedad clave para la grilla (0=Lunes, 1=Martes, etc.)
     @property
     def dia_semana_num(self):
