@@ -637,11 +637,13 @@ def mis_clases(request):
             fecha_actual+=timedelta(days=7)
     clases_pendientes.sort(key=lambda x:(x['fecha'],x['clase'].horario))
     clases_finalizadas.sort(key=lambda x:(x['fecha'],x['clase'].horario),reverse=True)
+    notificaciones_no_leidas = Notificacion.objects.filter(usuario=request.user, leida=False).count()
     print("pendientes",len(clases_pendientes))
     print("finalizadas",len(clases_finalizadas))
     return render(request,'gestion/mis_clases.html',{
         'clases_pendientes':clases_pendientes,
         'clases_finalizadas':clases_finalizadas,
+        'cantidad_no_leidas': notificaciones_no_leidas,
     })
 @login_required
 def ver_inscriptos(request,clase_id,fecha):
