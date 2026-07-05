@@ -617,7 +617,7 @@
                         </div>
                     </div>
 
-        {% if request.user.rol != 'admin' %}
+        {% if request.user.rol == 'cliente' %}
         <div class="card apto-medico-card">
                         <div class="titulo-info">
                             Apto Médico
