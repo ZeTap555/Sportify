@@ -5,6 +5,7 @@ import os
 import re
 import uuid
 import calendar
+import threading
 from calendar import monthrange
 from datetime import datetime, date, timedelta
 from decimal import Decimal
@@ -573,9 +574,36 @@ def inscribirse_clase(request, clase_id):
 def mis_reservas(request):
     from datetime import date
     from reservas.models import Mensualidad
-    reservas = Reserva.objects.filter(usuario=request.user, fecha_clase__gte=date.today())\
-        .select_related('clase__actividad', 'clase__profesor')\
-        .order_by('fecha_clase', 'clase__horario')
+    
+    base_qs = Reserva.objects.filter(usuario=request.user, fecha_clase__gte=date.today())\
+        .select_related('clase__actividad', 'clase__profesor')
+
+    # Distinct values for filter dropdowns
+    actividades_filtro = Actividad.objects.filter(
+        id__in=base_qs.values_list('clase__actividad_id', flat=True).distinct()
+    )
+    horarios_filtro = (
+        base_qs.values_list('clase__horario', flat=True)
+        .distinct()
+        .order_by('clase__horario')
+    )
+
+    # Read filters from GET
+    actividad_id = request.GET.get('actividad') or ''
+    dia_semana = request.GET.get('dia') or ''
+    horario = request.GET.get('horario') or ''
+    tipo = request.GET.get('tipo') or ''
+
+    # Build filtered queryset for all tabs
+    reservas_qs = base_qs.order_by('fecha_clase', 'clase__horario')
+    if actividad_id:
+        reservas_qs = reservas_qs.filter(clase__actividad_id=actividad_id)
+    if dia_semana:
+        reservas_qs = reservas_qs.filter(fecha_clase__week_day=dia_semana)
+    if horario:
+        reservas_qs = reservas_qs.filter(clase__horario=horario)
+    if tipo:
+        reservas_qs = reservas_qs.filter(modalidad=tipo)
 
     reservas_normales = []
     reservas_pendientes_pago = []
@@ -586,7 +614,7 @@ def mis_reservas(request):
     ).values_list('actividad_id', 'mes', 'anio')
     mensualidades_set = {(m[0], m[1], m[2]) for m in mensualidades}
 
-    for r in reservas:
+    for r in reservas_qs:
         if r.en_lista_de_espera:
             reservas_espera.append(r)
         elif r.modalidad == 'mensual' and r.estado_pago == 'pendiente':
@@ -605,6 +633,12 @@ def mis_reservas(request):
         'reservas_espera': reservas_espera,
         'reservas_pendientes_pago': reservas_pendientes_pago,
         'cantidad_no_leidas': cantidad_no_leidas,
+        'actividades_filtro': actividades_filtro,
+        'horarios_filtro': horarios_filtro,
+        'filtro_actividad': actividad_id,
+        'filtro_dia': dia_semana,
+        'filtro_horario': horario,
+        'filtro_tipo': tipo,
     })
 
 @login_required
@@ -1166,14 +1200,14 @@ def pago_tarjeta(request):
                     medio_pago='Tarjeta',
                     modalidad='individual' # <--- AGREGA ESTA LÍNEA
                 )
-                mensaje_notificacion = f"Se realizó con éxito tu pago para la clase: {clase.actividad.nombre}"
+                mensaje_notificacion = f"Se realizó con éxito tu pago para la clase: {clase.actividad.nombre} del {fecha_inicial.strftime('%d/%m/%Y')}"
 
             Notificacion.objects.create(
                 usuario=request.user,
                 mensaje=mensaje_notificacion
             )
 
-        enviar_confirmacion(request.user, clase, reserva, monto_total=Decimal(datos['monto']), mensaje_extra=mensaje_sin_cupo)
+        threading.Thread(target=enviar_confirmacion, args=(request.user, clase, reserva), kwargs={'monto_total': Decimal(datos['monto']), 'mensaje_extra': mensaje_sin_cupo}).start()
         del request.session['inscripcion_pendiente']
         return redirect('pago_confirmacion', reserva_id=reserva.id)
 
@@ -1373,7 +1407,7 @@ def pago_exito(request):
             mensaje=mensaje_notificacion
         )
 
-        enviar_confirmacion(usuario_reserva, clase, reserva, monto_total=Decimal(datos['monto']), mensaje_extra=mensaje_extra)
+        threading.Thread(target=enviar_confirmacion, args=(usuario_reserva, clase, reserva), kwargs={'monto_total': Decimal(datos['monto']), 'mensaje_extra': mensaje_extra}).start()
 
     else:
         # Flujo individual con Mercado Pago
@@ -1396,14 +1430,14 @@ def pago_exito(request):
         if creado:
             print(f"✅ Reserva {reserva.id} creada con éxito en la base de datos.")
 
-            mensaje_notificacion = f"Se realizó con éxito tu pago para la clase: {clase.actividad.nombre}"
+            mensaje_notificacion = f"Se realizó con éxito tu pago para la clase: {clase.actividad.nombre} del {fecha_clase.strftime('%d/%m/%Y')}"
 
             Notificacion.objects.create(
                 usuario=usuario_reserva,
                 mensaje=mensaje_notificacion
             )
 
-            enviar_confirmacion(usuario_reserva, clase, reserva)
+            threading.Thread(target=enviar_confirmacion, args=(usuario_reserva, clase, reserva)).start()
 
         else:
             print(f"ℹ️ La reserva {reserva.id} ya existía. Se evitó el IntegrityError.")
@@ -1499,7 +1533,7 @@ def enviar_confirmacion(usuario, clase, reserva, monto_total=None, mensaje_extra
             message=message,
             from_email='sportifygymapp@gmail.com',
             recipient_list=[usuario.email],
-            fail_silently=False,
+            fail_silently=True,
         )
     except Exception as e:
         print(f"[EMAIL ERROR] {e}")
