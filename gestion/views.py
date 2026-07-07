@@ -5,10 +5,13 @@ import os
 import re
 import uuid
 import calendar
+import logging
 from calendar import monthrange
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 from multiprocessing import context
+
+logger = logging.getLogger(__name__)
 
 # =========================================================================
 # LIBRERÍAS DE TERCEROS
@@ -112,8 +115,8 @@ def grilla_actividades(request):
                 'activo': False
             })
 
-    # 4. Traemos todas las clases
-    todas_las_clases = Clase.objects.all()
+    # 4. Traemos todas las clases activas
+    todas_las_clases = Clase.objects.filter(activa=True)
     if actividad_id and actividad_id != 'None' and actividad_id != '':
         todas_las_clases = todas_las_clases.filter(actividad_id=actividad_id)
 
@@ -226,6 +229,7 @@ def detalle_clase_fecha(request, clase_id):
 
 
 @login_required
+@login_required
 def suspender_clase(request, clase_id):
     if request.user.rol != 'admin':
         messages.error(request, 'No tenés permisos para realizar esta acción.')
@@ -261,6 +265,9 @@ def suspender_clase(request, clase_id):
             messages.error(request, 'Debe completar el motivo cuando selecciona "Otro".')
             return redirect('grilla_actividades')
 
+        actividad_nombre = clase.actividad.nombre
+        horario_str = clase.horario.strftime('%H:%M')
+
         with transaction.atomic():
             SuspensionClase.objects.create(
                 clase=clase,
@@ -272,9 +279,9 @@ def suspender_clase(request, clase_id):
 
             if clase.profesor and clase.profesor.usuario:
                 msg_prof = (
-                    f"La clase de {clase.actividad.nombre} del "
+                    f"La clase de {actividad_nombre} del "
                     f"{fecha_susp.strftime('%d/%m/%Y')} a las "
-                    f"{clase.horario.strftime('%H:%M')} hs fue suspendida."
+                    f"{horario_str} hs fue suspendida."
                 )
                 if comentario:
                     msg_prof += f" Motivo: {comentario}"
@@ -282,33 +289,33 @@ def suspender_clase(request, clase_id):
                     usuario=clase.profesor.usuario,
                     mensaje=msg_prof,
                 )
-                asunto_prof = f"Clase suspendida - {clase.actividad.nombre}"
-                html_prof = f"""
-                <div style="background:#000000;padding:40px;font-family:Poppins,sans-serif;">
-                    <h1 style="color:#00ff88;">SPORTIFY</h1>
-                    <h2>Clase suspendida</h2>
-                    <p>{msg_prof}</p>
-                </div>
-                """
-                email_prof = EmailMultiAlternatives(
-                    asunto_prof, "", settings.EMAIL_HOST_USER,
-                    [clase.profesor.usuario.email]
+                asunto_prof = f"Clase suspendida - {actividad_nombre}"
+                html_prof = _armar_html_email(actividad_nombre, msg_prof, "Clase suspendida")
+                transaction.on_commit(
+                    lambda d=clase.profesor.usuario.email, a=asunto_prof, h=html_prof: _enviar_email(d, a, h)
                 )
-                email_prof.attach_alternative(html_prof, "text/html")
-                
-                email_prof.send()
-                
+
             reservas_afectadas = Reserva.objects.filter(
                 clase=clase,
                 fecha_clase=fecha_susp,
-                en_lista_de_espera=False,
             ).select_related('usuario')
 
-            for reserva in reservas_afectadas:
+            reservas_pagas = [r for r in reservas_afectadas if not r.en_lista_de_espera]
+            reservas_waitlist = [r for r in reservas_afectadas if r.en_lista_de_espera]
+
+            for r in reservas_waitlist:
+                Notificacion.objects.create(
+                    usuario=r.usuario,
+                    mensaje=(
+                        f"La clase {actividad_nombre} del "
+                        f"{fecha_susp.strftime('%d/%m/%Y')} a las {horario_str} hs "
+                        f"fue suspendida."
+                    )
+                )
+
+            for reserva in reservas_pagas:
                 usuario = reserva.usuario
                 fecha_fmt = fecha_susp.strftime('%d/%m/%Y')
-                horario_str = clase.horario.strftime('%H:%M')
-                actividad_nombre = clase.actividad.nombre
 
                 if reserva.modalidad == 'mensual':
                     ultimo_dia = calendar.monthrange(fecha_susp.year, fecha_susp.month)[1]
@@ -331,30 +338,184 @@ def suspender_clase(request, clase_id):
                 Notificacion.objects.create(usuario=usuario, mensaje=mensaje)
 
                 asunto = f"Clase suspendida - {actividad_nombre}"
-                mensaje_html = f"""
-                <div style="background:#000000;padding:40px;font-family:Poppins,sans-serif;">
-                    <h1 style="color:#00ff88;">SPORTIFY</h1>
-                    <h2>Clase suspendida</h2>
-                    <p>{mensaje}</p>
-                </div>
-                """
-                email_message = EmailMultiAlternatives(
-                    asunto, "", settings.EMAIL_HOST_USER, [usuario.email]
+                html = _armar_html_email(actividad_nombre, mensaje, "Clase suspendida")
+                transaction.on_commit(
+                    lambda d=usuario.email, a=asunto, h=html: _enviar_email(d, a, h)
                 )
-                email_message.attach_alternative(mensaje_html, "text/html")
-                
-                email_message.send()
-                
-
-                reserva.delete()
 
         dias = {0: 'Lunes', 1: 'Martes', 2: 'Miércoles', 3: 'Jueves', 4: 'Viernes', 5: 'Sábado', 6: 'Domingo'}
         dia_nombre = dias[fecha_susp.weekday()]
         messages.success(
             request,
-            f'La clase {clase.actividad.nombre} del {fecha_susp.strftime("%d/%m/%Y")} '
-            f'a las {clase.horario.strftime("%H:%M")} hs '
+            f'La clase {actividad_nombre} del {fecha_susp.strftime("%d/%m/%Y")} '
+            f'a las {horario_str} hs '
             f'fue suspendida correctamente.'
+        )
+        return redirect('grilla_actividades')
+
+    return redirect('grilla_actividades')
+
+
+def _armar_html_email(actividad_nombre, mensaje, titulo="Clase eliminada"):
+    return f"""
+    <div style="background:#000000;padding:40px;font-family:Poppins,sans-serif;">
+        <h1 style="color:#00ff88;margin:0 0 10px;">SPORTIFY</h1>
+        <h2 style="color:#ffffff;margin:0 0 15px;">{titulo}</h2>
+        <p style="color:#ffffff;line-height:1.6;margin:0;">{mensaje}</p>
+    </div>
+    """
+
+
+def _enviar_email(destino, asunto, html):
+    try:
+        msg = EmailMultiAlternatives(asunto, "", settings.EMAIL_HOST_USER, [destino])
+        msg.attach_alternative(html, "text/html")
+        msg.send()
+    except Exception as e:
+        logger.error(f"Error al enviar email a {destino}: {e}")
+
+
+@login_required
+def eliminar_clase(request, clase_id):
+    if request.user.rol != 'admin':
+        messages.error(request, 'No tenés permisos para realizar esta acción.')
+        return redirect('grilla_actividades')
+
+    clase = get_object_or_404(Clase, id=clase_id, activa=True)
+
+    if request.method == 'POST':
+        hoy = date.today()
+        now = timezone.now()
+
+        clases_a_eliminar = Clase.objects.filter(
+            actividad=clase.actividad,
+            horario=clase.horario,
+            profesor=clase.profesor,
+            fecha__gte=hoy,
+            activa=True,
+        )
+        clase_ids = list(clases_a_eliminar.values_list('id', flat=True))
+
+        if not clase_ids:
+            messages.error(request, 'No se encontraron clases para eliminar.')
+            return redirect('grilla_actividades')
+
+        with transaction.atomic():
+            fechas_suspendidas = SuspensionClase.objects.filter(
+                clase_id__in=clase_ids
+            ).values_list('fecha', flat=True)
+
+            reservas_afectadas = Reserva.objects.filter(
+                clase_id__in=clase_ids,
+                fecha_clase__gte=hoy,
+            ).exclude(
+                models.Q(modalidad='mensual', estado_pago='pendiente')
+            ).exclude(
+                fecha_clase__in=fechas_suspendidas
+            ).select_related('usuario')
+
+            afectadas_final = []
+            for r in reservas_afectadas:
+                if r.fecha_clase == hoy:
+                    ocurrencia = timezone.make_aware(
+                        datetime.combine(hoy, clase.horario)
+                    )
+                    if now > ocurrencia:
+                        continue
+                afectadas_final.append(r)
+
+            reservas_pagas = [r for r in afectadas_final if not r.en_lista_de_espera]
+            reservas_waitlist = [r for r in afectadas_final if r.en_lista_de_espera]
+
+            # --- Waitlist: solo notificación ---
+            for r in reservas_waitlist:
+                Notificacion.objects.create(
+                    usuario=r.usuario,
+                    mensaje=(
+                        f"La clase {clase.actividad.nombre} "
+                        f"fue eliminada definitivamente."
+                    )
+                )
+
+            # --- Pagas: vouchers + notificaciones + emails ---
+            actividad_nombre = clase.actividad.nombre
+            horario_str = clase.horario.strftime('%H:%M')
+            dia_nombre = clase.dia_semana_nombre
+            mensuales_notificados = set()
+
+            for reserva in reservas_pagas:
+                usuario = reserva.usuario
+                fecha_fmt = reserva.fecha_clase.strftime('%d/%m/%Y')
+
+                if reserva.modalidad == 'mensual':
+                    ultimo_dia = calendar.monthrange(
+                        reserva.fecha_clase.year, reserva.fecha_clase.month
+                    )[1]
+                    Voucher.objects.create(
+                        cliente=usuario,
+                        fecha_vencimiento=date(
+                            reserva.fecha_clase.year,
+                            reserva.fecha_clase.month,
+                            ultimo_dia
+                        ),
+                        motivo=f'Clase eliminada - {actividad_nombre}',
+                    )
+
+                    if usuario.id not in mensuales_notificados:
+                        mensuales_notificados.add(usuario.id)
+                        mensaje = (
+                            f"La clase {actividad_nombre} de los {dia_nombre} "
+                            f"a las {horario_str} hs fue eliminada. "
+                            f"Se te asignaron los vouchers correspondientes "
+                            f"de las clases que tenías pagas."
+                        )
+                        Notificacion.objects.create(usuario=usuario, mensaje=mensaje)
+
+                        asunto = f"Clase eliminada - {actividad_nombre}"
+                        html = _armar_html_email(actividad_nombre, mensaje)
+                        transaction.on_commit(
+                            lambda d=usuario.email, a=asunto, h=html: _enviar_email(d, a, h)
+                        )
+                else:
+                    mensaje = (
+                        f"La clase {actividad_nombre} del {fecha_fmt} a las "
+                        f"{horario_str} hs fue eliminada definitivamente. "
+                        f"Comunicate con el personal para solicitar "
+                        f"la devolución correspondiente."
+                    )
+                    Notificacion.objects.create(usuario=usuario, mensaje=mensaje)
+
+                    asunto = f"Clase eliminada - {actividad_nombre}"
+                    html = _armar_html_email(actividad_nombre, mensaje)
+                    transaction.on_commit(
+                        lambda d=usuario.email, a=asunto, h=html: _enviar_email(d, a, h)
+                    )
+
+            Mensualidad.objects.filter(
+                clase_id__in=clase_ids, estado='pagada'
+            ).update(estado='vencida')
+
+            if clase.profesor and clase.profesor.usuario:
+                msg_prof = (
+                    f"La clase de {clase.actividad.nombre} "
+                    f"({clase.dia_semana_nombre} {horario_str} hs) "
+                    f"fue eliminada definitivamente del sistema."
+                )
+                Notificacion.objects.create(
+                    usuario=clase.profesor.usuario,
+                    mensaje=msg_prof,
+                )
+                asunto_prof = f"Clase eliminada - {actividad_nombre}"
+                html_prof = _armar_html_email(actividad_nombre, msg_prof)
+                transaction.on_commit(
+                    lambda d=clase.profesor.usuario.email, a=asunto_prof, h=html_prof: _enviar_email(d, a, h)
+                )
+
+            clases_a_eliminar.update(activa=False)
+
+        messages.success(
+            request,
+            f'La clase {actividad_nombre} del {dia_nombre} a las {horario_str}hrs fue eliminada correctamente. '
         )
         return redirect('grilla_actividades')
 
@@ -409,6 +570,7 @@ def inscribirse_clase(request, clase_id):
             usuario=request.user,
             fecha_clase=fecha_clase,
             clase__horario=clase.horario,
+            clase__activa=True,
             en_lista_de_espera=False
         ).exists()
 
@@ -441,7 +603,8 @@ def inscribirse_clase(request, clase_id):
                 clase=clase, 
                 mes=mes_solicitado, 
                 anio=anio_solicitado,
-                estado='pagada'
+                estado='pagada',
+                clase__activa=True,
             ).exists():
                 messages.error(request, "Ya estás inscripto a una mensualidad de esta actividad.")
                 return redirect('grilla_actividades')
@@ -472,6 +635,7 @@ def inscribirse_clase(request, clase_id):
                         fecha_clase=fecha_evaluar,
                         clase__horario=clase.horario,
                         clase__actividad=clase.actividad,
+                        clase__activa=True,
                         en_lista_de_espera=False
                     ).exists():
                         continue
@@ -551,9 +715,19 @@ def inscribirse_clase(request, clase_id):
 def mis_reservas(request):
     from datetime import date
     from reservas.models import Mensualidad
-    reservas = Reserva.objects.filter(usuario=request.user, fecha_clase__gte=date.today())\
+    reservas = list(Reserva.objects.filter(usuario=request.user, fecha_clase__gte=date.today())\
         .select_related('clase__actividad', 'clase__profesor')\
-        .order_by('fecha_clase', 'clase__horario')
+        .order_by('fecha_clase', 'clase__horario'))
+
+    suspension_claves = {(r.clase_id, r.fecha_clase) for r in reservas}
+    suspensiones = SuspensionClase.objects.filter(
+        clase_id__in=[c for c, _ in suspension_claves],
+        fecha__in=[f for _, f in suspension_claves],
+    )
+    suspension_set = {(s.clase_id, s.fecha) for s in suspensiones}
+    for r in reservas:
+        r.suspendida = (r.clase_id, r.fecha_clase) in suspension_set
+        r.clase_eliminada = not r.clase.activa
 
     reservas_normales = []
     reservas_pendientes_pago = []
@@ -602,10 +776,17 @@ def salir_lista_espera(request,reserva_id):
 @login_required
 def mis_clases(request):
     profesor=Profesor.objects.get(usuario=request.user)
-    clases=Clase.objects.filter(profesor=profesor).select_related('actividad')
+    clases=Clase.objects.filter(profesor=profesor, activa=True).select_related('actividad')
     hoy=date.today()
     clases_pendientes=[]
     clases_finalizadas=[]
+
+    suspensiones_clase = SuspensionClase.objects.filter(
+        clase__in=clases, fecha__gte=hoy - timedelta(days=90)
+    ).values_list('clase_id', 'fecha')
+
+    suspension_set = {(s[0], s[1]) for s in suspensiones_clase}
+
     for clase in clases:
         fecha_inicio=clase.fecha
         fecha_minima=hoy-timedelta(days=90)
@@ -622,6 +803,7 @@ def mis_clases(request):
                 'fecha':fecha_actual,
                 'dia':clase.dia_semana_nombre,
                 'inscriptos':cantidad_inscriptos,
+                'suspendida': (clase.id, fecha_actual) in suspension_set,
             }
             fecha_hora=timezone.datetime.combine(
                 fecha_actual,clase.horario
@@ -812,6 +994,7 @@ def generar_qr(request,clase_id,fecha):
 def validar_horario_qr(request,clase_id,fecha):
     clase=Clase.objects.get(id=clase_id)
     fecha_obj=datetime.strptime(fecha,"%Y-%m-%d").date()
+    suspendida = SuspensionClase.objects.filter(clase=clase, fecha=fecha_obj).exists()
     inicio=timezone.make_aware(
         datetime.combine(fecha_obj,clase.horario)
     )
@@ -819,9 +1002,10 @@ def validar_horario_qr(request,clase_id,fecha):
     ahora=timezone.localtime()
     permitido=(
         inicio-timedelta(minutes=15)<=ahora<=fin + timedelta(minutes=15)
-    )
+    ) and not suspendida
     return JsonResponse({
-        "permitido":permitido
+        "permitido":permitido,
+        "suspendida":suspendida,
     })
 
 from django.contrib.auth import authenticate
@@ -1054,6 +1238,7 @@ def pago_tarjeta(request):
                         fecha_clase=fecha_evaluar,
                         clase__horario=clase.horario,
                         clase__actividad=clase.actividad,
+                        clase__activa=True,
                         en_lista_de_espera=False
                     ).exists():
                         continue
@@ -1088,6 +1273,7 @@ def pago_tarjeta(request):
                         fecha_clase=f_sig,
                         clase__horario=clase.horario,
                         clase__actividad=clase.actividad,
+                        clase__activa=True,
                         en_lista_de_espera=False
                     ).exists():
                         continue
@@ -1514,7 +1700,8 @@ def panel_admin(request):
                     for f in fechas_a_crear:
                         datos_cupo = Clase.objects.filter(
                             fecha=f,
-                            horario=horario_obj
+                            horario=horario_obj,
+                            activa=True
                         ).aggregate(total=Sum('cupo_maximo'))
                         
                         cupos_existentes = datos_cupo['total'] or 0
@@ -1543,11 +1730,11 @@ def panel_admin(request):
                         ya_existe_choque = False
 
                         for f in fechas_a_crear:
-                            if Clase.objects.filter(profesor_id=profesor_id, horario=horario_obj, fecha=f).exists():
+                            if Clase.objects.filter(profesor_id=profesor_id, horario=horario_obj, fecha=f, activa=True).exists():
                                 profesor_ocupado = True
                                 fecha_conflicto = f
                                 break
-                            if Clase.objects.filter(actividad_id=actividad_id, horario=horario_obj, fecha=f).exists():
+                            if Clase.objects.filter(actividad_id=actividad_id, horario=horario_obj, fecha=f, activa=True).exists():
                                 ya_existe_choque = True
                                 fecha_conflicto = f
                                 break
@@ -1945,8 +2132,18 @@ def asignar_profesor_clase(request, clase_id):
 
 @login_required
 def historial_pagos(request):
-    pagos = Reserva.objects.filter(usuario=request.user).order_by('-fecha_reserva').exclude(estado_pago='pendiente')
+    pagos = list(Reserva.objects.filter(usuario=request.user).order_by('-fecha_reserva').exclude(estado_pago='pendiente'))
     
+    suspension_claves = {(p.clase_id, p.fecha_clase) for p in pagos}
+    suspensiones = SuspensionClase.objects.filter(
+        clase_id__in=[c for c, _ in suspension_claves],
+        fecha__in=[f for _, f in suspension_claves],
+    )
+    suspension_set = {(s.clase_id, s.fecha) for s in suspensiones}
+    for p in pagos:
+        p.suspendida = (p.clase_id, p.fecha_clase) in suspension_set
+        p.clase_eliminada = not p.clase.activa
+
     for pago in pagos:
         # Obtenemos mes y año de la clase reservada
         mes_clase = pago.fecha_clase.month
@@ -2048,6 +2245,16 @@ def historial_pagos(request):
             continue
         procesados.add(key)
         dia, horario = _info_clase(m)
+        
+        if m.clase and not m.clase.activa:
+            resultados_mensualidad.append({
+                'actividad': m.actividad.nombre,
+                'clase_dia': dia,
+                'clase_horario': horario,
+                'estado': 'clase_eliminada',
+                'mensaje': f'La clase {m.actividad.nombre} asociada a esta mensualidad ya no se encuentra disponible.',
+            })
+            continue
         
         if m.estado == 'pagada':
             resultados_mensualidad.append({
@@ -2262,12 +2469,22 @@ def detalle_clase_api(request, clase_id):
 
     if fecha_str:
         fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
-        clase_finalizada=fecha<date.today()
+        clase_finalizada=False
+        if fecha < date.today():
+            clase_finalizada = True
+        elif fecha == date.today():
+            ahora = timezone.now()
+            clase_datetime = timezone.make_aware(
+                datetime.combine(fecha, clase.horario)
+            )
+            if ahora >= clase_datetime:
+                clase_finalizada = True
         cupos = clase.cupos_para_fecha(fecha)
         cantidad_inscriptos=Reserva.objects.filter(
             fecha_clase=fecha,
             clase__horario=clase.horario,
             clase__actividad=clase.actividad,
+            clase__activa=True,
             en_lista_de_espera=False,
         ).count()
         if request.user.is_authenticated:
@@ -2276,6 +2493,7 @@ def detalle_clase_api(request, clase_id):
                 fecha_clase=fecha,
                 clase__horario=clase.horario,
                 clase__actividad=clase.actividad,
+                clase__activa=True,
             ).first()
             if reserva_user:
                 ya_inscripto = True
@@ -2287,7 +2505,8 @@ def detalle_clase_api(request, clase_id):
                 clase=clase,
                 mes=fecha.month,
                 anio=fecha.year,
-                estado='pagada'
+                estado='pagada',
+                clase__activa=True,
             ).exists()
 
             # Mensualidad mes anterior
@@ -2303,7 +2522,8 @@ def detalle_clase_api(request, clase_id):
                     clase=clase,
                     mes=mes_ant,
                     anio=anio_ant,
-                    estado='pagada'
+                    estado='pagada',
+                    clase__activa=True,
                 ).exists()
 
             ya_mensualizado = mensualidad_mes_actual or mensualidad_mes_anterior
@@ -2313,6 +2533,7 @@ def detalle_clase_api(request, clase_id):
                 usuario=request.user,
                 fecha_clase=fecha,
                 clase__horario=clase.horario,
+                clase__activa=True,
                 en_lista_de_espera=False
             ).exclude(clase__actividad=clase.actividad).select_related('clase__actividad').first()
 
@@ -2361,7 +2582,7 @@ def detalle_clase_api(request, clase_id):
         cola = Reserva.objects.filter(clase=clase, fecha_clase=fecha, en_lista_de_espera=True).select_related('usuario')
         for r in cola:
             tiene_mensualidad = Mensualidad.objects.filter(
-                usuario=r.usuario, actividad=clase.actividad, mes=fecha.month, anio=fecha.year, estado='pagada'
+                usuario=r.usuario, actividad=clase.actividad, mes=fecha.month, anio=fecha.year, estado='pagada', clase__activa=True
             ).exists()
 
             cola_espera_data.append({

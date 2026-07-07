@@ -342,7 +342,7 @@
         
                                         <td>{{ pago.clase.horario|time:"H:i" }}</td>
         
-                                        <td>{{ pago.estado_pago }}</td>
+                                        <td>{% if pago.clase_eliminada %}Eliminada{% elif pago.suspendida %}Suspendida{% else %}{{ pago.estado_pago }}{% endif %}</td>
         
                                         <!-- Modalidad corregida -->
                                         <td>{{ pago.get_modalidad_display }}</td>
@@ -430,6 +430,10 @@
                             {% elif resultado.estado == 'vencida' %}
                                 <span class="badge" style="background-color: rgba(255, 69, 58, 0.2); color: #ff453a; border: 1px solid #ff453a; padding: 6px 12px; font-size: 0.8rem; font-weight: 600;">
                                     ✕ VENCIDA / SUSPENDIDA
+                                </span>
+                            {% elif resultado.estado == 'clase_eliminada' %}
+                                <span class="badge" style="background-color: rgba(255, 69, 58, 0.2); color: #ff453a; border: 1px solid #ff453a; padding: 6px 12px; font-size: 0.8rem; font-weight: 600;">
+                                    CLASE ELIMINADA
                                 </span>
                             {% elif resultado.estado == 'sin_mensualidad' %}
                                 <span class="badge" style="background-color: rgba(99, 99, 102, 0.2); color: #aeaeae; border: 1px solid #636366; padding: 6px 12px; font-size: 0.8rem; font-weight: 600;">

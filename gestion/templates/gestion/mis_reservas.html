@@ -206,6 +206,11 @@
             color:#ffd60a;
             border:1px solid #ffd60a44;
         }
+        .badge-suspendida {
+            background:#ff453a22;
+            color:#ff453a;
+            border:1px solid #ff453a44;
+        }
 
         .brand-top {
             position: absolute;
@@ -445,7 +450,11 @@
                                             {% endif %}
                                         </td>
                                         <td>
-                                            {% if reserva.estado_pago == 'total' %}
+                                            {% if reserva.clase_eliminada %}
+                                                <span class="badge-estado badge-suspendida" style="background:rgba(255,69,58,0.2); color:#ff453a; border-color:#ff453a;">Eliminada</span>
+                                            {% elif reserva.suspendida %}
+                                                <span class="badge-estado badge-suspendida">Suspendida</span>
+                                            {% elif reserva.estado_pago == 'total' %}
                                                 <span class="badge-estado badge-pagada">Pagado</span>
                                             {% elif reserva.estado_pago == 'seña' %}
                                                 <span class="badge-estado badge-senia">Seña</span>
@@ -454,6 +463,7 @@
                                             {% endif %}
                                         </td>
                                         <td>
+                                            {% if not reserva.suspendida and not reserva.clase_eliminada %}
                                             <button
                                                 type="button"
                                                 class="btn-cancelar"
@@ -461,6 +471,7 @@
                                                 data-bs-target="#modalCancelar{{ reserva.id }}">
                                                 Cancelar
                                         </button>
+                                            {% endif %}
                                         </td>
                                     </tr>
                                     <div class="modal fade" id="modalCancelar{{ reserva.id }}" tabindex="-1">
