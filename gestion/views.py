@@ -135,16 +135,17 @@ def grilla_actividades(request):
 
     # 6. Detalle del día seleccionado
     clases_detalle_dia = []
-    for clase in todas_las_clases:
-        if clase.fecha == fecha_seleccionada:
-            clase.cupos_mostrar = clase.cupos_para_fecha(fecha_seleccionada)
-            if fecha_seleccionada == ahora:
-                fecha_hora_clase = timezone.make_aware(
-                    datetime.combine(fecha_seleccionada, clase.horario)
-                )
-                if fecha_hora_clase < timezone.now():
-                    continue
-            clases_detalle_dia.append(clase)
+    if fecha_seleccionada >= ahora:
+        for clase in todas_las_clases:
+            if clase.fecha == fecha_seleccionada:
+                clase.cupos_mostrar = clase.cupos_para_fecha(fecha_seleccionada)
+                if fecha_seleccionada == ahora:
+                    fecha_hora_clase = timezone.make_aware(
+                        datetime.combine(fecha_seleccionada, clase.horario)
+                    )
+                    if fecha_hora_clase < timezone.now():
+                        continue
+                clases_detalle_dia.append(clase)
 
     clases_detalle_dia.sort(key=lambda x: x.horario)
 
