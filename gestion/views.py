@@ -819,11 +819,13 @@ def mis_clases(request):
             fecha_actual+=timedelta(days=7)
     clases_pendientes.sort(key=lambda x:(x['fecha'],x['clase'].horario))
     clases_finalizadas.sort(key=lambda x:(x['fecha'],x['clase'].horario),reverse=True)
+    notificaciones_no_leidas = Notificacion.objects.filter(usuario=request.user, leida=False).count()
     print("pendientes",len(clases_pendientes))
     print("finalizadas",len(clases_finalizadas))
     return render(request,'gestion/mis_clases.html',{
         'clases_pendientes':clases_pendientes,
         'clases_finalizadas':clases_finalizadas,
+        'cantidad_no_leidas': notificaciones_no_leidas,
     })
 @login_required
 def ver_inscriptos(request,clase_id,fecha):
@@ -1502,6 +1504,7 @@ def pago_pendiente(request):
 
 @login_required
 def pago_confirmacion(request, reserva_id):
+    translation.activate('es')
     if reserva_id == 0:
         return render(request, 'pago_confirmacion.html', {'exito': False})
     reserva = get_object_or_404(Reserva, id=reserva_id, usuario=request.user)

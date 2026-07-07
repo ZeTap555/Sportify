@@ -6,7 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sportify - Panel de Control Ejecutivo</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://npmcdn.com/flatpickr/dist/themes/dark.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script> 
     <style>
         /* Base e Interfaz estilo macOS Dark */
         body {
@@ -247,7 +251,7 @@
                                 <select name="profesor" id="id_profesor" class="select-field" required>
                                     <option value="" selected disabled>-- Seleccione un Profesor Obligatoriamente --</option>
                                     {% for prof in profesores %}
-                                        <option value="{{ prof.id }}">{{ prof.apellido }}, {{ prof.nombre }}</option>
+                                        <option value="{{ prof.id }}">{{ prof.nombre }} {{ prof.apellido }} - DNI: ({{ prof.dni }})</option>
                                     {% endfor %}
                                 </select>
                             </div>
@@ -274,7 +278,7 @@
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
                                 <div class="input-group">
                                     <label>Fecha de Inicio (Opcional)</label>
-                                    <input type="date" name="fecha" id="id_fecha" class="input-field">
+                                    <input type="text" id="id_fecha" name="fecha" class="input-field" placeholder="Seleccione fecha...">
                                 </div>
                                 <div class="input-group">
                                     <label>Horario (Horas en punto)</label>
@@ -517,6 +521,32 @@
                     </dialog>
 
                     <script>
+                        let fechaPicker;
+
+                        // Iniciamos el Flatpickr
+                        fechaPicker = flatpickr("#id_fecha", {
+                            locale: "es",
+                            dateFormat: "Y-m-d",
+                            disable: [
+                                function(date) {
+                                    const diaSelect = document.getElementById('id_dia_semana').value;
+                                    if (diaSelect === "") return false; // Si no hay día seleccionado, no bloquees nada
+                                    
+                                    // Convertimos día de semana: 0=Lun ... 6=Dom
+                                    // Flatpickr: 0=Dom, 1=Lun ... 6=Sat
+                                    const flatpickrDia = date.getDay();
+                                    const diaNormalizado = (flatpickrDia === 0) ? 6 : flatpickrDia - 1;
+                                    
+                                    return diaNormalizado != diaSelect; // Deshabilita si NO es el día elegido
+                                }
+                            ]
+                        });
+
+                        // Cuando cambia el select, refrescamos el calendario
+                        document.getElementById('id_dia_semana').addEventListener('change', function() {
+                            fechaPicker.clear(); // Limpiamos la fecha si cambian el día
+                            fechaPicker.redraw(); // Redibujamos el calendario para aplicar el nuevo "disable"
+                        });
                         const inputBuscador = document.getElementById('buscador-profesor');
                         const inputId = document.getElementById('profesor_id_input');
                         const btnBaja = document.getElementById('btn-baja');
@@ -629,6 +659,7 @@
             event.currentTarget.classList.add('active');
             document.getElementById('pane-' + tabId).classList.add('active');
         }
+        
 
         function mostrarErrorGym(mensaje) {
             const contenedor = document.getElementById('contenedor-mensajes-gym');
