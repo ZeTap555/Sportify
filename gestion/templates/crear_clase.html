@@ -239,7 +239,7 @@
                         <option value="">-- Sin asignar (se puede elegir después) --</option>
                         {% for prof in profesores %}
                             <option value="{{ prof.id }}" {% if valores.profesor == prof.id|stringformat:"s" %}selected{% endif %}>
-                                {{ prof.apellido }}, {{ prof.nombre }}
+                                {{ prof.apellido }}, {{ prof.nombre }} - DNI: ({{ prof.id }})
                             </option>
                         {% endfor %}
                     </select>

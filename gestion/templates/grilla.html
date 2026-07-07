@@ -211,6 +211,7 @@
         .modal-cerrar:hover { color: #fff; }
     </style>
 </head>
+<script src="https://unpkg.com/lucide@latest"></script>
 <body>
     <div class="sidebar">
         <div>
@@ -265,7 +266,7 @@
                     display:inline-block;
                ">
 
-                🔔
+                <i data-lucide="bell" style="width: 24px; height: 24px; color:#28a745"></i>
 
                 {% if cantidad_no_leidas > 0 %}
                     <span style="
@@ -303,7 +304,7 @@
 </div>
 
         {% if messages %}
-            <div style="padding: 20px 40px 0 40px; box-sizing: border-box;">
+            <div style="padding: 0px 40px 0 40px; box-sizing: border-box;">
                 {% for message in messages %}
                     <div style="
                         padding: 12px 20px; 
@@ -1071,6 +1072,8 @@
         }
     });
 </script>
-
+<script>
+  lucide.createIcons();
+</script>
 </body>
 </html>
