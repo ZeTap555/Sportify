@@ -37,6 +37,8 @@ urlpatterns = [
     path('pago/exito/', views.pago_exito, name='pago_exito'),
     path('pago/error/', views.pago_error, name='pago_error'),
     path('pago/pendiente/', views.pago_pendiente, name='pago_pendiente'),
+    path('pago/completar-senia/<int:reserva_id>/', views.completar_pago_senia, name='completar_pago_senia'),
+    path('pago/renovar-mensualidad/<int:clase_id>/', views.renovar_mensualidad, name='renovar_mensualidad'),
     path('pago/confirmacion/<int:reserva_id>/', views.pago_confirmacion, name='pago_confirmacion'),
     
     # Notificaciones

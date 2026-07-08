@@ -238,14 +238,14 @@
             text-decoration:none;
             text-align:center;
             padding:4px 10px;
-            border-radius:6px;
+            border-radius:50px;
             border:none;
-            font-weight:500;
-            font-size:0.8rem;
+            font-weight:600;
+            font-size:0.78rem;
             transition:0.2s;
         }
         .btn-cancelar:hover{
-            backgorund:#bb2d3b;
+            background:#bb2d3b;
             color:white;
             text-decoration:none;
         }
@@ -415,7 +415,44 @@
                         </button>
                     </div>
 
-                   
+                    <!-- Filtros para todos los tabs -->
+                    <div class="filtros-reservas mb-4">
+                        <form method="GET" action="{% url 'mis_reservas' %}" class="d-flex align-items-center gap-2 flex-wrap" style="row-gap:6px;">
+                            <select name="actividad" class="form-select" style="background:#2c2c2e; color:#fff; border:1px solid #3a3a3c; width:auto; min-width:140px; font-size:0.82rem; padding:5px 10px;">
+                                <option value="">Todas las actividades</option>
+                                {% for a in actividades_filtro %}
+                                    <option value="{{ a.id }}" {% if filtro_actividad|stringformat:"s" == a.id|stringformat:"s" %}selected{% endif %}>{{ a.nombre }}</option>
+                                {% endfor %}
+                            </select>
+
+                            <select name="dia" class="form-select" style="background:#2c2c2e; color:#fff; border:1px solid #3a3a3c; width:auto; min-width:120px; font-size:0.82rem; padding:5px 10px;">
+                                <option value="">Todos los días</option>
+                                <option value="2" {% if filtro_dia == '2' %}selected{% endif %}>Lunes</option>
+                                <option value="3" {% if filtro_dia == '3' %}selected{% endif %}>Martes</option>
+                                <option value="4" {% if filtro_dia == '4' %}selected{% endif %}>Miércoles</option>
+                                <option value="5" {% if filtro_dia == '5' %}selected{% endif %}>Jueves</option>
+                                <option value="6" {% if filtro_dia == '6' %}selected{% endif %}>Viernes</option>
+                                <option value="7" {% if filtro_dia == '7' %}selected{% endif %}>Sábado</option>
+                            </select>
+
+                            <select name="horario" class="form-select" style="background:#2c2c2e; color:#fff; border:1px solid #3a3a3c; width:auto; min-width:110px; font-size:0.82rem; padding:5px 10px;">
+                                <option value="">Todos los horarios</option>
+                                {% for h in horarios_filtro %}
+                                    <option value="{{ h|time:'H:i:s' }}" {% if filtro_horario == h|time:'H:i:s' %}selected{% endif %}>{{ h|time:'H:i' }}</option>
+                                {% endfor %}
+                            </select>
+
+                            <select name="tipo" class="form-select" style="background:#2c2c2e; color:#fff; border:1px solid #3a3a3c; width:auto; min-width:110px; font-size:0.82rem; padding:5px 10px;">
+                                <option value="">Todos los tipos</option>
+                                <option value="individual" {% if filtro_tipo == 'individual' %}selected{% endif %}>Clase</option>
+                                <option value="mensual" {% if filtro_tipo == 'mensual' %}selected{% endif %}>Mensual</option>
+                            </select>
+
+                            <button type="submit" class="btn btn-sportify btn-sm" style="font-size:0.82rem; padding:5px 14px;">Filtrar</button>
+                            <a href="{% url 'mis_reservas' %}" class="btn btn-sm" style="background:#2c2c2e; color:#8e8e93; border:1px solid #3a3a3c; text-decoration:none; font-size:0.82rem; padding:5px 14px;">Limpiar</a>
+                        </form>
+                    </div>
+
                     <div id="tab-confirmadas">
 
                     {% if reservas %}
@@ -551,6 +588,7 @@
                                         <th>Horario</th>
                                         <th>Tipo</th>
                                         <th>Estado</th>
+                                        <th>Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -568,16 +606,78 @@
                                         <td>{{ reserva.fecha_clase|date:"d/m/Y" }}</td>
                                         <td>{{ reserva.clase.horario|time:"H:i" }}</td>
                                         <td>
-                                            <span class="badge-estado badge-mensual-pendiente">Mensual</span>
+                                            {% if reserva.modalidad == 'mensual' %}
+                                                <span class="badge-estado badge-mensual-pendiente">Mensual</span>
+                                            {% else %}
+                                                <span class="badge-estado badge-clase-personalizado">Clase</span>
+                                            {% endif %}
                                         </td>
                                         <td>
-                                            <span class="badge-estado badge-pendiente">Pendiente</span>
+                                            {% if reserva.estado_pago == 'seña' %}
+                                                <span class="badge-estado badge-senia">Seña</span>
+                                            {% else %}
+                                                <span class="badge-estado badge-pendiente">Pendiente</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if reserva.estado_pago == 'seña' %}
+                                            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                                <a href="{% url 'completar_pago_senia' reserva.id %}" class="btn btn-sportify" style="font-size:0.78rem; padding:4px 10px; text-decoration:none;">
+                                                    Completar pago
+                                                </a>
+                                                <button
+                                                    type="button"
+                                                    class="btn-cancelar"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#modalCancelar{{ reserva.id }}">
+                                                    Cancelar
+                                                </button>
+                                            </div>
+                                            {% elif reserva.modalidad == 'mensual' and reserva.estado_pago == 'pendiente' %}
+                                            <a href="{% url 'renovar_mensualidad' reserva.clase.id %}" class="btn btn-sportify" style="font-size:0.78rem; padding:4px 10px; text-decoration:none;">
+                                                Renovar mensualidad
+                                            </a>
+                                            {% endif %}
                                         </td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
                             </table>
                         </div>
+
+                        {% for reserva in reservas_pendientes_pago %}
+                        {% if reserva.estado_pago == 'seña' %}
+                        <div class="modal fade" id="modalCancelar{{ reserva.id }}" tabindex="-1">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content bg-dark text-white">
+                                    <div class="modal-header border-secondary">
+                                        <h5 class="modal-title">Cancelar inscripción</h5>
+                                        <button type="button" class="btn-close btn-close-white"
+                                                data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p>
+                                            ¿Estás seguro de que querés cancelar la inscripción a esta clase?
+                                        </p>
+                                        <small class="text-white-50">
+                                            Si la cancelación se realiza con al menos 1 día de anticipación recibirás un ticket de reintegro. En caso contrario, no podrás acceder al reintegro.
+                                        </small>
+                                    </div>
+                                    <div class="modal-footer border-secondary">
+                                        <button class="btn btn-secondary"
+                                                data-bs-dismiss="modal">
+                                            Volver
+                                        </button>
+                                        <a href="{% url 'cancelar_clase_individual' reserva.id %}"
+                                           class="btn btn-confirmar-cancelacion">
+                                            Sí, cancelar inscripción
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
                     {% else %}
                         <div class="card card-custom text-center py-5 my-3" role="alert">
                             <h4 class="text-white mb-2" style="font-weight:500;">
