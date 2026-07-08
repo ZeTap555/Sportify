@@ -1915,8 +1915,8 @@ def panel_admin(request):
     mostrar_modal_profesor = request.session.pop('mostrar_modal_profesor', False)
     valores_clase = request.session.pop('valores_clase', {})
     
-    # Tomamos la pestaña activa de la sesión si falló algo, sino por defecto 'clases'
-    pestania_activa = request.session.pop('pestania_activa', 'clases') 
+    # Tomamos la pestaña activa: primero del GET, luego de la sesión, sino 'clases'
+    pestania_activa = request.GET.get('pestania') or request.session.pop('pestania_activa', 'clases')
 
     ahora = date.today()
 
@@ -2376,17 +2376,107 @@ def panel_admin(request):
         'valores_profesor': valores_profesor,
         'mostrar_modal_profesor': mostrar_modal_profesor,
         'valores_clase': valores_clase,
+        'usuarios': Usuario.objects.exclude(rol='admin').order_by('last_name', 'first_name'),
     }
     return render(request, 'panel_admin.html', context)
+
+
+@login_required
+def actividad_usuario(request, user_id):
+    if request.user.rol != 'admin':
+        return redirect('grilla_actividades')
+
+    usuario = get_object_or_404(Usuario, id=user_id)
+
+    # Notificaciones recientes (últimas 10) — aplica a cualquier rol
+    notificaciones = Notificacion.objects.filter(usuario=usuario).order_by('-fecha')[:10]
+
+    # Datos específicos según el rol
+    reservas = []
+    mensualidades = []
+    vouchers = []
+    clases_profesor = []
+    suspension_set = set()
+
+    if usuario.rol == 'profesor':
+        # Buscar el registro Profesor asociado a este usuario
+        try:
+            profesor = Profesor.objects.get(usuario=usuario)
+        except Profesor.DoesNotExist:
+            profesor = None
+
+        if profesor:
+            # Clases que dicta el profesor (más antigua primero)
+            clases_profesor = Clase.objects.filter(
+                profesor=profesor
+            ).select_related('actividad').order_by('fecha', 'horario')
+
+            # Suspensiones de estas clases
+            clases_ids = [c.id for c in clases_profesor]
+            suspensiones_prof = SuspensionClase.objects.filter(
+                clase_id__in=clases_ids
+            ).values_list('clase_id', 'fecha')
+            suspension_set_prof = {(s[0], s[1]) for s in suspensiones_prof}
+
+            # Para cada clase, contar cuántos inscriptos tiene y si está suspendida
+            for c in clases_profesor:
+                c.cantidad_inscriptos = Reserva.objects.filter(
+                    clase=c,
+                    fecha_clase=c.fecha,
+                    en_lista_de_espera=False,
+                ).count()
+                c.suspendida = (c.id, c.fecha) in suspension_set_prof
+
+    elif usuario.rol == 'cliente':
+        # Reservas del usuario (más antigua primero)
+        reservas = Reserva.objects.filter(usuario=usuario).select_related('clase', 'clase__actividad').order_by('fecha_clase')
+
+        # Mensualidades del usuario
+        mensualidades = Mensualidad.objects.filter(usuario=usuario).select_related('actividad', 'clase').order_by('-anio', '-mes')
+
+        # Vouchers del usuario
+        vouchers = Voucher.objects.filter(cliente=usuario).order_by('-fecha_otorgado')
+
+        # Suspensiones de las clases donde este usuario tiene reservas
+        if reservas.exists():
+            clases_ids = reservas.values_list('clase_id', flat=True).distinct()
+            fechas_clases = reservas.values_list('fecha_clase', flat=True).distinct()
+            suspensiones = SuspensionClase.objects.filter(
+                clase_id__in=list(clases_ids),
+                fecha__in=list(fechas_clases),
+            )
+            suspension_set = {(s.clase_id, s.fecha) for s in suspensiones}
+
+            ahora = timezone.now()
+            for r in reservas:
+                r.suspendida = (r.clase_id, r.fecha_clase) in suspension_set
+                r.clase_eliminada = not r.clase.activa
+                # Verificar si la clase ya pasó (hora de clase + 1h15m de duración)
+                clase_datetime = timezone.make_aware(
+                    datetime.combine(r.fecha_clase, r.clase.horario)
+                )
+                r.ya_finalizo = ahora > (clase_datetime + timedelta(hours=1, minutes=15))
+
+    context = {
+        'usuario': usuario,
+        'reservas': reservas,
+        'mensualidades': mensualidades,
+        'vouchers': vouchers,
+        'clases_profesor': clases_profesor,
+        'notificaciones': notificaciones,
+    }
+    return render(request, 'actividad_usuario.html', context)
+
 
 def validar_baja(request):
     profesor_id = request.POST.get('profesor_id')
     profesor = Profesor.objects.get(id=profesor_id)
     
-    # Verificamos si tiene clases futuras
+    # Verificamos si tiene clases futuras ACTIVAS
     tiene_clases = Clase.objects.filter(
         profesor=profesor, 
-        fecha__gte=timezone.now().date()
+        fecha__gte=timezone.now().date(),
+        activa=True,
     ).exists()
     
     # Devolvemos un JSON que JavaScript entenderá

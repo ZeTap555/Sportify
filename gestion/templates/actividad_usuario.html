@@ -1,0 +1,516 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sportify - Actividad de {{ usuario.first_name }} {{ usuario.last_name }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #000000;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .sidebar {
+            width: 240px;
+            background-color: #1c1c1e;
+            border-right: 1px solid #2c2c2e;
+            padding: 20px 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100vh;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        }
+        .sidebar-brand { 
+            width: 100%;                  
+            height: 30px;                
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 15px;              
+            margin-bottom: 25px;          
+        }
+        .sidebar-brand-link {
+            display: block;
+            width: 100%;
+            text-align: center;
+            text-decoration: none;
+        }
+        .logo-sidebar {
+            height: 150px;                 
+            width: auto;                  
+            object-fit: contain;          
+        }
+        .sidebar-brand-link:hover .logo-sidebar { transform: scale(1.03); }
+        .sidebar-menu { 
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex-grow: 1;
+        }
+        .menu-item { display: block; padding: 12px 16px; color: #8e8e93; text-decoration: none; font-weight: 500; border-radius: 8px; margin-bottom: 5px; transition: all 0.15s; }
+        .menu-item.active { background-color: #2c2c2e; color: #ffffff; font-weight: 600; }
+        .menu-item:hover:not(.active) { background-color: rgba(255, 255, 255, 0.04); color: #ffffff; }
+        .sidebar-footer { border-top: 1px solid #2c2c2e; padding-top: 20px; }
+        .user-tag { font-size: 0.8rem; color: #8e8e93; margin-bottom: 10px; padding-left: 10px; }
+        .btn-danger {
+            display: block; text-align: center; text-decoration: none; padding: 9px 18px; border-radius: 8px; font-size: 0.85rem; font-weight: 600;
+            background-color: transparent; color: #ff453a; border: 1px solid rgba(255, 69, 58, 0.2); transition: all 0.15s;
+        }
+        .btn-danger:hover { background-color: rgba(255, 69, 58, 0.08); border-color: #ff453a; }
+
+        .right-area {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            height: 100vh;
+        }
+        .top-header {
+            height: 65px;
+            background-color: #1c1c1e;
+            border-bottom: 1px solid #2c2c2e;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        }
+        .main-content {
+            flex-grow: 1;
+            padding: 20px 40px;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+        .card-custom { 
+            background-color: #1c1c1e; 
+            border: 1px solid #2c2c2e; 
+            border-radius: 12px;
+        }
+        .text-warning-custom {
+            color: #34c759 !important;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .info-item { background-color: #2c2c2e; border-radius: 8px; padding: 12px 16px; }
+        .info-label { font-size: 0.7rem; color: #8e8e93; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+        .info-value { font-size: 0.95rem; color: #ffffff; font-weight: 500; margin-top: 4px; }
+        .btn-back {
+            background-color: transparent; border: 1px solid #3a3a3c; color: #ffffff; padding: 8px 20px; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 0.85rem; transition: all 0.15s;
+        }
+        .btn-back:hover { border-color: #00ff88; color: #00ff88; }
+        .input-field { background-color: #2c2c2e; border: 1px solid #3a3a3c; color: #ffffff; padding: 8px 14px; border-radius: 8px; font-size: 0.85rem; outline: none; box-sizing: border-box; }
+        .input-field:focus { border-color: #00ff88; }
+        .table-wrap { overflow-x: auto; }
+        .table-custom { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .table-custom th { text-align: left; padding: 10px 10px; color: #8e8e93; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.75rem; border-bottom: 1px solid #2c2c2e; }
+        .table-custom td { padding: 10px 10px; border-bottom: 1px solid #2c2c2e; color: #ffffff; }
+        .table-custom tr:hover td { background-color: rgba(255,255,255,0.02); }
+        .badge-status { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+        .badge-pagada { background-color: rgba(48, 209, 88, 0.15); color: #30d158; }
+        .badge-pendiente { background-color: rgba(255, 159, 10, 0.15); color: #ff9f0a; }
+        .badge-vencida { background-color: rgba(255, 69, 58, 0.15); color: #ff453a; }
+        .badge-suspendida { background-color: rgba(255, 69, 58, 0.15); color: #ff453a; }
+        .badge-asistio { background-color: rgba(48, 209, 88, 0.15); color: #30d158; }
+        .badge-no-asistio { background-color: rgba(99, 99, 102, 0.15); color: #8e8e93; }
+        .section-title { font-size: 1rem; font-weight: 600; color: #ffffff; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+        .section-title .count { color: #8e8e93; font-size: 0.8rem; font-weight: 400; }
+        .empty-msg { text-align: center; color: #636366; padding: 30px; font-style: italic; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div>
+        <div class="sidebar-brand" style="justify-content: center; padding: 10px 0;">
+            <a href="{% url 'grilla_actividades' %}" class="sidebar-brand-link">
+                <img src="{% static 'img/logo_Sportify_name.png' %}" class="logo-sidebar" alt="Sportify Logo">
+            </a>
+        </div>
+        <div class="sidebar-menu">
+            <a href="{% url 'grilla_actividades' %}" class="menu-item">Cronograma</a>
+            <a href="{% url 'perfil' %}" class="menu-item">Mi Perfil</a>
+            <a href="{% url 'panel_admin' %}" class="menu-item">Panel Admin</a>
+        </div>
+    </div>
+    <div class="sidebar-footer">
+        {% if request.user.is_authenticated %}
+            <div class="user-tag">Admin: {{ request.user.first_name }}</div>
+            <a href="{% url 'logout' %}" class="btn-danger">Cerrar Sesión</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="right-area">
+    <div class="top-header">
+        <a href="{% url 'panel_admin' %}?pestania=usuarios" class="btn-back">← Volver al Panel</a>
+        <span style="font-size:0.85rem; color:#8e8e93; font-weight:500;">
+            Actividad de <strong style="color:#00ff88;">{{ usuario.first_name }} {{ usuario.last_name }}</strong>
+        </span>
+    </div>
+
+    <div class="main-content">
+        <div class="container-fluid px-0">
+
+            <!-- Datos personales -->
+            <div class="card-custom p-4 mb-4">
+                <h5 class="section-title m-0 mb-3">📋 Datos Personales</h5>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Nombre</div>
+                        <div class="info-value">{{ usuario.first_name }} {{ usuario.last_name }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">DNI</div>
+                        <div class="info-value">{{ usuario.dni }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Email</div>
+                        <div class="info-value">{{ usuario.email|default:"—" }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Teléfono</div>
+                        <div class="info-value">{{ usuario.telefono|default:"—" }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Rol</div>
+                        <div class="info-value" style="text-transform: capitalize;">{{ usuario.rol }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Estado</div>
+                        <div class="info-value" style="color: {% if usuario.is_active %}#30d158{% else %}#8e8e93{% endif %};">{% if usuario.is_active %}Activo{% else %}Inactivo{% endif %}</div>
+                    </div>
+                </div>
+            </div>
+
+            {% if usuario.rol == 'profesor' %}
+
+            <!-- Clases que dicta el profesor -->
+            <div class="card-custom p-4 mb-4">
+                <h5 class="section-title m-0 mb-3">📚 Clases que dicta <span class="count">({{ clases_profesor|length }})</span></h5>
+                <div style="margin-bottom:15px;">
+                    <select id="filtro-clases-profesor" class="input-field" style="width:auto; min-width:180px;" onchange="filtrarClasesProfesor()">
+                        <option value="todas">Todas</option>
+                        <option value="activa">Activas</option>
+                        <option value="suspendida">Suspendidas</option>
+                        <option value="eliminada">Eliminadas</option>
+                    </select>
+                </div>
+                <div class="table-wrap">
+                    <table class="table-custom" id="tabla-clases-profesor">
+                        <thead>
+                            <tr>
+                                <th>Actividad</th>
+                                <th>Fecha</th>
+                                <th>Horario</th>
+                                <th>Cupo</th>
+                                <th>Inscriptos</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in clases_profesor %}
+                            <tr data-estado="{% if not c.activa %}eliminada{% elif c.suspendida %}suspendida{% else %}activa{% endif %}">
+                                <td>{{ c.actividad.nombre }}</td>
+                                <td>{{ c.fecha|date:"d/m/Y" }}</td>
+                                <td>{{ c.horario|time:"H:i" }}</td>
+                                <td>{{ c.cupo_maximo }}</td>
+                                <td>{{ c.cantidad_inscriptos }}</td>
+                                <td>
+                                    {% if not c.activa %}
+                                        <span class="badge-status badge-vencida">Eliminada</span>
+                                    {% elif c.suspendida %}
+                                        <span class="badge-status badge-suspendida">Suspendida</span>
+                                    {% else %}
+                                        <span style="color:#30d158;">Activa</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="6" class="empty-msg">No tiene clases asignadas.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {% else %}
+
+            <!-- Apto médico (solo clientes) -->
+            <div class="card-custom p-4 mb-4">
+                <h5 class="section-title m-0 mb-3">🩺 Apto Médico</h5>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Estado</div>
+                        <div class="info-value">
+                            {% with estado=usuario.estado_apto_medico %}
+                                {% if estado == 'vigente' %}
+                                    <span style="color:#30d158;">● Vigente</span>
+                                {% elif estado == 'proximo_a_vencer' %}
+                                    <span style="color:#ff9f0a;">● Próximo a vencer</span>
+                                {% elif estado == 'vencido' %}
+                                    <span style="color:#ff453a;">● Vencido</span>
+                                {% else %}
+                                    <span style="color:#636366;">● Sin cargar</span>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Fecha de carga</div>
+                        <div class="info-value">{{ usuario.fecha_carga_apto|date:"d/m/Y"|default:"—" }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Vencimiento</div>
+                        <div class="info-value">{{ usuario.fecha_vencimiento_apto|date:"d/m/Y"|default:"—" }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Días restantes</div>
+                        <div class="info-value">
+                            {% with dias=usuario.dias_restantes_apto %}
+                                {% if dias is None %}
+                                    —
+                                {% elif dias < 0 %}
+                                    <span style="color:#ff453a;">Vencido hace {{ dias|cut:"-" }} días</span>
+                                {% elif dias == 0 %}
+                                    <span style="color:#ff9f0a;">Vence hoy</span>
+                                {% else %}
+                                    <span style="color:#30d158;">{{ dias }} días</span>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Declaración aceptada</div>
+                        <div class="info-value">{{ usuario.acepto_declaracion_apto|yesno:"✅ Sí,❌ No" }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reservas -->
+            <div class="card-custom p-4 mb-4">
+                <h5 class="section-title m-0 mb-3">📅 Reservas <span class="count">({{ reservas|length }})</span></h5>
+                <div style="margin-bottom:15px;">
+                    <select id="filtro-reservas" class="input-field" style="width:auto; min-width:180px;" onchange="filtrarReservas()">
+                        <option value="todas">Todas</option>
+                        <option value="activa">Activas</option>
+                        <option value="finalizada">Finalizadas</option>
+                        <option value="suspendida">Suspendidas</option>
+                        <option value="eliminada">Eliminadas</option>
+                        <option value="espera">En espera</option>
+                    </select>
+                </div>
+                <div class="table-wrap">
+                    <table class="table-custom" id="tabla-reservas">
+                        <thead>
+                            <tr>
+                                <th>Actividad</th>
+                                <th>Fecha clase</th>
+                                <th>Horario</th>
+                                <th>Modalidad</th>
+                                <th>Monto</th>
+                                <th>Pago</th>
+                                <th>Asistió</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in reservas %}
+                            <tr data-estado="{% if r.clase_eliminada %}eliminada{% elif r.suspendida %}suspendida{% elif r.en_lista_de_espera %}espera{% elif r.ya_finalizo %}finalizada{% else %}activa{% endif %}">
+                                <td>{{ r.clase.actividad.nombre }}</td>
+                                <td>{{ r.fecha_clase|date:"d/m/Y" }}</td>
+                                <td>{{ r.clase.horario|time:"H:i" }}</td>
+                                <td>{{ r.get_modalidad_display }}</td>
+                                <td>${{ r.monto_pagado|floatformat:2 }}</td>
+                                <td>
+                                    {% if r.estado_pago == 'total' %}
+                                        <span class="badge-status badge-pagada">Total</span>
+                                    {% elif r.estado_pago == 'seña' %}
+                                        <span class="badge-status badge-pendiente">Seña</span>
+                                    {% else %}
+                                        <span class="badge-status badge-pendiente">{{ r.estado_pago }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if r.asistio %}
+                                        <span class="badge-status badge-asistio">✅</span>
+                                    {% else %}
+                                        <span class="badge-status badge-no-asistio">—</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if r.clase_eliminada %}
+                                        <span class="badge-status badge-vencida">Eliminada</span>
+                                    {% elif r.suspendida %}
+                                        <span class="badge-status badge-suspendida">Suspendida</span>
+                                    {% elif r.en_lista_de_espera %}
+                                        <span style="color:#ff9f0a;">En espera</span>
+                                    {% elif r.ya_finalizo %}
+                                        <span style="color:#636366;">Finalizada</span>
+                                    {% else %}
+                                        <span style="color:#30d158;">Activa</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="8" class="empty-msg">Sin reservas registradas.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Mensualidades -->
+            <div class="card-custom p-4 mb-4">
+                <h5 class="section-title m-0 mb-3">📆 Mensualidades <span class="count">({{ mensualidades|length }})</span></h5>
+                <div class="table-wrap">
+                    <table class="table-custom">
+                        <thead>
+                            <tr>
+                                <th>Actividad</th>
+                                <th>Mes</th>
+                                <th>Año</th>
+                                <th>Fecha de pago</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in mensualidades %}
+                            <tr>
+                                <td>{{ m.actividad.nombre }}</td>
+                                <td>{{ m.mes }}</td>
+                                <td>{{ m.anio }}</td>
+                                <td>{{ m.fecha_pago|date:"d/m/Y"|default:"—" }}</td>
+                                <td>
+                                    {% if m.estado == 'pagada' %}
+                                        <span class="badge-status badge-pagada">Pagada</span>
+                                    {% elif m.estado == 'pendiente' %}
+                                        <span class="badge-status badge-pendiente">Pendiente</span>
+                                    {% else %}
+                                        <span class="badge-status badge-vencida">Vencida</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="empty-msg">Sin mensualidades registradas.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Vouchers -->
+            <div class="card-custom p-4 mb-4">
+                <h5 class="section-title m-0 mb-3">🎫 Vouchers <span class="count">({{ vouchers|length }})</span></h5>
+                <div class="table-wrap">
+                    <table class="table-custom">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Fecha otorgado</th>
+                                <th>Vence</th>
+                                <th>Usado</th>
+                                <th>Motivo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for v in vouchers %}
+                            <tr>
+                                <td>{{ v.id }}</td>
+                                <td>{{ v.fecha_otorgado|date:"d/m/Y" }}</td>
+                                <td>{{ v.fecha_vencimiento|date:"d/m/Y" }}</td>
+                                <td>
+                                    {% if v.utilizado %}
+                                        <span class="badge-status badge-no-asistio">Sí</span>
+                                    {% else %}
+                                        <span class="badge-status badge-asistio">No</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ v.motivo|default:"—" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="empty-msg">Sin vouchers registrados.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {% endif %}
+
+            <!-- Notificaciones recientes (para cualquier rol) -->
+            <div class="card-custom p-4 mb-4">
+                <h5 class="section-title m-0 mb-3">🔔 Notificaciones recientes <span class="count">(últimas {{ notificaciones|length }})</span></h5>
+                <div class="table-wrap">
+                    <table class="table-custom">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Mensaje</th>
+                                <th>Leída</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for n in notificaciones %}
+                            <tr>
+                                <td>{{ n.fecha|date:"d/m/Y H:i" }}</td>
+                                <td>{{ n.mensaje }}</td>
+                                <td>
+                                    {% if n.leida %}
+                                        <span style="color:#636366;">Sí</span>
+                                    {% else %}
+                                        <span style="color:#ff9f0a; font-weight:600;">No</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="3" class="empty-msg">Sin notificaciones.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+function filtrarClasesProfesor() {
+    const filtro = document.getElementById('filtro-clases-profesor').value;
+    const filas = document.querySelectorAll('#tabla-clases-profesor tbody tr');
+    filas.forEach(function(fila) {
+        if (!fila.hasAttribute('data-estado')) return;
+        const estado = fila.getAttribute('data-estado');
+        if (filtro === 'todas') {
+            fila.style.display = '';
+        } else {
+            fila.style.display = estado === filtro ? '' : 'none';
+        }
+    });
+}
+function filtrarReservas() {
+    const filtro = document.getElementById('filtro-reservas').value;
+    const filas = document.querySelectorAll('#tabla-reservas tbody tr');
+    filas.forEach(function(fila) {
+        if (!fila.hasAttribute('data-estado')) return;
+        const estado = fila.getAttribute('data-estado');
+        if (filtro === 'todas') {
+            fila.style.display = '';
+        } else {
+            fila.style.display = estado === filtro ? '' : 'none';
+        }
+    });
+}
+</script>
+</body>
+</html>

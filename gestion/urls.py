@@ -49,4 +49,7 @@ urlpatterns = [
     
     # Reportes
     path('comprobante/pdf/<int:reserva_id>', views.comprobante_pdf, name='comprobante_pdf'),
+
+    # Admin: actividad de usuario
+    path('usuario/<int:user_id>/actividad/', views.actividad_usuario, name='actividad_usuario'),
 ]
