@@ -617,8 +617,8 @@ def mis_reservas(request):
     for r in reservas_qs:
         if r.en_lista_de_espera:
             reservas_espera.append(r)
-        elif r.modalidad == 'mensual' and r.estado_pago == 'pendiente':
-            r.es_mensual_pendiente = True
+        elif (r.modalidad == 'mensual' and r.estado_pago == 'pendiente') or r.estado_pago == 'seña':
+            r.es_mensual_pendiente = r.modalidad == 'mensual'
             r.es_mensual = False
             reservas_pendientes_pago.append(r)
         else:
@@ -1090,67 +1090,69 @@ def pago_tarjeta(request):
                 # saldo_insuficiente, tarjeta_inexistente, error_banco
                 return redirect('pago_confirmacion', reserva_id=0)
 
-        # Pago exitoso -> crear reservas asociadas y registrar la mensualidad vigente
-        with transaction.atomic():
-            clase = get_object_or_404(Clase, id=datos['clase_id'])
-            fecha_inicial = datetime.strptime(datos['fecha_clase'], '%Y-%m-%d').date()
-            hoy = datetime.now().date()
-            
-            mensaje_sin_cupo = None
-            
-            if datos['flujo_tipo'] == 'mensualidad':
-                mes_current = fecha_inicial.month
-                anio_actual = fecha_inicial.year
-                dia_semana_objetivo = fecha_inicial.weekday()
-                
-                reserva_principal = None
+        # Pago exitoso
+        tipo_op = datos.get('tipo_operacion')
 
-                # 1. Fase A: Mes actual (pagado)
-                fechas_con_cupo = datos.get('fechas_con_cupo', [])
-                cant_fechas_mes_actual = len(fechas_con_cupo)
+        if tipo_op == 'completar_senia':
+            with transaction.atomic():
+                reserva = get_object_or_404(Reserva, id=datos['reserva_id'], usuario=request.user)
+                reserva.monto_pagado += Decimal(datos['monto'])
+                reserva.estado_pago = 'total'
+                reserva.medio_pago = 'Tarjeta'
+                reserva.save()
 
-                for f_str in fechas_con_cupo:
-                    fecha_evaluar = datetime.strptime(f_str, '%Y-%m-%d').date()
-                    if Reserva.objects.filter(
-                        usuario=request.user,
-                        fecha_clase=fecha_evaluar,
-                        clase__horario=clase.horario,
-                        clase__actividad=clase.actividad,
-                        en_lista_de_espera=False
-                    ).exists():
-                        continue
-                    nueva_reserva = Reserva.objects.create(
-                        usuario=request.user,
-                        clase=clase,
-                        fecha_clase=fecha_evaluar,
-                        monto_pagado=Decimal(datos['monto']) / max(cant_fechas_mes_actual, 1),
-                        estado_pago='total',
-                        medio_pago='Tarjeta',
-                        en_lista_de_espera=False,
-                        modalidad='mensual'
-                    )
-                    if not reserva_principal:
-                        reserva_principal = nueva_reserva
+                clase = reserva.clase
+                mensaje_notificacion = f"Completaste el pago de la clase: {clase.actividad.nombre} del {reserva.fecha_clase.strftime('%d/%m/%Y')}"
+                Notificacion.objects.create(usuario=request.user, mensaje=mensaje_notificacion)
 
-                # 2. Fase B: Mes siguiente completo (pendiente de pago)
-                if mes_current == 12:
+            threading.Thread(
+                target=enviar_confirmacion,
+                args=(request.user, clase, reserva),
+                kwargs={
+                    'subject_override': f"Sportify - Pago completado: {clase.actividad.nombre}",
+                }
+            ).start()
+            request.session['ultimo_monto_pagado'] = str(Decimal(datos['monto']))
+            del request.session['inscripcion_pendiente']
+            return redirect('pago_confirmacion', reserva_id=reserva.id)
+
+        elif tipo_op == 'renovar_mensualidad':
+            with transaction.atomic():
+                clase = get_object_or_404(Clase, id=datos['clase_id'])
+                hoy = date.today()
+
+                reservas = Reserva.objects.filter(id__in=datos['reserva_ids'], usuario=request.user)
+                cant = max(reservas.count(), 1)
+                for r in reservas:
+                    r.estado_pago = 'total'
+                    r.monto_pagado = Decimal(datos['monto']) / cant
+                    r.medio_pago = 'Tarjeta'
+                    r.save()
+
+                reserva_principal = reservas.first()
+
+                Mensualidad.objects.update_or_create(
+                    usuario=request.user,
+                    clase=clase,
+                    actividad=clase.actividad,
+                    mes=datos['mes'],
+                    anio=datos['anio'],
+                    defaults={'fecha_pago': hoy, 'estado': 'pagada'}
+                )
+
+                # Fase B: Pre-crear mes siguiente como pendiente
+                if datos['mes'] == 12:
                     mes_siguiente = 1
-                    anio_siguiente = anio_actual + 1
+                    anio_siguiente = datos['anio'] + 1
                 else:
-                    mes_siguiente = mes_current + 1
-                    anio_siguiente = anio_actual
+                    mes_siguiente = datos['mes'] + 1
+                    anio_siguiente = datos['anio']
 
+                dia_semana_objetivo = reserva_principal.fecha_clase.weekday()
                 _, ultimo_dia_mes_sig = monthrange(anio_siguiente, mes_siguiente)
                 for d in range(1, ultimo_dia_mes_sig + 1):
                     f_sig = date(anio_siguiente, mes_siguiente, d)
                     if f_sig.weekday() != dia_semana_objetivo:
-                        continue
-                    if Reserva.objects.filter(
-                        usuario=request.user,
-                        fecha_clase=fecha_evaluar,
-                        clase__horario=clase.horario,
-                        en_lista_de_espera=False
-                    ).exists():
                         continue
                     Reserva.objects.create(
                         usuario=request.user,
@@ -1162,56 +1164,147 @@ def pago_tarjeta(request):
                         en_lista_de_espera=False,
                         modalidad='mensual'
                     )
+
+                mensaje_notificacion = f"Renovaste tu mensualidad de {clase.actividad.nombre} los {clase.dia_semana_plural.lower()} a las {clase.horario.strftime('%H:%M')} hs."
+                Notificacion.objects.create(usuario=request.user, mensaje=mensaje_notificacion)
+
+            threading.Thread(
+                target=enviar_confirmacion,
+                args=(request.user, clase, reserva_principal),
+                kwargs={
+                    'subject_override': f"Sportify - Mensualidad renovada: {clase.actividad.nombre}",
+                    'monto_total': Decimal(datos['monto']),
+                }
+            ).start()
+            del request.session['inscripcion_pendiente']
+            return redirect('pago_confirmacion', reserva_id=reserva_principal.id)
+
+        else:
+            # FLUJO EXISTENTE
+            with transaction.atomic():
+                clase = get_object_or_404(Clase, id=datos['clase_id'])
+                fecha_inicial = datetime.strptime(datos['fecha_clase'], '%Y-%m-%d').date()
+                hoy = datetime.now().date()
                 
-                # 3. Registrar la mensualidad en estado pagada
-                Mensualidad.objects.update_or_create(
-                    usuario=request.user,
-                    clase=clase,
-                    actividad=clase.actividad,
-                    mes=mes_current,
-                    anio=anio_actual,
-                    defaults={
-                        'fecha_pago': hoy,
-                        'estado': 'pagada'
-                    }
-                )
+                mensaje_sin_cupo = None
                 
-                reserva = reserva_principal
-                fechas_sin_cupo = datos.get('fechas_sin_cupo', [])
-                mensaje_notificacion = f"Se realizó con éxito el pago de tu MENSUALIDAD para: {clase.actividad.nombre} los {clase.dia_semana_plural.lower()} a las {clase.horario.strftime('%H:%M')} hs. Las clases del próximo mes quedaron reservadas pendientes de pago."
-                if fechas_sin_cupo:
-                    mensaje_sin_cupo = (
-                        f"La próxima clase de {clase.actividad.nombre} de los {clase.dia_semana_plural.lower()} "
-                        f"a las {clase.horario.strftime('%H:%M')} hs no tiene cupo disponible. "
-                        f"Tu mensualidad comenzará a partir de la próxima semana."
+                if datos['flujo_tipo'] == 'mensualidad':
+                    mes_current = fecha_inicial.month
+                    anio_actual = fecha_inicial.year
+                    dia_semana_objetivo = fecha_inicial.weekday()
+                    
+                    reserva_principal = None
+
+                    fechas_con_cupo = datos.get('fechas_con_cupo', [])
+                    cant_fechas_mes_actual = len(fechas_con_cupo)
+
+                    for f_str in fechas_con_cupo:
+                        fecha_evaluar = datetime.strptime(f_str, '%Y-%m-%d').date()
+                        if Reserva.objects.filter(
+                            usuario=request.user,
+                            fecha_clase=fecha_evaluar,
+                            clase__horario=clase.horario,
+                            clase__actividad=clase.actividad,
+                            en_lista_de_espera=False
+                        ).exists():
+                            continue
+                        nueva_reserva = Reserva.objects.create(
+                            usuario=request.user,
+                            clase=clase,
+                            fecha_clase=fecha_evaluar,
+                            monto_pagado=Decimal(datos['monto']) / max(cant_fechas_mes_actual, 1),
+                            estado_pago='total',
+                            medio_pago='Tarjeta',
+                            en_lista_de_espera=False,
+                            modalidad='mensual'
+                        )
+                        if not reserva_principal:
+                            reserva_principal = nueva_reserva
+
+                    if mes_current == 12:
+                        mes_siguiente = 1
+                        anio_siguiente = anio_actual + 1
+                    else:
+                        mes_siguiente = mes_current + 1
+                        anio_siguiente = anio_actual
+
+                    _, ultimo_dia_mes_sig = monthrange(anio_siguiente, mes_siguiente)
+                    for d in range(1, ultimo_dia_mes_sig + 1):
+                        f_sig = date(anio_siguiente, mes_siguiente, d)
+                        if f_sig.weekday() != dia_semana_objetivo:
+                            continue
+                        if Reserva.objects.filter(
+                            usuario=request.user,
+                            fecha_clase=fecha_evaluar,
+                            clase__horario=clase.horario,
+                            en_lista_de_espera=False
+                        ).exists():
+                            continue
+                        Reserva.objects.create(
+                            usuario=request.user,
+                            clase=clase,
+                            fecha_clase=f_sig,
+                            monto_pagado=0,
+                            estado_pago='pendiente',
+                            medio_pago='Tarjeta',
+                            en_lista_de_espera=False,
+                            modalidad='mensual'
+                        )
+                    
+                    Mensualidad.objects.update_or_create(
+                        usuario=request.user,
+                        clase=clase,
+                        actividad=clase.actividad,
+                        mes=mes_current,
+                        anio=anio_actual,
+                        defaults={
+                            'fecha_pago': hoy,
+                            'estado': 'pagada'
+                        }
                     )
-                    mensaje_notificacion += f" {mensaje_sin_cupo}"
-                    request.session['mensualidad_sin_cupo'] = mensaje_sin_cupo
-            
-            else:
-                # Flujo normal de una clase única individual
-                estado_final = 'seña' if datos['tipo_pago'] == 'senia' else 'total'
-                reserva = Reserva.objects.create(
+                    
+                    reserva = reserva_principal
+                    fechas_sin_cupo = datos.get('fechas_sin_cupo', [])
+                    mensaje_notificacion = f"Se realizó con éxito el pago de tu MENSUALIDAD para: {clase.actividad.nombre} los {clase.dia_semana_plural.lower()} a las {clase.horario.strftime('%H:%M')} hs. Las clases del próximo mes quedaron reservadas pendientes de pago."
+                    if fechas_sin_cupo:
+                        mensaje_sin_cupo = (
+                            f"La próxima clase de {clase.actividad.nombre} de los {clase.dia_semana_plural.lower()} "
+                            f"a las {clase.horario.strftime('%H:%M')} hs no tiene cupo disponible. "
+                            f"Tu mensualidad comenzará a partir de la próxima semana."
+                        )
+                        mensaje_notificacion += f" {mensaje_sin_cupo}"
+                        request.session['mensualidad_sin_cupo'] = mensaje_sin_cupo
+                
+                else:
+                    estado_final = 'seña' if datos['tipo_pago'] == 'senia' else 'total'
+                    reserva = Reserva.objects.create(
+                        usuario=request.user,
+                        clase=clase,
+                        fecha_clase=fecha_inicial,
+                        monto_pagado=datos['monto'],
+                        estado_pago=estado_final,
+                        medio_pago='Tarjeta',
+                        modalidad='individual'
+                    )
+                    if datos['tipo_pago'] == 'senia':
+                        mensaje_notificacion = f"Se realizó con éxito el pago de la seña para la clase: {clase.actividad.nombre} del {fecha_inicial.strftime('%d/%m/%Y')}"
+                    else:
+                        mensaje_notificacion = f"Se realizó con éxito tu pago para la clase: {clase.actividad.nombre} del {fecha_inicial.strftime('%d/%m/%Y')}"
+
+                Notificacion.objects.create(
                     usuario=request.user,
-                    clase=clase,
-                    fecha_clase=fecha_inicial,
-                    monto_pagado=datos['monto'],
-                    estado_pago=estado_final,
-                    medio_pago='Tarjeta',
-                    modalidad='individual' # <--- AGREGA ESTA LÍNEA
+                    mensaje=mensaje_notificacion
                 )
-                mensaje_notificacion = f"Se realizó con éxito tu pago para la clase: {clase.actividad.nombre} del {fecha_inicial.strftime('%d/%m/%Y')}"
 
-            Notificacion.objects.create(
-                usuario=request.user,
-                mensaje=mensaje_notificacion
-            )
+            threading.Thread(target=enviar_confirmacion, args=(request.user, clase, reserva), kwargs={'monto_total': Decimal(datos['monto']), 'mensaje_extra': mensaje_sin_cupo}).start()
+            del request.session['inscripcion_pendiente']
+            return redirect('pago_confirmacion', reserva_id=reserva.id)
 
-        threading.Thread(target=enviar_confirmacion, args=(request.user, clase, reserva), kwargs={'monto_total': Decimal(datos['monto']), 'mensaje_extra': mensaje_sin_cupo}).start()
-        del request.session['inscripcion_pendiente']
-        return redirect('pago_confirmacion', reserva_id=reserva.id)
-
-    return render(request, 'pago_tarjeta.html', {'monto': datos['monto']})
+    boton_texto = {
+        'completar_senia': 'Completar pago',
+        'renovar_mensualidad': 'Pagar y renovar',
+    }.get(datos.get('tipo_operacion'), 'Pagar e inscribirse')
+    return render(request, 'pago_tarjeta.html', {'monto': datos['monto'], 'boton_texto': boton_texto})
 
 
 @login_required
@@ -1308,61 +1401,66 @@ def pago_exito(request):
         request.session.pop('inscripcion_pendiente', None)
         return redirect('grilla_actividades')
 
-    if datos.get('flujo_tipo') == 'mensualidad':
+    tipo_op = datos.get('tipo_operacion')
+
+    if tipo_op == 'completar_senia':
         with transaction.atomic():
-            mes_current = fecha_clase.month
-            anio_actual = fecha_clase.year
-            dia_semana_objetivo = fecha_clase.weekday()
+            reserva = get_object_or_404(Reserva, id=datos['reserva_id'])
+            reserva.monto_pagado += Decimal(datos['monto'])
+            reserva.estado_pago = 'total'
+            reserva.medio_pago = 'Mercado Pago'
+            reserva.save()
 
-            reserva_principal = None
+            clase = reserva.clase
+            mensaje_notificacion = f"Completaste el pago de la clase: {clase.actividad.nombre} del {reserva.fecha_clase.strftime('%d/%m/%Y')}"
+            Notificacion.objects.create(usuario=usuario_reserva, mensaje=mensaje_notificacion)
 
-            # Fase A: Mes actual (pagado)
-            fechas_con_cupo = datos.get('fechas_con_cupo', [])
-            cant_fechas_mes_actual = len(fechas_con_cupo)
+        threading.Thread(
+            target=enviar_confirmacion,
+            args=(usuario_reserva, clase, reserva),
+            kwargs={
+                'subject_override': f"Sportify - Pago completado: {clase.actividad.nombre}",
+                'mensaje_extra': f"Completaste el pago de la clase del {reserva.fecha_clase.strftime('%d-%m-%Y')}. Monto total abonado: ${reserva.monto_pagado}."
+            }
+        ).start()
+        request.session['ultimo_monto_pagado'] = str(Decimal(datos['monto']))
 
-            for f_str in fechas_con_cupo:
-                fecha_evaluar = datetime.strptime(f_str, '%Y-%m-%d').date()
-                if Reserva.objects.filter(
-                    usuario=usuario_reserva,
-                    fecha_clase=fecha_evaluar,
-                    clase__horario=clase.horario,
-                    clase__actividad=clase.actividad,
-                    en_lista_de_espera=False
-                ).exists():
-                    continue
-                nueva_reserva = Reserva.objects.create(
-                    usuario=usuario_reserva,
-                    clase=clase,
-                    fecha_clase=fecha_evaluar,
-                    monto_pagado=Decimal(datos['monto']) / max(cant_fechas_mes_actual, 1),
-                    estado_pago='total',
-                    medio_pago='Mercado Pago',
-                    en_lista_de_espera=False,
-                    modalidad='mensual'
-                )
-                if not reserva_principal:
-                    reserva_principal = nueva_reserva
+    elif tipo_op == 'renovar_mensualidad':
+        with transaction.atomic():
+            clase = get_object_or_404(Clase, id=datos['clase_id'])
+            hoy = date.today()
 
-            # Fase B: Mes siguiente completo (pendiente de pago)
-            if mes_current == 12:
+            reservas = Reserva.objects.filter(id__in=datos['reserva_ids'], usuario=usuario_reserva)
+            cant = max(reservas.count(), 1)
+            for r in reservas:
+                r.estado_pago = 'total'
+                r.monto_pagado = Decimal(datos['monto']) / cant
+                r.medio_pago = 'Mercado Pago'
+                r.save()
+
+            reserva_principal = reservas.first()
+
+            Mensualidad.objects.update_or_create(
+                usuario=usuario_reserva,
+                clase=clase,
+                actividad=clase.actividad,
+                mes=datos['mes'],
+                anio=datos['anio'],
+                defaults={'fecha_pago': hoy, 'estado': 'pagada'}
+            )
+
+            if datos['mes'] == 12:
                 mes_siguiente = 1
-                anio_siguiente = anio_actual + 1
+                anio_siguiente = datos['anio'] + 1
             else:
-                mes_siguiente = mes_current + 1
-                anio_siguiente = anio_actual
+                mes_siguiente = datos['mes'] + 1
+                anio_siguiente = datos['anio']
 
+            dia_semana_objetivo = reserva_principal.fecha_clase.weekday()
             _, ultimo_dia_mes_sig = monthrange(anio_siguiente, mes_siguiente)
             for d in range(1, ultimo_dia_mes_sig + 1):
                 f_sig = date(anio_siguiente, mes_siguiente, d)
                 if f_sig.weekday() != dia_semana_objetivo:
-                    continue
-                if Reserva.objects.filter(
-                    usuario=usuario_reserva,
-                    fecha_clase=f_sig,
-                    clase__horario=clase.horario,
-                    clase__actividad=clase.actividad,
-                    en_lista_de_espera=False
-                ).exists():
                     continue
                 Reserva.objects.create(
                     usuario=usuario_reserva,
@@ -1375,72 +1473,153 @@ def pago_exito(request):
                     modalidad='mensual'
                 )
 
-            # Registrar la mensualidad
-            Mensualidad.objects.update_or_create(
-                usuario=usuario_reserva,
-                clase=clase,
-                actividad=clase.actividad,
-                mes=mes_current,
-                anio=anio_actual,
-                defaults={
-                    'fecha_pago': date.today(),
-                    'estado': 'pagada'
-                }
-            )
+            mensaje_notificacion = f"Renovaste tu mensualidad de {clase.actividad.nombre} los {clase.dia_semana_plural.lower()} a las {clase.horario.strftime('%H:%M')} hs."
+            Notificacion.objects.create(usuario=usuario_reserva, mensaje=mensaje_notificacion)
 
         reserva = reserva_principal
-
-        # Notificación
-        fechas_sin_cupo = datos.get('fechas_sin_cupo', [])
-        mensaje_notificacion = f"Se realizó con éxito el pago de tu MENSUALIDAD para: {clase.actividad.nombre} los {clase.dia_semana_plural.lower()} a las {clase.horario.strftime('%H:%M')} hs. Las clases del próximo mes quedaron reservadas pendientes de pago."
-        mensaje_extra = None
-        if fechas_sin_cupo:
-            mensaje_extra = (
-                f"La próxima clase de {clase.actividad.nombre} de los {clase.dia_semana_plural.lower()} "
-                f"a las {clase.horario.strftime('%H:%M')} hs no tiene cupo disponible. "
-                f"Tu mensualidad comenzará a partir de la próxima semana."
-            )
-            mensaje_notificacion += f" {mensaje_extra}"
-
-        Notificacion.objects.create(
-            usuario=usuario_reserva,
-            mensaje=mensaje_notificacion
-        )
-
-        threading.Thread(target=enviar_confirmacion, args=(usuario_reserva, clase, reserva), kwargs={'monto_total': Decimal(datos['monto']), 'mensaje_extra': mensaje_extra}).start()
+        threading.Thread(
+            target=enviar_confirmacion,
+            args=(usuario_reserva, clase, reserva),
+            kwargs={
+                'subject_override': f"Sportify - Mensualidad renovada: {clase.actividad.nombre}",
+                'monto_total': Decimal(datos['monto']),
+            }
+        ).start()
 
     else:
-        # Flujo individual con Mercado Pago
-        with transaction.atomic():
-            reserva, creado = Reserva.objects.get_or_create(
-                usuario=usuario_reserva,
-                clase=clase,
-                fecha_clase=fecha_clase,
-                defaults={
-                    'monto_pagado': datos['monto'],
-                    'estado_pago': 'seña' if datos['tipo_pago'] == 'senia' else 'total',
-                    'medio_pago': 'Mercado Pago',
-                    'modalidad': 'individual'
-                }
-            )
-            if not creado:
-                reserva.modalidad = 'individual'
-                reserva.save()
+        # FLUJO EXISTENTE
+        if datos.get('flujo_tipo') == 'mensualidad':
+            with transaction.atomic():
+                mes_current = fecha_clase.month
+                anio_actual = fecha_clase.year
+                dia_semana_objetivo = fecha_clase.weekday()
 
-        if creado:
-            print(f"✅ Reserva {reserva.id} creada con éxito en la base de datos.")
+                reserva_principal = None
 
-            mensaje_notificacion = f"Se realizó con éxito tu pago para la clase: {clase.actividad.nombre} del {fecha_clase.strftime('%d/%m/%Y')}"
+                fechas_con_cupo = datos.get('fechas_con_cupo', [])
+                cant_fechas_mes_actual = len(fechas_con_cupo)
+
+                for f_str in fechas_con_cupo:
+                    fecha_evaluar = datetime.strptime(f_str, '%Y-%m-%d').date()
+                    if Reserva.objects.filter(
+                        usuario=usuario_reserva,
+                        fecha_clase=fecha_evaluar,
+                        clase__horario=clase.horario,
+                        clase__actividad=clase.actividad,
+                        en_lista_de_espera=False
+                    ).exists():
+                        continue
+                    nueva_reserva = Reserva.objects.create(
+                        usuario=usuario_reserva,
+                        clase=clase,
+                        fecha_clase=fecha_evaluar,
+                        monto_pagado=Decimal(datos['monto']) / max(cant_fechas_mes_actual, 1),
+                        estado_pago='total',
+                        medio_pago='Mercado Pago',
+                        en_lista_de_espera=False,
+                        modalidad='mensual'
+                    )
+                    if not reserva_principal:
+                        reserva_principal = nueva_reserva
+
+                if mes_current == 12:
+                    mes_siguiente = 1
+                    anio_siguiente = anio_actual + 1
+                else:
+                    mes_siguiente = mes_current + 1
+                    anio_siguiente = anio_actual
+
+                _, ultimo_dia_mes_sig = monthrange(anio_siguiente, mes_siguiente)
+                for d in range(1, ultimo_dia_mes_sig + 1):
+                    f_sig = date(anio_siguiente, mes_siguiente, d)
+                    if f_sig.weekday() != dia_semana_objetivo:
+                        continue
+                    if Reserva.objects.filter(
+                        usuario=usuario_reserva,
+                        fecha_clase=f_sig,
+                        clase__horario=clase.horario,
+                        clase__actividad=clase.actividad,
+                        en_lista_de_espera=False
+                    ).exists():
+                        continue
+                    Reserva.objects.create(
+                        usuario=usuario_reserva,
+                        clase=clase,
+                        fecha_clase=f_sig,
+                        monto_pagado=0,
+                        estado_pago='pendiente',
+                        medio_pago='Mercado Pago',
+                        en_lista_de_espera=False,
+                        modalidad='mensual'
+                    )
+
+                Mensualidad.objects.update_or_create(
+                    usuario=usuario_reserva,
+                    clase=clase,
+                    actividad=clase.actividad,
+                    mes=mes_current,
+                    anio=anio_actual,
+                    defaults={
+                        'fecha_pago': date.today(),
+                        'estado': 'pagada'
+                    }
+                )
+
+            reserva = reserva_principal
+
+            fechas_sin_cupo = datos.get('fechas_sin_cupo', [])
+            mensaje_notificacion = f"Se realizó con éxito el pago de tu MENSUALIDAD para: {clase.actividad.nombre} los {clase.dia_semana_plural.lower()} a las {clase.horario.strftime('%H:%M')} hs. Las clases del próximo mes quedaron reservadas pendientes de pago."
+            mensaje_extra = None
+            if fechas_sin_cupo:
+                mensaje_extra = (
+                    f"La próxima clase de {clase.actividad.nombre} de los {clase.dia_semana_plural.lower()} "
+                    f"a las {clase.horario.strftime('%H:%M')} hs no tiene cupo disponible. "
+                    f"Tu mensualidad comenzará a partir de la próxima semana."
+                )
+                mensaje_notificacion += f" {mensaje_extra}"
 
             Notificacion.objects.create(
                 usuario=usuario_reserva,
                 mensaje=mensaje_notificacion
             )
 
-            threading.Thread(target=enviar_confirmacion, args=(usuario_reserva, clase, reserva)).start()
+            threading.Thread(target=enviar_confirmacion, args=(usuario_reserva, clase, reserva), kwargs={'monto_total': Decimal(datos['monto']), 'mensaje_extra': mensaje_extra}).start()
 
         else:
-            print(f"ℹ️ La reserva {reserva.id} ya existía. Se evitó el IntegrityError.")
+            # Flujo individual con Mercado Pago
+            with transaction.atomic():
+                reserva, creado = Reserva.objects.get_or_create(
+                    usuario=usuario_reserva,
+                    clase=clase,
+                    fecha_clase=fecha_clase,
+                    defaults={
+                        'monto_pagado': datos['monto'],
+                        'estado_pago': 'seña' if datos['tipo_pago'] == 'senia' else 'total',
+                        'medio_pago': 'Mercado Pago',
+                        'modalidad': 'individual'
+                    }
+                )
+                if not creado:
+                    reserva.modalidad = 'individual'
+                    reserva.save()
+
+            if creado:
+                print(f"✅ Reserva {reserva.id} creada con éxito en la base de datos.")
+
+                if datos['tipo_pago'] == 'senia':
+                    mensaje_notificacion = f"Se realizó con éxito el pago de la seña para la clase: {clase.actividad.nombre} del {fecha_clase.strftime('%d/%m/%Y')}"
+                else:
+                    mensaje_notificacion = f"Se realizó con éxito tu pago para la clase: {clase.actividad.nombre} del {fecha_clase.strftime('%d/%m/%Y')}"
+
+                Notificacion.objects.create(
+                    usuario=usuario_reserva,
+                    mensaje=mensaje_notificacion
+                )
+
+                threading.Thread(target=enviar_confirmacion, args=(usuario_reserva, clase, reserva)).start()
+
+            else:
+                print(f"ℹ️ La reserva {reserva.id} ya existía. Se evitó el IntegrityError.")
 
     if 'inscripcion_pendiente' in request.session:
         del request.session['inscripcion_pendiente']
@@ -1479,6 +1658,7 @@ def pago_confirmacion(request, reserva_id):
         'reserva': reserva,
         'clase': reserva.clase,
         'mensaje_sin_cupo': request.session.pop('mensualidad_sin_cupo', None),
+        'monto_ultimo_pago': request.session.pop('ultimo_monto_pagado', None),
     }
     if reserva.modalidad == 'mensual':
         fechas = Reserva.objects.filter(
@@ -1494,18 +1674,117 @@ def pago_confirmacion(request, reserva_id):
     return render(request, 'pago_confirmacion.html', context)
 
 
-def enviar_confirmacion(usuario, clase, reserva, monto_total=None, mensaje_extra=None):
+@login_required
+def completar_pago_senia(request, reserva_id):
+    reserva = get_object_or_404(Reserva, id=reserva_id, usuario=request.user)
+    if reserva.estado_pago != 'seña':
+        messages.error(request, 'Esta reserva no tiene una seña pendiente de pago.')
+        return redirect('mis_reservas')
+
+    monto_restante = reserva.clase.actividad.precio_clase / 2
+
+    if request.method == 'POST':
+        medio_pago = request.POST.get('medio_pago')
+        if medio_pago not in ('Tarjeta', 'Mercado Pago'):
+            messages.error(request, 'Seleccioná un método de pago válido.')
+            return render(request, 'pago_metodo.html', {
+                'titulo': 'Completar pago de seña',
+                'subtitulo': 'Falta pagar el 50% restante para confirmar tu clase',
+                'monto': monto_restante,
+                'action_url': request.path,
+            })
+
+        request.session['inscripcion_pendiente'] = {
+            'tipo_operacion': 'completar_senia',
+            'reserva_id': reserva.id,
+            'monto': str(monto_restante),
+            'medio_pago': medio_pago,
+            'clase_id': reserva.clase.id,
+            'fecha_clase': reserva.fecha_clase.strftime('%Y-%m-%d'),
+            'usuario_id': request.user.id,
+        }
+
+        if medio_pago == 'Tarjeta':
+            return redirect('pago_tarjeta')
+        else:
+            return redirect('pago_mercadopago')
+
+    return render(request, 'pago_metodo.html', {
+        'titulo': 'Completar pago de seña',
+        'subtitulo': 'Falta pagar el 50% restante para confirmar tu clase',
+        'monto': monto_restante,
+        'action_url': request.path,
+    })
+
+
+@login_required
+def renovar_mensualidad(request, clase_id):
+    clase = get_object_or_404(Clase, id=clase_id)
+
+    reservas_pendientes = Reserva.objects.filter(
+        usuario=request.user,
+        clase=clase,
+        modalidad='mensual',
+        estado_pago='pendiente',
+        fecha_clase__gte=date.today(),
+    ).order_by('fecha_clase')
+
+    if not reservas_pendientes.exists():
+        messages.error(request, 'No hay reservas pendientes para renovar esta mensualidad.')
+        return redirect('mis_reservas')
+
+    target_month = reservas_pendientes.first().fecha_clase.month
+    target_year = reservas_pendientes.first().fecha_clase.year
+    monto = clase.actividad.precio_mensualidad
+
+    if request.method == 'POST':
+        medio_pago = request.POST.get('medio_pago')
+        if medio_pago not in ('Tarjeta', 'Mercado Pago'):
+            messages.error(request, 'Seleccioná un método de pago válido.')
+            return render(request, 'pago_metodo.html', {
+                'titulo': 'Renovar mensualidad',
+                'subtitulo': f'{clase.actividad.nombre} - {clase.dia_semana_plural} {clase.horario.strftime("%H:%M")} hs',
+                'monto': monto,
+                'action_url': request.path,
+            })
+
+        request.session['inscripcion_pendiente'] = {
+            'tipo_operacion': 'renovar_mensualidad',
+            'clase_id': clase.id,
+            'reserva_ids': [r.id for r in reservas_pendientes],
+            'monto': str(monto),
+            'medio_pago': medio_pago,
+            'fecha_clase': reservas_pendientes.first().fecha_clase.strftime('%Y-%m-%d'),
+            'mes': target_month,
+            'anio': target_year,
+            'usuario_id': request.user.id,
+        }
+
+        if medio_pago == 'Tarjeta':
+            return redirect('pago_tarjeta')
+        else:
+            return redirect('pago_mercadopago')
+
+    return render(request, 'pago_metodo.html', {
+        'titulo': 'Renovar mensualidad',
+        'subtitulo': f'{clase.actividad.nombre} - {clase.dia_semana_plural} {clase.horario.strftime("%H:%M")} hs',
+        'monto': monto,
+        'action_url': request.path,
+    })
+
+
+def enviar_confirmacion(usuario, clase, reserva, monto_total=None, mensaje_extra=None, subject_override=None):
     try:
         fecha_clase = reserva.fecha_clase
         if isinstance(fecha_clase, str):
             fecha_clase = datetime.strptime(fecha_clase, '%Y-%m-%d').date()
 
-        monto_mostrar = monto_total if monto_total is not None else reserva.monto_pagado
+        monto_mostrar = monto_total if monto_total is not None else Decimal(str(reserva.monto_pagado))
 
         if reserva.modalidad == 'mensual':
             meses = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
                      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
-            subject = f"Sportify - Mensualidad confirmada: {clase.actividad.nombre}"
+            subject = subject_override or f"Sportify - Mensualidad confirmada: {clase.actividad.nombre}"
             message = (
                 f"Hola {usuario.first_name},\n\n"
                 f"Te inscribiste a la mensualidad de {clase.actividad.nombre} "
@@ -1518,15 +1797,28 @@ def enviar_confirmacion(usuario, clase, reserva, monto_total=None, mensaje_extra
                 message += f"\n{mensaje_extra}\n"
             message += f"\n¡Gracias por elegir Sportify!"
         else:
-            subject = f"Sportify - Inscripción confirmada: {clase.actividad.nombre}"
-            message = (
-                f"Hola {usuario.first_name},\n\n"
-                f"Te inscribiste a la clase de {clase.actividad.nombre} del "
-                f"{fecha_clase.strftime('%d-%m-%Y')} a las {clase.horario}.\n"
-                f"Monto pagado: ${monto_mostrar}\n"
-                f"Medio de pago: {reserva.medio_pago}\n\n"
-                f"¡Gracias por elegir Sportify!"
-            )
+            if reserva.estado_pago == 'seña':
+                subject = subject_override or f"Sportify - Seña confirmada: {clase.actividad.nombre}"
+                message = (
+                    f"Hola {usuario.first_name},\n\n"
+                    f"Pagaste la seña de la clase de {clase.actividad.nombre} del "
+                    f"{fecha_clase.strftime('%d-%m-%Y')} a las {clase.horario}.\n"
+                    f"Monto abonado: ${monto_mostrar}\n"
+                    f"Resta pagar: ${reserva.clase.actividad.precio_clase - monto_mostrar}\n"
+                    f"Medio de pago: {reserva.medio_pago}\n\n"
+                )
+            else:
+                subject = subject_override or f"Sportify - Inscripción confirmada: {clase.actividad.nombre}"
+                message = (
+                    f"Hola {usuario.first_name},\n\n"
+                    f"Te inscribiste a la clase de {clase.actividad.nombre} del "
+                    f"{fecha_clase.strftime('%d-%m-%Y')} a las {clase.horario}.\n"
+                    f"Monto pagado: ${monto_mostrar}\n"
+                    f"Medio de pago: {reserva.medio_pago}\n\n"
+                )
+            if mensaje_extra:
+                message += f"{mensaje_extra}\n\n"
+            message += "¡Gracias por elegir Sportify!"
 
         send_mail(
             subject=subject,

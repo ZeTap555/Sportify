@@ -233,14 +233,14 @@
             text-decoration:none;
             text-align:center;
             padding:4px 10px;
-            border-radius:6px;
+            border-radius:50px;
             border:none;
-            font-weight:500;
-            font-size:0.8rem;
+            font-weight:600;
+            font-size:0.78rem;
             transition:0.2s;
         }
         .btn-cancelar:hover{
-            backgorund:#bb2d3b;
+            background:#bb2d3b;
             color:white;
             text-decoration:none;
         }
@@ -577,6 +577,7 @@
                                         <th>Horario</th>
                                         <th>Tipo</th>
                                         <th>Estado</th>
+                                        <th>Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -594,16 +595,78 @@
                                         <td>{{ reserva.fecha_clase|date:"d/m/Y" }}</td>
                                         <td>{{ reserva.clase.horario|time:"H:i" }}</td>
                                         <td>
-                                            <span class="badge-estado badge-mensual-pendiente">Mensual</span>
+                                            {% if reserva.modalidad == 'mensual' %}
+                                                <span class="badge-estado badge-mensual-pendiente">Mensual</span>
+                                            {% else %}
+                                                <span class="badge-estado badge-clase-personalizado">Clase</span>
+                                            {% endif %}
                                         </td>
                                         <td>
-                                            <span class="badge-estado badge-pendiente">Pendiente</span>
+                                            {% if reserva.estado_pago == 'seña' %}
+                                                <span class="badge-estado badge-senia">Seña</span>
+                                            {% else %}
+                                                <span class="badge-estado badge-pendiente">Pendiente</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if reserva.estado_pago == 'seña' %}
+                                            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                                <a href="{% url 'completar_pago_senia' reserva.id %}" class="btn btn-sportify" style="font-size:0.78rem; padding:4px 10px; text-decoration:none;">
+                                                    Completar pago
+                                                </a>
+                                                <button
+                                                    type="button"
+                                                    class="btn-cancelar"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#modalCancelar{{ reserva.id }}">
+                                                    Cancelar
+                                                </button>
+                                            </div>
+                                            {% elif reserva.modalidad == 'mensual' and reserva.estado_pago == 'pendiente' %}
+                                            <a href="{% url 'renovar_mensualidad' reserva.clase.id %}" class="btn btn-sportify" style="font-size:0.78rem; padding:4px 10px; text-decoration:none;">
+                                                Renovar mensualidad
+                                            </a>
+                                            {% endif %}
                                         </td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
                             </table>
                         </div>
+
+                        {% for reserva in reservas_pendientes_pago %}
+                        {% if reserva.estado_pago == 'seña' %}
+                        <div class="modal fade" id="modalCancelar{{ reserva.id }}" tabindex="-1">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content bg-dark text-white">
+                                    <div class="modal-header border-secondary">
+                                        <h5 class="modal-title">Cancelar inscripción</h5>
+                                        <button type="button" class="btn-close btn-close-white"
+                                                data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p>
+                                            ¿Estás seguro de que querés cancelar la inscripción a esta clase?
+                                        </p>
+                                        <small class="text-white-50">
+                                            Si la cancelación se realiza con al menos 1 día de anticipación recibirás un ticket de reintegro. En caso contrario, no podrás acceder al reintegro.
+                                        </small>
+                                    </div>
+                                    <div class="modal-footer border-secondary">
+                                        <button class="btn btn-secondary"
+                                                data-bs-dismiss="modal">
+                                            Volver
+                                        </button>
+                                        <a href="{% url 'cancelar_clase_individual' reserva.id %}"
+                                           class="btn btn-confirmar-cancelacion">
+                                            Sí, cancelar inscripción
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
                     {% else %}
                         <div class="card card-custom text-center py-5 my-3" role="alert">
                             <h4 class="text-white mb-2" style="font-weight:500;">
