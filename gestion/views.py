@@ -829,7 +829,14 @@ def salir_lista_espera(request,reserva_id):
 @login_required
 def mis_clases(request):
     profesor=Profesor.objects.get(usuario=request.user)
-    clases=Clase.objects.filter(profesor=profesor).select_related('actividad')
+    clases_raw = Clase.objects.filter(profesor=profesor, activa=True).select_related('actividad')
+    vistas = set()
+    clases = []
+    for c in clases_raw:
+        key = (c.actividad_id, c.horario)
+        if key not in vistas:
+            vistas.add(key)
+            clases.append(c)
     hoy=date.today()
     clases_pendientes=[]
     clases_finalizadas=[]
