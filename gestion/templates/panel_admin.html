@@ -167,6 +167,30 @@
 
         /* Mensajes del system */
         .alert-toast { padding: 12px 20px; border-radius: 8px; font-weight: 600; margin-bottom: 25px; border-left: 4px solid; background-color: #1c1c1e; }
+
+        /* Tabla de usuarios */
+        .table-wrap { overflow-x: auto; }
+        .table-usuarios { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .table-usuarios th { text-align: left; padding: 12px 10px; color: #8e8e93; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.75rem; border-bottom: 1px solid #2c2c2e; }
+        .table-usuarios td { padding: 12px 10px; border-bottom: 1px solid #2c2c2e; color: #ffffff; }
+        .table-usuarios tr:hover td { background-color: rgba(255,255,255,0.02); }
+        .badge-rol { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+        .badge-rol-admin { background-color: rgba(255, 69, 58, 0.15); color: #ff453a; }
+        .badge-rol-profesor { background-color: rgba(10, 132, 255, 0.15); color: #0a84ff; }
+        .badge-rol-cliente { background-color: rgba(48, 209, 88, 0.15); color: #30d158; }
+        .badge-apto { display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; }
+        .badge-apto-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .dot-vigente { background-color: #30d158; }
+        .dot-proximo { background-color: #ff9f0a; }
+        .dot-vencido { background-color: #ff453a; }
+        .dot-sin-cargar { background-color: #636366; }
+        .estado-activo { color: #30d158; font-weight: 600; }
+        .estado-inactivo { color: #8e8e93; font-weight: 600; }
+        .btn-ver-usuario { background: transparent; border: 1px solid #3a3a3c; color: #ffffff; padding: 5px 14px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; transition: all 0.15s; }
+        .btn-ver-usuario:hover { border-color: #00ff88; color: #00ff88; }
+        .buscador-usuarios { display: flex; gap: 15px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
+        .buscador-usuarios input { flex: 1; min-width: 200px; }
+        .buscador-usuarios select { width: auto; min-width: 150px; }
     </style>
 </head>
 <body>
@@ -202,6 +226,7 @@
             <div class="tabs-container">
                 <button class="tab-btn {% if pestania_activa == 'clases' or not pestania_activa %}active{% endif %}" onclick="switchTab('clases')">Clases</button>
                 <button class="tab-btn {% if pestania_activa == 'pagos' %}active{% endif %}" onclick="switchTab('pagos')">Pagos</button>
+                <button class="tab-btn {% if pestania_activa == 'usuarios' %}active{% endif %}" onclick="switchTab('usuarios')">Usuarios</button>
                 <button class="tab-btn {% if pestania_activa == 'profesores' %}active{% endif %}" onclick="switchTab('profesores')">Profesores</button>
             </div>
         </div>
@@ -595,6 +620,85 @@
                     </script>
                 </div>
             </div>
+
+            <div id="pane-usuarios" class="tab-pane {% if pestania_activa == 'usuarios' %}active{% endif %}">
+                <div class="card-panel">
+                    <h3>Listado de Usuarios</h3>
+
+                    <div class="buscador-usuarios">
+                        <input type="text" id="buscador-usuarios" class="input-field" placeholder="Buscar por nombre, apellido o DNI..." oninput="filtrarUsuarios()">
+                        <select id="filtro-rol-usuarios" class="select-field" onchange="filtrarUsuarios()">
+                            <option value="todos">Todos los roles</option>
+                            <option value="cliente">Clientes</option>
+                            <option value="profesor">Profesores</option>
+                        </select>
+                    </div>
+
+                    <div class="table-wrap">
+                        <table class="table-usuarios" id="tabla-usuarios">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>DNI</th>
+                                    <th>Email</th>
+                                    <th>Teléfono</th>
+                                    <th>Rol</th>
+                                    <th>Apto Médico</th>
+                                    <th>Estado</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for u in usuarios %}
+                                <tr data-rol="{{ u.rol }}" data-busqueda="{{ u.last_name|lower }} {{ u.first_name|lower }} {{ u.dni }}">
+                                    <td>{{ u.first_name }} {{ u.last_name }}</td>
+                                    <td>{{ u.dni }}</td>
+                                    <td>{{ u.email|default:"—" }}</td>
+                                    <td>{{ u.telefono|default:"—" }}</td>
+                                    <td>
+                                        {% if u.rol == 'admin' %}
+                                            <span class="badge-rol badge-rol-admin">Admin</span>
+                                        {% elif u.rol == 'profesor' %}
+                                            <span class="badge-rol badge-rol-profesor">Profesor</span>
+                                        {% else %}
+                                            <span class="badge-rol badge-rol-cliente">Cliente</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% with estado_apto=u.estado_apto_medico %}
+                                            {% if estado_apto == 'vigente' %}
+                                                <span class="badge-apto"><span class="badge-apto-dot dot-vigente"></span> Vigente</span>
+                                            {% elif estado_apto == 'proximo_a_vencer' %}
+                                                <span class="badge-apto"><span class="badge-apto-dot dot-proximo"></span> Próx. a vencer</span>
+                                            {% elif estado_apto == 'vencido' %}
+                                                <span class="badge-apto"><span class="badge-apto-dot dot-vencido"></span> Vencido</span>
+                                            {% else %}
+                                                <span class="badge-apto"><span class="badge-apto-dot dot-sin-cargar"></span> Sin cargar</span>
+                                            {% endif %}
+                                        {% endwith %}
+                                    </td>
+                                    <td>
+                                        {% if u.is_active %}
+                                            <span class="estado-activo">● Activo</span>
+                                        {% else %}
+                                            <span class="estado-inactivo">● Inactivo</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'actividad_usuario' u.id %}" class="btn-ver-usuario">Ver</a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" style="text-align:center; color:#636366; padding:40px;">No hay usuarios registrados.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -660,6 +764,20 @@
             document.getElementById('pane-' + tabId).classList.add('active');
         }
         
+
+        function filtrarUsuarios() {
+            const input = document.getElementById('buscador-usuarios').value.toLowerCase();
+            const rolFiltro = document.getElementById('filtro-rol-usuarios').value;
+            const filas = document.querySelectorAll('#tabla-usuarios tbody tr');
+
+            filas.forEach(function(fila) {
+                const busqueda = fila.getAttribute('data-busqueda') || '';
+                const rol = fila.getAttribute('data-rol') || '';
+                const coincideTexto = busqueda.includes(input);
+                const coincideRol = rolFiltro === 'todos' || rol === rolFiltro;
+                fila.style.display = (coincideTexto && coincideRol) ? '' : 'none';
+            });
+        }
 
         function mostrarErrorGym(mensaje) {
             const contenedor = document.getElementById('contenedor-mensajes-gym');
