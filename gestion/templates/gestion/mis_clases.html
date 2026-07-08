@@ -316,6 +316,9 @@
                                         >
                                             👥 Ver inscriptos
                                         </button>
+                                        {% if ocurrencia.suspendida %}
+                                            <span class="badge" style="background:rgba(255,69,58,0.2); color:#ff453a; border:1px solid #ff453a; padding:6px 12px; font-size:0.8rem; font-weight:600; margin-left:5px;">Suspendida</span>
+                                        {% else %}
                                         <button class="btn btn-sportify btn-sm btn-generar-qr"
                                                 data-clase="{{ocurrencia.clase.id}}"
                                                 data-fecha="{{ocurrencia.fecha|date:'Y-m-d'}}" 
@@ -325,6 +328,7 @@
                                         >
                                                 Generar QR
                                         </button>
+                                        {% endif %}
                                     </td>
                                 </tr>
                             {% endfor %}
@@ -588,8 +592,13 @@ document.querySelectorAll('.btn-generar-qr').forEach(boton => {
         const resultado=await respuesta.json();
         if(!resultado.permitido){
             const mensaje=document.getElementById("mensajeErrorQR");
-            mensaje.innerHTML=
-                "❌ Solo se pueden generar los QR en el horario correspondiente de la clase.";
+            if (resultado.suspendida) {
+                mensaje.innerHTML=
+                    "❌ La clase se encuentra suspendida. No se puede generar el QR.";
+            } else {
+                mensaje.innerHTML=
+                    "❌ Solo se pueden generar los QR en el horario correspondiente de la clase.";
+            }
             mensaje.style.display="block";
             clearTimeout(window.ocultarMensajeError);
             window.ocultarMensajeError=setTimeout(() => {

@@ -561,6 +561,11 @@
                 Suspender Clase
             </button>
         </div>
+        <div style="margin-top:10px; text-align:center;display:none;" id="contenedor-eliminar-clase">
+            <button id="btn-eliminar-clase" class="btn" style="background:#ff453a; color:#fff; font-weight:600; border:none; padding:10px 20px; border-radius:10px;">
+                Eliminar Clase
+            </button>
+        </div>
     </div>
 </div>
 
@@ -633,6 +638,26 @@
         </div>
     </div>
 </div>
+<div class="modal fade" id="modalEliminarGrilla" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-white" style="border: 1px solid #2c2c2e; border-radius: 14px;">
+            <form method="POST" action="" id="form-eliminar-clase">
+                {% csrf_token %}
+                <div class="modal-header" style="border-bottom: 1px solid #2c2c2e;">
+                    <h5 class="modal-title fw-bold">Eliminar Clase</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-white-50 mb-3">¿Está seguro que desea eliminar esta clase?</p>
+                </div>
+                <div class="modal-footer" style="border-top: 1px solid #2c2c2e;">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="background:#3a3a3c; border:none; color:#fff;">Cancelar</button>
+                    <button type="submit" class="btn" style="background:#ff453a; color:#fff; font-weight:600; border:none;">Sí, eliminar clase</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 <script>
     var modalData = null;
     var modalFecha = null;
@@ -681,6 +706,7 @@
             }
             
             const contenedorSuspender = document.getElementById('contenedor-suspender-clase');
+            const contenedorEliminar = document.getElementById('contenedor-eliminar-clase');
             const bannerSuspendida = document.getElementById('banner-clase-suspendida');
             const motivoText = document.getElementById('motivo-suspension-text');
 
@@ -694,9 +720,16 @@
             if (data.es_admin) {
                 contenedorVerInscriptos.style.display = "block";
 
-                if (!data.suspendida) {
-                    contenedorSuspender.style.display = "block";
+                if (!data.clase_finalizada) {
+                    contenedorEliminar.style.display = "block";
+
+                    if (!data.suspendida) {
+                        contenedorSuspender.style.display = "block";
+                    } else {
+                        contenedorSuspender.style.display = "none";
+                    }
                 } else {
+                    contenedorEliminar.style.display = "none";
                     contenedorSuspender.style.display = "none";
                 }
 
@@ -705,6 +738,11 @@
                     document.getElementById('suspender-fecha-label').textContent = modalFecha;
                     document.getElementById('form-suspender-clase').action = '/clase/' + claseId + '/suspender/';
                     new bootstrap.Modal(document.getElementById('modalSuspenderGrilla')).show();
+                };
+
+                document.getElementById('btn-eliminar-clase').onclick = function() {
+                    document.getElementById('form-eliminar-clase').action = '/clase/' + claseId + '/eliminar/';
+                    new bootstrap.Modal(document.getElementById('modalEliminarGrilla')).show();
                 };
                 
                 btnVerInscriptos.onclick = function() {
@@ -747,6 +785,7 @@
             } else {
                 contenedorVerInscriptos.style.display = "none";
                 contenedorSuspender.style.display = "none";
+                contenedorEliminar.style.display = "none";
             }
 
             mostrarPasoSel('');

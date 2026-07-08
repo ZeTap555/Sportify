@@ -63,6 +63,7 @@ class Clase(models.Model):
 
     # 🔢 Cupo máximo configurable a mano por el administrador (pedido por Lucho)
     cupo_maximo = models.PositiveIntegerField(default=30)
+    activa = models.BooleanField(default=True)
 
     # Formato de representación en consola/admin
     def __str__(self):
@@ -99,12 +100,13 @@ class Clase(models.Model):
             fecha_clase=fecha,
             clase__horario=self.horario,
             clase__actividad=self.actividad,
+            clase__activa=True,
         ).count()
         try:
             cupo = Clase.objects.get(
-                actividad=self.actividad, horario=self.horario, fecha=fecha
+                actividad=self.actividad, horario=self.horario, fecha=fecha, activa=True
             ).cupo_maximo
-        except Clase.DoesNotExist:
+        except (Clase.DoesNotExist, Clase.MultipleObjectsReturned):
             cupo = self.cupo_maximo
         return max(0, cupo - total_reservas)
 
