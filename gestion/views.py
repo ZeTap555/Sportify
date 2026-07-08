@@ -295,8 +295,9 @@ def suspender_clase(request, clase_id):
                 )
 
             reservas_afectadas = Reserva.objects.filter(
-                clase=clase,
                 fecha_clase=fecha_susp,
+                clase__horario=clase.horario,
+                clase__actividad=clase.actividad,
             ).select_related('usuario')
 
             reservas_pagas = [r for r in reservas_afectadas if not r.en_lista_de_espera]
@@ -761,14 +762,15 @@ def mis_reservas(request):
     if tipo:
         reservas_qs = reservas_qs.filter(modalidad=tipo)
 
-    suspension_claves = {(r.clase_id, r.fecha_clase) for r in reservas_qs}
+    suspension_claves = {(r.clase.horario, r.clase.actividad_id, r.fecha_clase) for r in reservas_qs}
     suspensiones = SuspensionClase.objects.filter(
-        clase_id__in=[c for c, _ in suspension_claves],
-        fecha__in=[f for _, f in suspension_claves],
-    )
-    suspension_set = {(s.clase_id, s.fecha) for s in suspensiones}
+        clase__horario__in=[h for h, _, _ in suspension_claves],
+        clase__actividad_id__in=[a for _, a, _ in suspension_claves],
+        fecha__in=[f for _, _, f in suspension_claves],
+    ).select_related('clase')
+    suspension_set = {(s.clase.horario, s.clase.actividad_id, s.fecha) for s in suspensiones}
     for r in reservas_qs:
-        r.suspendida = (r.clase_id, r.fecha_clase) in suspension_set
+        r.suspendida = (r.clase.horario, r.clase.actividad_id, r.fecha_clase) in suspension_set
         r.clase_eliminada = not r.clase.activa
 
     reservas_normales = []
