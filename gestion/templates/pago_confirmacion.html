@@ -125,7 +125,7 @@
                 {% else %}
                 <div class="row">
                     <span class="label">Monto pagado</span>
-                    <span class="value" style="color: #00ff88;">${{ reserva.monto_pagado }}</span>
+                    <span class="value" style="color: #00ff88;">${{ monto_ultimo_pago|default:reserva.monto_pagado }}</span>
                 </div>
                 {% endif %}
                 <div class="row">
