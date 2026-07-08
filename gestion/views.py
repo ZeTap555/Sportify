@@ -115,8 +115,8 @@ def grilla_actividades(request):
                 'activo': False
             })
 
-    # 4. Traemos todas las clases
-    todas_las_clases = Clase.objects.all()
+    # 4. Traemos todas las clases activas
+    todas_las_clases = Clase.objects.filter(activa=True)
     if actividad_id and actividad_id != 'None' and actividad_id != '':
         todas_las_clases = todas_las_clases.filter(actividad_id=actividad_id)
 
@@ -138,17 +138,16 @@ def grilla_actividades(request):
 
     # 6. Detalle del día seleccionado
     clases_detalle_dia = []
-    if fecha_seleccionada >= ahora:
-        for clase in todas_las_clases:
-            if clase.fecha == fecha_seleccionada:
-                clase.cupos_mostrar = clase.cupos_para_fecha(fecha_seleccionada)
-                if fecha_seleccionada == ahora:
-                    fecha_hora_clase = timezone.make_aware(
-                        datetime.combine(fecha_seleccionada, clase.horario)
-                    )
-                    if fecha_hora_clase < timezone.now():
-                        continue
-                clases_detalle_dia.append(clase)
+    for clase in todas_las_clases:
+        if clase.fecha == fecha_seleccionada:
+            clase.cupos_mostrar = clase.cupos_para_fecha(fecha_seleccionada)
+            if fecha_seleccionada == ahora:
+                fecha_hora_clase = timezone.make_aware(
+                    datetime.combine(fecha_seleccionada, clase.horario)
+                )
+                if fecha_hora_clase < timezone.now():
+                    continue
+            clases_detalle_dia.append(clase)
 
     clases_detalle_dia.sort(key=lambda x: x.horario)
 
@@ -265,6 +264,9 @@ def suspender_clase(request, clase_id):
             messages.error(request, 'Debe completar el motivo cuando selecciona "Otro".')
             return redirect('grilla_actividades')
 
+        actividad_nombre = clase.actividad.nombre
+        horario_str = clase.horario.strftime('%H:%M')
+
         with transaction.atomic():
             SuspensionClase.objects.create(
                 clase=clase,
@@ -276,9 +278,9 @@ def suspender_clase(request, clase_id):
 
             if clase.profesor and clase.profesor.usuario:
                 msg_prof = (
-                    f"La clase de {clase.actividad.nombre} del "
+                    f"La clase de {actividad_nombre} del "
                     f"{fecha_susp.strftime('%d/%m/%Y')} a las "
-                    f"{clase.horario.strftime('%H:%M')} hs fue suspendida."
+                    f"{horario_str} hs fue suspendida."
                 )
                 if comentario:
                     msg_prof += f" Motivo: {comentario}"
@@ -286,33 +288,33 @@ def suspender_clase(request, clase_id):
                     usuario=clase.profesor.usuario,
                     mensaje=msg_prof,
                 )
-                asunto_prof = f"Clase suspendida - {clase.actividad.nombre}"
-                html_prof = f"""
-                <div style="background:#000000;padding:40px;font-family:Poppins,sans-serif;">
-                    <h1 style="color:#00ff88;">SPORTIFY</h1>
-                    <h2>Clase suspendida</h2>
-                    <p>{msg_prof}</p>
-                </div>
-                """
-                email_prof = EmailMultiAlternatives(
-                    asunto_prof, "", settings.EMAIL_HOST_USER,
-                    [clase.profesor.usuario.email]
+                asunto_prof = f"Clase suspendida - {actividad_nombre}"
+                html_prof = _armar_html_email(actividad_nombre, msg_prof, "Clase suspendida")
+                transaction.on_commit(
+                    lambda d=clase.profesor.usuario.email, a=asunto_prof, h=html_prof: _enviar_email(d, a, h)
                 )
-                email_prof.attach_alternative(html_prof, "text/html")
-                
-                email_prof.send()
-                
+
             reservas_afectadas = Reserva.objects.filter(
                 clase=clase,
                 fecha_clase=fecha_susp,
-                en_lista_de_espera=False,
             ).select_related('usuario')
 
-            for reserva in reservas_afectadas:
+            reservas_pagas = [r for r in reservas_afectadas if not r.en_lista_de_espera]
+            reservas_waitlist = [r for r in reservas_afectadas if r.en_lista_de_espera]
+
+            for r in reservas_waitlist:
+                Notificacion.objects.create(
+                    usuario=r.usuario,
+                    mensaje=(
+                        f"La clase {actividad_nombre} del "
+                        f"{fecha_susp.strftime('%d/%m/%Y')} a las {horario_str} hs "
+                        f"fue suspendida."
+                    )
+                )
+
+            for reserva in reservas_pagas:
                 usuario = reserva.usuario
                 fecha_fmt = fecha_susp.strftime('%d/%m/%Y')
-                horario_str = clase.horario.strftime('%H:%M')
-                actividad_nombre = clase.actividad.nombre
 
                 if reserva.modalidad == 'mensual':
                     ultimo_dia = calendar.monthrange(fecha_susp.year, fecha_susp.month)[1]
@@ -335,29 +337,17 @@ def suspender_clase(request, clase_id):
                 Notificacion.objects.create(usuario=usuario, mensaje=mensaje)
 
                 asunto = f"Clase suspendida - {actividad_nombre}"
-                mensaje_html = f"""
-                <div style="background:#000000;padding:40px;font-family:Poppins,sans-serif;">
-                    <h1 style="color:#00ff88;">SPORTIFY</h1>
-                    <h2>Clase suspendida</h2>
-                    <p>{mensaje}</p>
-                </div>
-                """
-                email_message = EmailMultiAlternatives(
-                    asunto, "", settings.EMAIL_HOST_USER, [usuario.email]
+                html = _armar_html_email(actividad_nombre, mensaje, "Clase suspendida")
+                transaction.on_commit(
+                    lambda d=usuario.email, a=asunto, h=html: _enviar_email(d, a, h)
                 )
-                email_message.attach_alternative(mensaje_html, "text/html")
-                
-                email_message.send()
-                
-
-                reserva.delete()
 
         dias = {0: 'Lunes', 1: 'Martes', 2: 'Miércoles', 3: 'Jueves', 4: 'Viernes', 5: 'Sábado', 6: 'Domingo'}
         dia_nombre = dias[fecha_susp.weekday()]
         messages.success(
             request,
-            f'La clase {clase.actividad.nombre} del {fecha_susp.strftime("%d/%m/%Y")} '
-            f'a las {clase.horario.strftime("%H:%M")} hs '
+            f'La clase {actividad_nombre} del {fecha_susp.strftime("%d/%m/%Y")} '
+            f'a las {horario_str} hs '
             f'fue suspendida correctamente.'
         )
         return redirect('grilla_actividades')
@@ -770,6 +760,16 @@ def mis_reservas(request):
         reservas_qs = reservas_qs.filter(clase__horario=horario)
     if tipo:
         reservas_qs = reservas_qs.filter(modalidad=tipo)
+
+    suspension_claves = {(r.clase_id, r.fecha_clase) for r in reservas_qs}
+    suspensiones = SuspensionClase.objects.filter(
+        clase_id__in=[c for c, _ in suspension_claves],
+        fecha__in=[f for _, f in suspension_claves],
+    )
+    suspension_set = {(s.clase_id, s.fecha) for s in suspensiones}
+    for r in reservas_qs:
+        r.suspendida = (r.clase_id, r.fecha_clase) in suspension_set
+        r.clase_eliminada = not r.clase.activa
 
     reservas_normales = []
     reservas_pendientes_pago = []
