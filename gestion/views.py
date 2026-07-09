@@ -170,6 +170,12 @@ def grilla_actividades(request):
     mensaje_filtro = None
     if actividad_id and not hay_clases_mes:
         mensaje_filtro = "No se encontraron clases disponibles para los filtros seleccionados"
+    
+    tiene_voucher=False
+    if request.user.is_authenticated:
+        tiene_voucher=Voucher.objects.filter(
+            cliente=request.user
+        ).exists()
 
     context = {
         'semanas_matriz': semanas_matriz,
@@ -185,6 +191,7 @@ def grilla_actividades(request):
         'actividades': actividades,
         'actividad_seleccionada': actividad_id,
         'mensaje_filtro': mensaje_filtro,
+        'tiene_voucher':tiene_voucher,
     }
 
     if request.user.is_authenticated:
@@ -556,13 +563,13 @@ def inscribirse_clase(request, clase_id):
         tipo_pago = request.POST.get('tipo_pago')
         medio_pago = request.POST.get('medio_pago')
         flujo_tipo = request.POST.get('flujo_tipo', 'clase')  # 'clase' o 'mensualidad'
+        usar_voucher=request.POST.get('usar_voucher')=='true'
 
-        if tipo_pago not in ('senia', 'total'):
-            return redirect('grilla_actividades')
-
-        if medio_pago not in ('Tarjeta', 'Mercado Pago'):
-            return redirect('grilla_actividades')
-
+        if not usar_voucher:
+            if tipo_pago not in('senia','total'):
+                return redirect('grilla_actividades')
+            if medio_pago not in('Tarjeta','Mercado Pago'):
+                return redirect('grilla_actividades')
         # Regla de negocio: Choque de horarios en inscripción individual
         choque_horario = Reserva.objects.filter(
             usuario=request.user,
@@ -703,8 +710,35 @@ def inscribirse_clase(request, clase_id):
                 return redirect('grilla_actividades')
                 
             precio = clase.actividad.precio_clase
+            if usar_voucher:
+                voucher=Voucher.objects.filter(cliente=request.user,utilizado=False).first()
+                if not voucher:
+                    messages.error(request,"No tienes vouchers disponibles.")
+                    return redirect('grilla_actividades')
+                voucher.delete()
+                reserva=Reserva.objects.create(
+                    usuario=request.user,
+                    clase=clase,
+                    fecha_clase=fecha_clase,
+                    monto_pagado=0,
+                    estado_pago='total',
+                    medio_pago='Voucher',
+                    modalidad='individual'
+                )
+                mensaje_notificacion=(
+                    f"Se realizó con éxito tu inscripción con voucher para la clase: "
+                    f"{clase.actividad.nombre} del {fecha_clase.strftime('%d/%m/%Y')}."
+                )
+                Notificacion.objects.create(
+                    usuario=request.user,mensaje=mensaje_notificacion
+                )
+                threading.Thread(
+                    target=enviar_confirmacion,args=(request.user,clase,reserva)
+                ).start()
+                return redirect('pago_confirmacion', reserva_id=reserva.id)
             monto = precio / 2 if tipo_pago == 'senia' else precio
-
+        
+        
         # Guardamos en sesión
         session_data = {
             'clase_id': clase.id,

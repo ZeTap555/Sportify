@@ -659,6 +659,8 @@
     </div>
 </div>
 <script>
+    const tieneVoucher={{ tiene_voucher|yesno:"true,false" }};
+    console.log("tieneVoucher:", tieneVoucher);
     var modalData = null;
     var modalFecha = null;
 
@@ -1032,6 +1034,14 @@
                 `;
                 return;
             }
+            let botonVoucher="";
+            if(tieneVoucher){
+                botonVoucher=`
+                    <button class="modal-btn primary" onclick="mostrarPasoSel('voucher')">
+                        Usar voucher
+                    </button>
+                `;
+            }
 
             acciones.innerHTML = `
                 <p style="color:#8e8e93; text-align:center; margin-bottom:15px;">Seleccioná cómo querés pagar</p>
@@ -1041,8 +1051,21 @@
                 <button class="modal-btn primary" onclick="mostrarPasoSel('pago', 'total')">
                     Pagar completo — $${modalData.precio_clase.toFixed(2)}
                 </button>
+                ${botonVoucher}
                 <button class="modal-btn secondary" onclick="mostrarPasoSel('')">Volver</button>
             `;
+         } else if(paso =='voucher'){
+            acciones.innerHTML = `
+                <p style="color:#8e8e93; text-align:center; margin-bottom:15px;">Querés utilizar tu voucher para reservar esta clase?</p>
+                <form method="POST" action="/clase/${modalData.id}/inscribirse/">
+                    <input type="hidden" name="csrfmiddlewaretoken" value="${getCSRFToken()}">
+                    <input type="hidden" name="fecha_clase" value="${modalFecha}">
+                    <input type="hidden" name="usar_voucher" value="true">
+                    <button type="submit" class="modal-btn primary">Sí, usar voucher</button>
+                </form>
+                <button class="modal-btn secondary" onclick="mostrarPasoSel('inscribir')">Volver</button>
+            `;
+         
 
          } else if (paso === 'pago') {
             var tipoPago = arguments[1] || 'total';
