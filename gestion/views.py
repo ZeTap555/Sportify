@@ -51,7 +51,7 @@ import django.db.models as django_models
 # =========================================================================
 from .models import Clase, Actividad, Profesor, Reserva, Notificacion, SuspensionClase, Voucher
 from reservas.models import Mensualidad
-from usuarios.models import Usuario
+from usuarios.models import Strike, Usuario
 
 # Trae tu modelo personalizado
 Usuario = get_user_model()
@@ -694,6 +694,9 @@ def inscribirse_clase(request, clase_id):
                 monto = clase.actividad.precio_mensualidad
             
             monto = round(monto, 2)
+            if request.user.penalizacion_pendiente_individual:
+                monto = Decimal(str(monto)) * Decimal('1.25')
+                monto = round(monto, 2)
              
         else:
             # Flujo individual suelta
@@ -737,7 +740,10 @@ def inscribirse_clase(request, clase_id):
                 ).start()
                 return redirect('pago_confirmacion', reserva_id=reserva.id)
             monto = precio / 2 if tipo_pago == 'senia' else precio
-        
+            if request.user.penalizacion_pendiente_individual:
+                monto = Decimal(str(monto)) * Decimal('1.25')
+                monto = round(monto, 2)
+                
         
         # Guardamos en sesión
         session_data = {
@@ -952,6 +958,19 @@ def cancelar_reserva(request,reserva_id):
         id=reserva_id,
         usuario=request.user
     )
+    Strike.objects.create(
+            usuario=request.user, 
+            tipo='mensual'
+    )
+    # Dentro de cancelar_reserva o cancelar_clase_individual
+    strikes_actuales = request.user.obtener_strikes_mes_actual('mensual')
+
+    # Si llega a 3 (o el que sea tu límite), activamos la bandera
+    if strikes_actuales >= 3:
+        request.user.penalizacion_pendiente_mensual = True
+        request.user.save()
+        print(f"DEBUG: Penalización activada para {request.user.dni}") # MIRA TU TERMINAL
+
     if  reserva.modalidad.strip().lower()!="mensual":
         return redirect("mis_reservas")
     hoy=timezone.localdate()
@@ -983,6 +1002,7 @@ def cancelar_reserva(request,reserva_id):
         email_message.attach_alternative(mensaje_html,"text/html")
         email_message.send()
     else:
+
         Notificacion.objects.create(
             usuario=request.user,
             mensaje="Cancelaste tu reserva correctamente. Como la cancelación se dió con menos de 2 días de anticipación, no se generó ningun voucher",
@@ -1018,6 +1038,19 @@ def cancelar_clase_individual(request, reserva_id):
     fecha_clase_dt = timezone.make_aware(
         datetime.combine(reserva.fecha_clase, reserva.clase.horario)
     )
+    Strike.objects.create(
+            usuario=request.user, 
+            tipo='individual'
+    )
+    # Dentro de cancelar_reserva o cancelar_clase_individual
+    strikes_actuales = request.user.obtener_strikes_mes_actual('individual')
+
+    # Si llega a 3 (o el que sea tu límite), activamos la bandera
+    if strikes_actuales >= 3:
+        request.user.penalizacion_pendiente_individual = True
+        request.user.save()
+        print(f"DEBUG: Penalización activada para {request.user.dni}") # MIRA TU TERMINAL
+
     con_reintegro = (fecha_clase_dt - ahora) >= timedelta(days=1) and reserva.estado_pago in ('seña', 'total')
 
     if con_reintegro:
@@ -1039,6 +1072,7 @@ def cancelar_clase_individual(request, reserva_id):
         </div>
         """
     else:
+
         actividad = reserva.clase.actividad.nombre
         fecha = reserva.fecha_clase.strftime("%d/%m/%Y")
         horario = reserva.clase.horario.strftime("%H:%M")
@@ -1567,6 +1601,19 @@ def pago_exito(request):
 
         if 'inscripcion_pendiente' in request.session:
             del request.session['inscripcion_pendiente']
+
+        # =========================================================
+    # LIMPIEZA DE PENALIZACIÓN TRAS PAGO EXITOSO
+    # =========================================================
+    if usuario_reserva.penalizacion_pendiente_individual:
+        usuario_reserva.penalizacion_pendiente_individual = False
+        usuario_reserva.save()
+        print(f"✅ Penalización individual removida para {usuario_reserva.dni}")
+
+    if usuario_reserva.penalizacion_pendiente_mensual:
+        usuario_reserva.penalizacion_pendiente_mensual = False
+        usuario_reserva.save()
+        print(f"✅ Penalización mensual removida para {usuario_reserva.dni}")
         response = redirect('pago_confirmacion', reserva_id=reserva.id)
         response["ngrok-skip-browser-warning"] = "true"
         return response
@@ -3086,5 +3133,7 @@ def detalle_clase_api(request, clase_id):
         'clase_finalizada':clase_finalizada if fecha_str else False,
         'mensualidad_viable': mensualidad_viable,
         'mensualidad_mensaje': mensualidad_mensaje,
+        'tiene_penalizacion_individual': request.user.penalizacion_pendiente_individual,
+        'tiene_penalizacion_mensual': request.user.penalizacion_pendiente_mensual,
     }
     return JsonResponse(data)

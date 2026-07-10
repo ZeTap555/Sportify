@@ -95,10 +95,16 @@
                 <div class="error-msg">{{ message }}</div>
             {% endfor %}
         {% endif %}
-
+        
+        {% if request.session.inscripcion_pendiente.tiene_penalizacion %}
+            <div class="alert alert-warning">
+                ⚠️ <strong>Aviso:</strong> Tenés una penalización activa por cancelaciones frecuentes. Se ha aplicado un recargo del 25% al valor de la clase.
+            </div>
+        {% endif %}
         <div class="monto-box">
             Total a pagar: <span>${{ monto|floatformat:2 }}</span>
         </div>
+        
 
         <form method="POST" id="form-pago">
             {% csrf_token %}

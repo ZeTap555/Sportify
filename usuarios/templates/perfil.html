@@ -615,6 +615,27 @@
                             <div class="info-label">Fecha de Nacimiento</div>
                             <div class="info-value">{{ request.user.fecha_nacimiento|date:"d/m/Y" }}</div>
                         </div>
+
+                        {% if request.user.rol == 'cliente' %}
+                        <div class="info-value">Estado de cuenta (Strikes mensuales)</div>
+                        <p class="apto-detalle">A partir de los 3 strikes, se aplica una penalización.</p>
+
+                        <div class="d-flex gap-3">
+                            <div class="card flex-grow-1 p-3 text-center" style="background:#161616;">
+                                <div class="info-label">Clases Individuales</div>
+                                <div class="h3 {% if strikes_individuales >= 2 %}text-danger{% else %}text-success{% endif %}">
+                                    {{ strikes_individuales }} Strikes
+                                </div>
+                            </div>
+
+                            <div class="card flex-grow-1 p-3 text-center" style="background:#161616;">
+                                <div class="info-label">Clases Mensuales</div>
+                                <div class="h3 {% if strikes_mensuales >= 2 %}text-danger{% else %}text-success{% endif %}">
+                                    {{ strikes_mensuales }} Strikes
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
 
         {% if request.user.rol == 'cliente' %}

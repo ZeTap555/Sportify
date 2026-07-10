@@ -437,6 +437,8 @@ def perfil_view(request):
         request,
         'perfil.html',
         {
+            'strikes_individuales': request.user.obtener_strikes_mes_actual('individual'),
+            'strikes_mensuales': request.user.obtener_strikes_mes_actual('mensual'),
             'estado_apto': request.user.estado_apto_medico(),
             'dias_restantes_apto': request.user.dias_restantes_apto(),
             'fecha_vencimiento_apto': request.user.fecha_vencimiento_apto(),

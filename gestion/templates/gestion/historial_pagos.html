@@ -290,6 +290,9 @@
         </div>
 
         <div class="main-content">
+            {% load l10n %}
+            {% load static %}
+            {% load i18n %}
             <div class="container my-5">
                 <div class="card card-custom text-white shadow-lg p-4">
 
@@ -330,17 +333,19 @@
                                     </tr>
                                 </thead>
                                 <tbody>
+                                {% localize on %}
                                     {% for pago in pagos %}
                                     <tr>
+                                        {% language 'es' %}
                                         <td>{{ pago.clase.actividad.nombre }}</td>
                                         <!-- Fecha de cuando se realizó la transacción -->
                                         <td>{{ pago.fecha_pago_real|date:"d/m/Y" }}</td>
                                         <!-- Fecha de la clase -->
                                         <td>{{ pago.fecha_clase_real|date:"d/m/Y" }}</td>
-
+                                        
                                         <!-- Día de la semana de la clase -->
                                         <td>{{ pago.fecha_clase_real|date:"l" }}</td>
-        
+                                        
                                         <td>{{ pago.clase.horario|time:"H:i" }}</td>
         
                                         <td>{% if pago.clase_eliminada %}Eliminada{% elif pago.suspendida %}Suspendida{% else %}{{ pago.estado_pago }}{% endif %}</td>
@@ -354,8 +359,10 @@
                                                 Descargar comprobante
                                             </a>
                                         </td>
+                                        {% endlanguage %}
                                     </tr>
                                     {% endfor %}
+                                {% endlocalize %}
                                 </tbody>
                             </table>
 
