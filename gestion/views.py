@@ -398,7 +398,7 @@ def eliminar_clase(request, clase_id):
             actividad=clase.actividad,
             horario=clase.horario,
             profesor=clase.profesor,
-            fecha__gte=hoy,
+            fecha__gte=clase.fecha,
             activa=True,
         )
         clase_ids = list(clases_a_eliminar.values_list('id', flat=True))
@@ -414,7 +414,7 @@ def eliminar_clase(request, clase_id):
 
             reservas_afectadas = Reserva.objects.filter(
                 clase_id__in=clase_ids,
-                fecha_clase__gte=hoy,
+                fecha_clase__gte=clase.fecha,
             ).exclude(
                 models.Q(modalidad='mensual', estado_pago='pendiente')
             ).exclude(
@@ -438,8 +438,8 @@ def eliminar_clase(request, clase_id):
                 Notificacion.objects.create(
                     usuario=r.usuario,
                     mensaje=(
-                        f"La clase {clase.actividad.nombre} "
-                        f"fue eliminada definitivamente."
+                        f"La clase de {clase.actividad.nombre} de los {clase.dia_semana_nombre} "
+                        f"a las {horario_str} hs fue eliminada. Ya no estás en la lista de espera."
                     )
                 )
 
@@ -469,10 +469,9 @@ def eliminar_clase(request, clase_id):
                     if usuario.id not in mensuales_notificados:
                         mensuales_notificados.add(usuario.id)
                         mensaje = (
-                            f"La clase {actividad_nombre} de los {dia_nombre} "
-                            f"a las {horario_str} hs fue eliminada. "
-                            f"Se te asignaron los vouchers correspondientes "
-                            f"de las clases que tenías pagas."
+                            f"Se dejará de dictar clases de {actividad_nombre} de los {dia_nombre} "
+                            f"a las {horario_str} hs a partir del {clase.fecha.strftime('%d/%m/%Y')}. "
+                            f"Se te asignaron los vouchers correspondientes."
                         )
                         Notificacion.objects.create(usuario=usuario, mensaje=mensaje)
 
@@ -502,9 +501,9 @@ def eliminar_clase(request, clase_id):
 
             if clase.profesor and clase.profesor.usuario:
                 msg_prof = (
-                    f"La clase de {clase.actividad.nombre} "
-                    f"({clase.dia_semana_nombre} {horario_str} hs) "
-                    f"fue eliminada definitivamente del sistema."
+                    f"Se dejará de dictar clases de {clase.actividad.nombre} "
+                    f"de los {clase.dia_semana_nombre} a las {horario_str} hs "
+                    f"a partir del {clase.fecha.strftime('%d/%m/%Y')}."
                 )
                 Notificacion.objects.create(
                     usuario=clase.profesor.usuario,
@@ -2829,6 +2828,14 @@ def historial_pagos(request):
                 'clase_horario': horario,
                 'estado': 'pendiente',
                 'mensaje': f'Su mensualidad de {m.actividad.nombre} está pendiente de pago. Por favor abone antes del día 11.'
+            })
+        elif m.clase and not m.clase.activa:
+            resultados_mensualidad.append({
+                'actividad': m.actividad.nombre,
+                'clase_dia': dia,
+                'clase_horario': horario,
+                'estado': 'clase_eliminada',
+                'mensaje': f'Tu mensualidad de {m.actividad.nombre} ha sido cancelada, la clase fue eliminada del sistema.'
             })
         elif m.estado == 'vencida' or (m.estado == 'pendiente' and dia_hoy > 10):
             resultados_mensualidad.append({
