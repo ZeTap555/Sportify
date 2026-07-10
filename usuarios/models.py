@@ -13,9 +13,24 @@ def apto_medico_path(instance, filename):
  ext = filename.split('.')[-1]
  return f'aptos_medicos/{instance.dni}_apto_medico.{ext}'
 
+class Strike(models.Model):
+    TIPO_CHOICES = (
+        ('individual', 'Clase Individual'),
+        ('mensual', 'Clase Mensual'),
+    )
+    usuario = models.ForeignKey('usuarios.Usuario', on_delete=models.CASCADE, related_name='strikes')
+    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
+    fecha_falta = models.DateField(default=timezone.now)
 
+    class Meta:
+        verbose_name = "Strike"
+        verbose_name_plural = "Strikes"
+        
 class Usuario(AbstractUser):
 # Campos adicionales para el perfil
+ penalizacion_pendiente_individual = models.BooleanField(default=False)
+ penalizacion_pendiente_mensual = models.BooleanField(default=False)
+ 
  dni = models.CharField(
     unique=True,
     max_length=10,
@@ -149,3 +164,18 @@ class Usuario(AbstractUser):
     if self.apto_proximo_a_vencer():
         return 'proximo_a_vencer'
     return 'vigente'
+ 
+ def obtener_strikes_mes_actual(self, tipo):
+    """Cuenta cuántos strikes de cierto tipo tiene el usuario en el mes en curso."""
+    ahora = timezone.now()
+    return self.strikes.filter(
+        tipo=tipo,
+        fecha_falta__year=ahora.year,
+        fecha_falta__month=ahora.month
+    ).count()
+
+ def tiene_sancion_activa(self, tipo):
+    """Retorna True si llega a 3 strikes."""
+    return self.obtener_strikes_mes_actual(tipo) >= 3
+   
+

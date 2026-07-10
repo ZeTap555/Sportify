@@ -1072,8 +1072,22 @@
             var flujoTipo = arguments[2] || 'clase'; 
 
             var pasoVolver = (flujoTipo === 'mensualidad') ? '' : 'inscribir';
-
+            
+            let mensajeAviso = '';
+    
+            if (flujoTipo === 'mensualidad' && modalData.tiene_penalizacion_mensual) {
+                mensajeAviso = "⚠️ <strong>Aviso:</strong> Tenés una penalización de mensualidad pendiente. El valor se aplicará con el recargo correspondiente.";
+            } else if (flujoTipo === 'clase' && modalData.tiene_penalizacion_individual) {
+                mensajeAviso = "⚠️ <strong>Aviso:</strong> Tenés una penalización de clase individual pendiente. El valor se aplicará con el recargo correspondiente.";
+            }
+            
+            let avisoHtml = mensajeAviso ? `
+                <div style="background: rgba(255,159,10,0.15); border: 1px solid #ff9f0a; color: #ff9f0a; padding: 10px; border-radius: 8px; font-size: 0.8rem; margin-bottom: 15px; text-align: center;">
+                    ${mensajeAviso}
+                </div>
+            ` : '';
             acciones.innerHTML = `
+                ${avisoHtml}
                 <p style="color:#8e8e93; text-align:center; margin-bottom:15px;">Medio de pago</p>
                 <form method="POST" action="/clase/${modalData.id}/inscribirse/" id="form-pago">
                     <input type="hidden" name="csrfmiddlewaretoken" value="${getCSRFToken()}">

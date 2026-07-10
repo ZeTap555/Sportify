@@ -96,7 +96,7 @@ def register_view(request):
                 errores['apta_medica'] = "Archivo inválido. El apta médica debe ser obligatoriamente un documento PDF o una imagen (JPG, JPEG, PNG)."
         # Validar declaración de responsabilidad del apto médico (obligatoria)
         if not acepta_declaracion_apto:
-            errores['acepta_declaracion_apto'] = "Debés aceptar la declaración de responsabilidad sobre el apto médico para poder registrarte."
+            errores['acepta_declaracion_apto'] = "Debes aceptar la declaración de responsabilidad sobre el apto médico para poder registrarte."
         # -----------------------------------------------------------------
         # 3. CONTROL DE ERRORES SIMULTÁNEOS
         # -----------------------------------------------------------------
@@ -437,6 +437,8 @@ def perfil_view(request):
         request,
         'perfil.html',
         {
+            'strikes_individuales': request.user.obtener_strikes_mes_actual('individual'),
+            'strikes_mensuales': request.user.obtener_strikes_mes_actual('mensual'),
             'estado_apto': request.user.estado_apto_medico(),
             'dias_restantes_apto': request.user.dias_restantes_apto(),
             'fecha_vencimiento_apto': request.user.fecha_vencimiento_apto(),
@@ -458,7 +460,7 @@ def actualizar_apto_medico_view(request):
         acepta_declaracion_apto = request.POST.get('acepta_declaracion_apto') == 'on'
 
         if not nueva_apta:
-            errores['apta_medica'] = "Debés adjuntar el archivo del nuevo apto médico."
+            errores['apta_medica'] = "Debes adjuntar el archivo del nuevo apto médico."
         else:
             extension = nueva_apta.name.split('.')[-1].lower()
             extensiones_permitidas = ['pdf', 'jpg', 'jpeg', 'png']
@@ -466,7 +468,7 @@ def actualizar_apto_medico_view(request):
                 errores['apta_medica'] = "Archivo inválido. El apto médico debe ser un documento PDF o una imagen (JPG, JPEG, PNG)."
 
         if not acepta_declaracion_apto:
-            errores['acepta_declaracion_apto'] = "Debés aceptar nuevamente la declaración de responsabilidad para cargar el nuevo apto médico."
+            errores['acepta_declaracion_apto'] = "Debes aceptar nuevamente la declaración de responsabilidad para cargar el nuevo apto médico."
 
         if errores:
             return render(
