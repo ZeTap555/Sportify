@@ -648,7 +648,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-white-50 mb-3">¿Está seguro que desea eliminar esta clase?</p>
+                    <p class="text-white-50 mb-3">¿Está seguro que desea eliminar esta clase? Se eliminará a partir de <strong id="fecha-eliminar-clase"></strong>.</p>
                 </div>
                 <div class="modal-footer" style="border-top: 1px solid #2c2c2e;">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="background:#3a3a3c; border:none; color:#fff;">Cancelar</button>
@@ -744,6 +744,7 @@
 
                 document.getElementById('btn-eliminar-clase').onclick = function() {
                     document.getElementById('form-eliminar-clase').action = '/clase/' + claseId + '/eliminar/';
+                    document.getElementById('fecha-eliminar-clase').textContent = data.fecha;
                     new bootstrap.Modal(document.getElementById('modalEliminarGrilla')).show();
                 };
                 
