@@ -2684,7 +2684,7 @@ def vista_modificar_clase(request, clase_id):
             # 3. Aplicar cambios
             if alcance == 'todas':
                 clases_a_validar.update(profesor=nuevo_profesor)
-                messages.success(request, "Se actualizó el profesor en todas las clases recurrentes.")
+                messages.success(request, "Se actualizó el profesor en todas las clases.")
             else:
                 clase.profesor = nuevo_profesor
                 clase.save()
