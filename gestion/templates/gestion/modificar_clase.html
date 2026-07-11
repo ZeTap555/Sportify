@@ -1,0 +1,93 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modificar Clase - Sportify</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body { background-color: #000; color: #fff; font-family: 'Poppins', sans-serif; margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .card { background: #1c1c1e; border: 1px solid #2c2c2e; border-radius: 16px; padding: 40px; max-width: 440px; width: 90%; }
+        h1 { color: #00ff88; font-size: 1.4rem; margin: 0 0 10px 0; }
+        .sub { color: #8e8e93; font-size: 0.85rem; margin-bottom: 25px; }
+        .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; font-size: 0.75rem; font-weight: 600; color: #8e8e93; text-transform: uppercase; margin-bottom: 6px; }
+        select { width: 100%; padding: 12px 14px; background: #2c2c2e; border: 1px solid #3a3a3c; border-radius: 8px; color: #fff; font-size: 0.95rem; outline: none; }
+        .btn-guardar { width: 100%; padding: 14px; border: none; border-radius: 10px; background: #00ff88; color: #000; font-weight: 600; cursor: pointer; margin-top: 10px; }
+        .btn-volver { display: block; text-align: center; margin-top: 15px; color: #8e8e93; text-decoration: none; font-size: 0.85rem; }
+        .alert-box {
+            position: relative;
+            padding: 12px 35px 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        .alert-box.error { background: #ff453a20; color: #ff453a; border: 1px solid #ff453a40; }
+        .alert-box.success { background: #00ff8820; color: #00ff88; border: 1px solid #00ff8840; }
+        .close-msg {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            font-size: 1.2rem;
+            font-weight: bold;
+            opacity: 0.7;
+        }
+        .close-msg:hover { opacity: 1; }
+    </style>
+</head>
+<body>
+    {% load l10n %}
+    {% load static %}
+    {% load i18n %}
+    
+    <div class="card">
+        <h1>Modificar Clase</h1>
+        {% language 'es' %}
+        <div class="sub">
+            {{ clase.actividad.nombre }} | {{ clase.fecha|date:"l d/m/Y" }} {{ clase.horario|time:"H:i" }} hs
+        </div>
+        {% endlanguage %}
+        <div class="sub">Profesor actual: {{ clase.profesor.nombre }} {{ clase.profesor.apellido }}; Dni: ({{ clase.profesor.dni }})</div>
+        {% if messages %}
+            <div id="msg-container">
+                {% for message in messages %}
+                    <div class="alert-box {{ message.tags }}">
+                        {{ message }}
+                        <span class="close-msg" onclick="this.parentElement.style.display='none';">&times;</span>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        <form method="POST">
+            {% csrf_token %}
+            <div class="input-group">
+                <label>Nuevo Profesor</label>
+                <select name="profesor_id">
+                    {% for p in profesores %}
+                        <option value="{{ p.id }}" {% if p.id == clase.profesor.id %}selected{% endif %}>
+                            {{ p.nombre }} {{ p.apellido }}; Dni: ({{ p.dni }})
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>Alcance del cambio</label>
+                <select name="alcance">
+                    <option value="solo_esta">Solo esta clase</option>
+                    <option value="todas">Todas las clases recurrentes</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn-guardar">Guardar cambios</button>
+            
+        </form>
+        <a href="{% url 'grilla_actividades' %}" class="btn-volver">Cancelar</a>
+    </div>
+</body>
+</html>

@@ -2639,7 +2639,61 @@ def asignar_profesor_clase(request, clase_id):
             
     return redirect('grilla_actividades')
 
+# gestion/views.py
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
+from .models import Clase, Profesor
 
+def vista_modificar_clase(request, clase_id):
+    clase = get_object_or_404(Clase, id=clase_id)
+    profesores = Profesor.objects.all()
+
+    if request.method == 'POST':
+        nuevo_prof_id = request.POST.get('profesor_id')
+        alcance = request.POST.get('alcance')
+
+        if nuevo_prof_id and str(nuevo_prof_id) == str(clase.profesor_id):
+            messages.error(request, "El profesor seleccionado es el mismo que ya tiene asignado la clase.")
+            return redirect('modificar_clase', clase_id=clase.id)
+
+        if nuevo_prof_id:
+            nuevo_profesor = get_object_or_404(Profesor, id=nuevo_prof_id)
+            
+            # 1. Definimos las clases a validar basándonos en lo que existe en el modelo
+            # Como no tenés 'dia_semana', usamos 'fecha' y 'horario'
+            if alcance == 'todas':
+                # Buscamos clases con la misma actividad y horario (recurrencia lógica)
+                clases_a_validar = Clase.objects.filter(
+                    actividad=clase.actividad,
+                    horario=clase.horario
+                )
+            else:
+                clases_a_validar = Clase.objects.filter(id=clase.id)
+
+            # 2. Validamos choque (usando solo campos existentes)
+            # Buscamos si el nuevo profesor tiene alguna clase en la MISMA FECHA y HORARIO
+            choque = Clase.objects.filter(
+                profesor=nuevo_profesor,
+                fecha=clase.fecha, 
+                horario=clase.horario
+            ).exclude(id__in=clases_a_validar.values_list('id', flat=True)).exists()
+
+            if choque:
+                messages.error(request, "Error: El profesor ya se encuentra asignado a otra clase en ese mismo día y horario.")
+                return redirect('modificar_clase', clase_id=clase.id)
+            
+            # 3. Aplicar cambios
+            if alcance == 'todas':
+                clases_a_validar.update(profesor=nuevo_profesor)
+                messages.success(request, "Se actualizó el profesor en todas las clases recurrentes.")
+            else:
+                clase.profesor = nuevo_profesor
+                clase.save()
+                messages.success(request, "Profesor actualizado solo para esta clase.")
+                
+            return redirect('grilla_actividades')
+
+    return render(request, 'gestion/modificar_clase.html', {'clase': clase, 'profesores': profesores})
 # =========================================================================
 # 5. HISTORIAL DE PAGOS
 # =========================================================================
