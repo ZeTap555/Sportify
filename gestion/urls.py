@@ -52,4 +52,5 @@ urlpatterns = [
 
     # Admin: actividad de usuario
     path('usuario/<int:user_id>/actividad/', views.actividad_usuario, name='actividad_usuario'),
+    path('modificar-clase/<int:clase_id>/', views.vista_modificar_clase, name='modificar_clase'),
 ]

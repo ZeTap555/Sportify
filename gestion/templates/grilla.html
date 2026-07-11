@@ -545,10 +545,10 @@
         <div style="margin-top:15px; text-align:center;display:none;" id="contenedor-ver-inscriptos">
             <button
                 id="btn-ver-inscriptos-admin"
-                class="btn btn-success"
-                style="background:#1db954;
+                class="modal-btn primary"
+                style="background:#00ff88;
                        border:none;
-                       color:white;
+                       color:rgb(0, 0, 0);
                        padding:10px 20px;
                        border-radius:10px;
                        font-weight:600;"
@@ -557,16 +557,21 @@
             </button>
         </div>
         <div style="margin-top:10px; text-align:center;display:none;" id="contenedor-suspender-clase">
-            <button id="btn-suspender-clase" class="btn" style="background:#1db954; color:#fff; font-weight:600; border:none; padding:10px 20px; border-radius:10px;">
+            <button id="btn-suspender-clase" class="modal-btn primary" style="background:#00ff88; color:#000000; font-weight:600; border:none; padding:10px 20px; border-radius:10px;">
                 Suspender Clase
             </button>
         </div>
+        <div style="margin-top:10px; text-align:center; display:none;" id="contenedor-modificar-clase">
+            <button id="btn-modificar-clase" class="modal-btn primary" style="background:#00ff88; color:#000000; font-weight:600; border:none; padding:10px 20px; border-radius:10px;">
+                 Modificar Clase
+            </button>
+        </div>
         <div style="margin-top:10px; text-align:center;display:none;" id="contenedor-eliminar-clase">
-            <button id="btn-eliminar-clase" class="btn" style="background:#ff453a; color:#fff; font-weight:600; border:none; padding:10px 20px; border-radius:10px;">
+            <button id="btn-eliminar-clase" class="modal-btn primary" style="background:#e42d23; color:#000000; font-weight:600; border:none; padding:10px 20px; border-radius:10px;">
                 Eliminar Clase
             </button>
         </div>
-    </div>
+    </div> 
 </div>
 
 <div class="modal fade" id="modalSuspenderGrilla" tabindex="-1" aria-hidden="true">
@@ -746,7 +751,12 @@
                     document.getElementById('form-eliminar-clase').action = '/clase/' + claseId + '/eliminar/';
                     new bootstrap.Modal(document.getElementById('modalEliminarGrilla')).show();
                 };
-                
+                // Dentro de: if (data.es_admin) { ... }
+                document.getElementById('contenedor-modificar-clase').style.display = "block";
+                document.getElementById('btn-modificar-clase').onclick = function() {
+                    window.location.href = '/modificar-clase/' + claseId + '/';
+                };
+
                 btnVerInscriptos.onclick = function() {
                     fetch(`/ver-inscriptos/${claseId}/${fecha}/`)
                         .then(response => response.json())
@@ -899,7 +909,7 @@
                 // ==========================================================
       let botonInscripcion = '';
       let botonMensualidad = '';
-
+                
         // 0️⃣ Apto médico vencido o no cargado: bloquea cualquier inscripción
         if (!modalData.apto_vigente) {
             botonInscripcion = `
