@@ -2643,9 +2643,23 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from .models import Clase, Profesor
 
+def generar_email_html(titulo, contenido_html):
+    return f"""
+    <div style="background-color:#000000;padding:40px;font-family:Poppins,sans-serif; text-align:center;">
+        <h1 style="color:#00ff88;">SPORTIFY</h1>
+        <h2 style="color:white;">{titulo}</h2>
+        <div style="background:#1c1c1e; padding:20px; border-radius:10px; margin:20px auto; max-width:400px; color:white; text-align:left;">
+            {contenido_html}
+        </div>
+        <p style="color:#666; font-size:12px;">No respondas a este correo. Sportify.</p>
+    </div>
+    """
+
 def vista_modificar_clase(request, clase_id):
     clase = get_object_or_404(Clase, id=clase_id)
     profesores = Profesor.objects.all()
+    
+    profesor_anterior = clase.profesor
 
     if request.method == 'POST':
         nuevo_prof_id = request.POST.get('profesor_id')
@@ -2684,12 +2698,49 @@ def vista_modificar_clase(request, clase_id):
             # 3. Aplicar cambios
             if alcance == 'todas':
                 clases_a_validar.update(profesor=nuevo_profesor)
-                messages.success(request, "Se actualizó el profesor en todas las clases.")
+                mensaje_exito = "Se actualizó el profesor en todas las clases."
             else:
                 clase.profesor = nuevo_profesor
                 clase.save()
-                messages.success(request, "Profesor actualizado solo para esta clase.")
+                mensaje_exito = "Profesor actualizado solo para esta clase."
+            
+            # --- LÓGICA DE NOTIFICACIONES ---
+            if profesor_anterior != nuevo_profesor:
+                fecha_str = clase.fecha.strftime('%d/%m/%Y')
+                horario_str = clase.horario.strftime('%H:%M')
+                # Obtenemos el nombre del día en español (ej: "lunes")
+                dias_semana = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+                dia_str = dias_semana[clase.fecha.weekday()]
+
+                if alcance == 'todas':
+                    msg_ant = f"Lamentamos informarte que ya no estarás a cargo de la serie de clases de {clase.actividad.nombre} (todos los {dia_str} a las {horario_str} hs)."
+                    msg_nuevo = f"Te informamos que se te ha asignado la serie de clases de {clase.actividad.nombre} (todos los {dia_str} a las {horario_str} hs)."
+                    asunto_ant = "Desasignación de serie - Sportify"
+                    asunto_nuevo = "Nueva asignación de serie - Sportify"
+                else:
+                    msg_ant = f"Lamentamos informarte que ya no estarás a cargo de la clase de {clase.actividad.nombre} el día {fecha_str} a las {horario_str} hs."
+                    msg_nuevo = f"Te informamos que se te ha asignado la clase de {clase.actividad.nombre} el día {fecha_str} a las {horario_str} hs."
+                    asunto_ant = "Desasignación de clase - Sportify"
+                    asunto_nuevo = "Nueva asignación de clase - Sportify"
+
+                # 2. Notificación y Email al ANTERIOR
+                if profesor_anterior:
+                    Notificacion.objects.create(usuario=profesor_anterior.usuario, mensaje=msg_ant)
+                    
+                    html_ant = generar_email_html("Cambio en tu agenda", f"<p>Hola {profesor_anterior.nombre},</p><p>{msg_ant}</p>")
+                    email_ant = EmailMultiAlternatives(asunto_ant, msg_ant, settings.EMAIL_HOST_USER, [profesor_anterior.correo])
+                    email_ant.attach_alternative(html_ant, "text/html")
+                    email_ant.send(fail_silently=True)
+
+                # 3. Notificación y Email al NUEVO
+                Notificacion.objects.create(usuario=nuevo_profesor.usuario, mensaje=msg_nuevo)
                 
+                html_nuevo = generar_email_html("Nueva asignación", f"<p>Hola {nuevo_profesor.nombre},</p><p>{msg_nuevo}</p>")
+                email_nuevo = EmailMultiAlternatives(asunto_nuevo, msg_nuevo, settings.EMAIL_HOST_USER, [nuevo_profesor.correo])
+                email_nuevo.attach_alternative(html_nuevo, "text/html")
+                email_nuevo.send(fail_silently=True)
+
+            messages.success(request, mensaje_exito)
             return redirect('grilla_actividades')
 
     return render(request, 'gestion/modificar_clase.html', {'clase': clase, 'profesores': profesores})
