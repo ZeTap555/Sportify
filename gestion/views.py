@@ -138,16 +138,20 @@ def grilla_actividades(request):
 
     # 6. Detalle del día seleccionado
     clases_detalle_dia = []
-    for clase in todas_las_clases:
-        if clase.fecha == fecha_seleccionada:
-            clase.cupos_mostrar = clase.cupos_para_fecha(fecha_seleccionada)
-            if fecha_seleccionada == ahora:
-                fecha_hora_clase = timezone.make_aware(
-                    datetime.combine(fecha_seleccionada, clase.horario)
-                )
-                if fecha_hora_clase < timezone.now():
-                    continue
-            clases_detalle_dia.append(clase)
+    es_admin_usuario = request.user.is_authenticated and request.user.rol == 'admin'
+    if fecha_seleccionada < ahora and not es_admin_usuario:
+        clases_detalle_dia = []
+    else:
+        for clase in todas_las_clases:
+            if clase.fecha == fecha_seleccionada:
+                clase.cupos_mostrar = clase.cupos_para_fecha(fecha_seleccionada)
+                if fecha_seleccionada == ahora:
+                    fecha_hora_clase = timezone.make_aware(
+                        datetime.combine(fecha_seleccionada, clase.horario)
+                    )
+                    if fecha_hora_clase < timezone.now():
+                        continue
+                clases_detalle_dia.append(clase)
 
     clases_detalle_dia.sort(key=lambda x: x.horario)
 
@@ -192,6 +196,7 @@ def grilla_actividades(request):
         'actividad_seleccionada': actividad_id,
         'mensaje_filtro': mensaje_filtro,
         'tiene_voucher':tiene_voucher,
+        'es_admin': es_admin_usuario,
     }
 
     if request.user.is_authenticated:
@@ -3086,6 +3091,9 @@ def detalle_clase_api(request, clase_id):
     if fecha_str:
         fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
         clase_finalizada=fecha<date.today()
+        es_admin_api = request.user.is_authenticated and request.user.rol == 'admin'
+        if clase_finalizada and not es_admin_api:
+            return JsonResponse({'error': 'Esta clase ya finalizó'}, status=403)
         cupos = clase.cupos_para_fecha(fecha)
         cantidad_inscriptos=Reserva.objects.filter(
             fecha_clase=fecha,
