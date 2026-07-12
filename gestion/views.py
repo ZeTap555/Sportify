@@ -854,6 +854,7 @@ def mis_reservas(request):
         'filtro_dia': dia_semana,
         'filtro_horario': horario,
         'filtro_tipo': tipo,
+        'apto_vigente': request.user.tiene_apto_vigente() if request.user.rol == 'cliente' else True,
     })
 
 @login_required
@@ -1362,7 +1363,12 @@ def pago_tarjeta(request):
                 monto_unitario = Decimal(datos['monto']) / cant
                 Reserva.objects.filter(
                     id__in=reserva_ids, usuario=request.user
-                ).update(estado_pago='total', monto_pagado=monto_unitario, medio_pago='Tarjeta')
+                ).update(
+                    estado_pago='total',
+                    monto_pagado=monto_unitario,
+                    medio_pago='Tarjeta',
+                    fecha_reserva=timezone.now()
+                )
 
                 Mensualidad.objects.update_or_create(
                     usuario=request.user,
@@ -1628,7 +1634,12 @@ def pago_exito(request):
         monto_unitario = Decimal(datos['monto']) / cant
         Reserva.objects.filter(
             id__in=reserva_ids
-        ).update(estado_pago='total', monto_pagado=monto_unitario, medio_pago='Mercado Pago')
+        ).update(
+            estado_pago='total',
+            monto_pagado=monto_unitario,
+            medio_pago='Mercado Pago',
+            fecha_reserva=timezone.now()
+        )
 
         Mensualidad.objects.update_or_create(
             usuario=usuario_reserva,
@@ -1644,6 +1655,8 @@ def pago_exito(request):
             usuario=usuario_reserva,
             mensaje=mensaje_notificacion
         )
+
+        threading.Thread(target=enviar_confirmacion, args=(usuario_reserva, clase, reserva), kwargs={'monto_total': Decimal(datos['monto'])}).start()
 
         if 'inscripcion_pendiente' in request.session:
             del request.session['inscripcion_pendiente']
@@ -1899,6 +1912,14 @@ def renovar_mensualidad(request, clase_id):
 
     if not reservas_pendientes.exists():
         messages.error(request, 'No hay reservas pendientes para renovar esta mensualidad.')
+        return redirect('mis_reservas')
+
+    if request.user.rol == 'cliente' and not request.user.tiene_apto_vigente():
+        messages.error(
+            request,
+            "Tu apto médico se encuentra vencido. Debes cargar uno nuevo en Mi Perfil para continuar "
+            "utilizando las funciones de reserva e inscripción."
+        )
         return redirect('mis_reservas')
 
     target_month = reservas_pendientes.first().fecha_clase.month
@@ -2768,7 +2789,17 @@ def historial_pagos(request):
         pago.es_mensual = es_mensual
         
         # Asignación de fechas reales para la tabla
-        pago.fecha_pago_real = pago.fecha_reserva
+        if es_mensual:
+            mensualidad = Mensualidad.objects.filter(
+                usuario=request.user,
+                clase=pago.clase,
+                mes=pago.fecha_clase.month,
+                anio=pago.fecha_clase.year,
+                estado='pagada'
+            ).first()
+            pago.fecha_pago_real = mensualidad.fecha_pago if mensualidad and mensualidad.fecha_pago else pago.fecha_reserva
+        else:
+            pago.fecha_pago_real = pago.fecha_reserva
         pago.fecha_clase_real = pago.fecha_clase
     
     '''for pago in pagos:
