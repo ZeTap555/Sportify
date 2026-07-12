@@ -854,6 +854,7 @@ def mis_reservas(request):
         'filtro_dia': dia_semana,
         'filtro_horario': horario,
         'filtro_tipo': tipo,
+        'apto_vigente': request.user.tiene_apto_vigente() if request.user.rol == 'cliente' else True,
     })
 
 @login_required
@@ -1911,6 +1912,14 @@ def renovar_mensualidad(request, clase_id):
 
     if not reservas_pendientes.exists():
         messages.error(request, 'No hay reservas pendientes para renovar esta mensualidad.')
+        return redirect('mis_reservas')
+
+    if request.user.rol == 'cliente' and not request.user.tiene_apto_vigente():
+        messages.error(
+            request,
+            "Tu apto médico se encuentra vencido. Debes cargar uno nuevo en Mi Perfil para continuar "
+            "utilizando las funciones de reserva e inscripción."
+        )
         return redirect('mis_reservas')
 
     target_month = reservas_pendientes.first().fecha_clase.month
