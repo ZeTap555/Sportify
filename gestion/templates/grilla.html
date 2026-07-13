@@ -679,6 +679,7 @@
     }
 
     function abrirModalDetalle(claseId, fecha) {
+    if (diasHastaFecha(fecha) < 0 && !{{ es_admin|yesno:"true,false" }}) return;
     modalFecha = fecha;
     fetch('/clase/' + claseId + '/datos/?fecha=' + fecha)
         .then(r => r.json())
