@@ -1757,6 +1757,7 @@ def pago_exito(request):
                 f"Tu mensualidad comenzará a partir de la próxima semana."
             )
             mensaje_notificacion += f" {mensaje_extra}"
+            request.session['mensualidad_sin_cupo'] = mensaje_extra
 
         Notificacion.objects.create(
             usuario=usuario_reserva,
