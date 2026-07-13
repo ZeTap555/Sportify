@@ -434,18 +434,20 @@ def eliminar_clase(request, clase_id):
             reservas_pagas = [r for r in afectadas_final if not r.en_lista_de_espera]
             reservas_waitlist = [r for r in afectadas_final if r.en_lista_de_espera]
 
+            actividad_nombre = clase.actividad.nombre
+            horario_str = clase.horario.strftime('%H:%M')
+            dia_nombre = clase.dia_semana_nombre
+
             for r in reservas_waitlist:
                 Notificacion.objects.create(
                     usuario=r.usuario,
                     mensaje=(
-                        f"La clase de {clase.actividad.nombre} de los {clase.dia_semana_nombre} "
+                        f"La clase de {actividad_nombre} de los {dia_nombre} "
                         f"a las {horario_str} hs fue eliminada. Ya no estás en la lista de espera."
                     )
                 )
+            Reserva.objects.filter(id__in=[r.id for r in reservas_waitlist]).delete()
 
-            actividad_nombre = clase.actividad.nombre
-            horario_str = clase.horario.strftime('%H:%M')
-            dia_nombre = clase.dia_semana_nombre
             mensuales_notificados = set()
 
             for reserva in reservas_pagas:
@@ -519,7 +521,7 @@ def eliminar_clase(request, clase_id):
 
         messages.success(
             request,
-            f'La clase {actividad_nombre} del {dia_nombre} a las {horario_str}hrs fue eliminada correctamente. '
+            f'La clase {actividad_nombre} de los {dia_nombre} a las {horario_str}hrs fue eliminada correctamente a partir del {clase.fecha.strftime("%d/%m/%Y")}. '
         )
         return redirect('grilla_actividades')
 
@@ -828,9 +830,10 @@ def mis_reservas(request):
             r.es_mensual = False
             reservas_pendientes_pago.append(r)
         elif r.modalidad == 'mensual' and r.estado_pago == 'pendiente':
-            r.es_mensual_pendiente = True
-            r.es_mensual = False
-            reservas_pendientes_pago.append(r)
+            if r.clase.activa:
+                r.es_mensual_pendiente = True
+                r.es_mensual = False
+                reservas_pendientes_pago.append(r)
         else:
             r.es_mensual = r.modalidad == 'mensual' and r.estado_pago != 'pendiente'
             reservas_normales.append(r)
@@ -868,7 +871,7 @@ def salir_lista_espera(request,reserva_id):
 @login_required
 def mis_clases(request):
     profesor=Profesor.objects.get(usuario=request.user)
-    clases_raw = Clase.objects.filter(profesor=profesor, activa=True).select_related('actividad')
+    clases_raw = Clase.objects.filter(profesor=profesor).select_related('actividad')
     vistas = set()
     clases = []
     for c in clases_raw:
@@ -911,6 +914,17 @@ def mis_clases(request):
             fecha_actual+=timedelta(days=7)
     clases_pendientes.sort(key=lambda x:(x['fecha'],x['clase'].horario))
     clases_finalizadas.sort(key=lambda x:(x['fecha'],x['clase'].horario),reverse=True)
+
+    todas_ocurrencias = clases_pendientes + clases_finalizadas
+    fechas_susp = SuspensionClase.objects.filter(
+        clase__profesor=profesor,
+        fecha__in=[o['fecha'] for o in todas_ocurrencias]
+    ).values_list('clase_id', 'fecha')
+    suspension_set = {(s[0], s[1]) for s in fechas_susp}
+    for o in todas_ocurrencias:
+        o['suspendida'] = (o['clase'].id, o['fecha']) in suspension_set
+        o['eliminada'] = not o['clase'].activa
+
     notificaciones_no_leidas = Notificacion.objects.filter(usuario=request.user, leida=False).count()
     print("pendientes",len(clases_pendientes))
     print("finalizadas",len(clases_finalizadas))
@@ -1125,8 +1139,10 @@ def validar_horario_qr(request,clase_id,fecha):
     permitido=(
         inicio-timedelta(minutes=15)<=ahora<=fin + timedelta(minutes=15)
     )
+    suspendida=SuspensionClase.objects.filter(clase=clase,fecha=fecha_obj).exists()
     return JsonResponse({
-        "permitido":permitido
+        "permitido":permitido,
+        "suspendida":suspendida,
     })
 
 from django.contrib.auth import authenticate
@@ -2181,7 +2197,7 @@ def panel_admin(request):
                                         usuario=profesor.usuario,
                                         mensaje=(
                                             f"Nueva serie de clases de {actividad.nombre} asignada para los "
-                                            f"días {fecha_obj.strftime('%A')} a las {horario_obj.strftime('%H:%M')} hs."
+                                            f"días {['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'][fecha_obj.weekday()]} a las {horario_obj.strftime('%H:%M')} hs."
                                         ),
                                         leida=False
                                     )
