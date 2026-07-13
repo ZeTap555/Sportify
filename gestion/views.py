@@ -855,6 +855,7 @@ def mis_reservas(request):
         'filtro_horario': horario,
         'filtro_tipo': tipo,
         'apto_vigente': request.user.tiene_apto_vigente() if request.user.rol == 'cliente' else True,
+        'tiene_voucher': Voucher.objects.filter(cliente=request.user, utilizado=False).exists(),
     })
 
 @login_required
@@ -992,6 +993,7 @@ def cancelar_reserva(request,reserva_id):
             mensaje="Cancelaste tu reserva correctamente. Se acreditó un voucher en tu cuenta, usalo antes de que expire!!!",
             leida=False
         )
+        messages.success(request, "Cancelación exitosa. Se acreditó un voucher en tu cuenta")
         asunto="Voucher acreditado - Sportify"
         mensaje_html=f"""
         <div style="background:#000000;padding:40px;font-family:Poppins,sans-serif,text-aling:center;">
@@ -1026,12 +1028,119 @@ def cancelar_reserva(request,reserva_id):
         )
         email_message.attach_alternative(mensaje_html,"text/html")
         email_message.send()
-        
+        messages.success(request, "Cancelación exitosa")
+    
+    clase_afectada = reserva.clase
+    fecha_clase_afectada = reserva.fecha_clase
 
     reserva.delete()
-    
-    return redirect("mis_vouchers")
 
+    # =========================================================
+    # PROMOCIÓN AUTOMÁTICA DEL PRIMERO EN LISTA DE ESPERA
+    # =========================================================
+    siguiente_en_espera = Reserva.objects.filter(
+        fecha_clase=fecha_clase_afectada,
+        clase__horario=clase_afectada.horario,
+        clase__actividad=clase_afectada.actividad,
+        en_lista_de_espera=True,
+        puede_confirmar=False,
+    ).order_by('fecha_reserva').first()
+
+    if siguiente_en_espera:
+        siguiente_en_espera.puede_confirmar = True
+        siguiente_en_espera.save()
+
+        mensaje_cupo = (
+            f"¡Se liberó un cupo! La clase {clase_afectada.actividad.nombre} del "
+            f"{fecha_clase_afectada.strftime('%d/%m/%Y')} a las "
+            f"{clase_afectada.horario.strftime('%H:%M')} hs ya tiene lugar disponible para vos. "
+            f"Confirmá tu turno desde Mis Reservas."
+        )
+        Notificacion.objects.create(
+            usuario=siguiente_en_espera.usuario,
+            mensaje=mensaje_cupo,
+        )
+        asunto_cupo = f"¡Se liberó un cupo! - {clase_afectada.actividad.nombre}"
+        html_cupo = _armar_html_email(clase_afectada.actividad.nombre, mensaje_cupo, "¡Se liberó un cupo!")
+        email_cupo = EmailMultiAlternatives(
+            asunto_cupo, "", settings.EMAIL_HOST_USER, [siguiente_en_espera.usuario.email]
+        )
+        email_cupo.attach_alternative(html_cupo, "text/html")
+        email_cupo.send()
+
+    return redirect("mis_reservas")
+@login_required
+def confirmar_turno_espera(request, reserva_id):
+    reserva = get_object_or_404(
+        Reserva,
+        id=reserva_id,
+        usuario=request.user,
+        en_lista_de_espera=True,
+        puede_confirmar=True,
+    )
+    clase = reserva.clase
+    fecha_clase = reserva.fecha_clase
+
+    if request.user.rol == 'cliente' and not request.user.tiene_apto_vigente():
+        messages.error(
+            request,
+            "Tu apto médico se encuentra vencido. Debes cargar uno nuevo para continuar "
+            "utilizando las funciones de reserva e inscripción."
+        )
+        return redirect('mis_reservas')
+
+    if request.method != 'POST':
+        return redirect('mis_reservas')
+
+    usar_voucher = request.POST.get('usar_voucher') == 'true'
+    medio_pago = request.POST.get('medio_pago')
+
+    if usar_voucher:
+        voucher = Voucher.objects.filter(cliente=request.user, utilizado=False).first()
+        if not voucher:
+            messages.error(request, "No tenés vouchers disponibles.")
+            return redirect('mis_reservas')
+        voucher.delete()
+
+        reserva.en_lista_de_espera = False
+        reserva.puede_confirmar = False
+        reserva.monto_pagado = 0
+        reserva.estado_pago = 'total'
+        reserva.medio_pago = 'Voucher'
+        reserva.modalidad = 'individual'
+        reserva.save()
+
+        mensaje_notificacion = (
+            f"Se confirmó con éxito tu turno de la lista de espera con voucher para la clase: "
+            f"{clase.actividad.nombre} del {fecha_clase.strftime('%d/%m/%Y')}."
+        )
+        Notificacion.objects.create(usuario=request.user, mensaje=mensaje_notificacion)
+        threading.Thread(target=enviar_confirmacion, args=(request.user, clase, reserva)).start()
+        return redirect('pago_confirmacion', reserva_id=reserva.id)
+
+    if medio_pago not in ('Tarjeta', 'Mercado Pago'):
+        messages.error(request, 'Seleccioná un método de pago válido.')
+        return redirect('mis_reservas')
+
+    monto = clase.actividad.precio_clase
+    if request.user.penalizacion_pendiente_individual:
+        monto = Decimal(str(monto)) * Decimal('1.25')
+        monto = round(monto, 2)
+
+    request.session['inscripcion_pendiente'] = {
+        'tipo_operacion': 'confirmar_turno_espera',
+        'reserva_id': reserva.id,
+        'clase_id': clase.id,
+        'fecha_clase': fecha_clase.strftime('%Y-%m-%d'),
+        'tipo_pago': 'total',
+        'monto': str(monto),
+        'medio_pago': medio_pago,
+    }
+
+    if medio_pago == 'Tarjeta':
+        return redirect('pago_tarjeta')
+    else:
+        return redirect('pago_mercadopago')
 @login_required
 def cancelar_clase_individual(request, reserva_id):
     reserva = get_object_or_404(Reserva, id=reserva_id, usuario=request.user)
@@ -1063,6 +1172,8 @@ def cancelar_clase_individual(request, reserva_id):
         actividad = reserva.clase.actividad.nombre
         fecha = reserva.fecha_clase.strftime("%d/%m/%Y")
         horario = reserva.clase.horario.strftime("%H:%M")
+        messages.success(request, f"Cancelación exitosa. Se generó un ticket de reintegro  para retirar en recepción.")
+
         Notificacion.objects.create(
             usuario=request.user,
             mensaje=f"Cancelaste tu clase individual de {actividad} el {fecha} a las {horario}hs. Se te otorgó un ticket de reintegro por ${monto} para retirar en recepción.",
@@ -1081,6 +1192,7 @@ def cancelar_clase_individual(request, reserva_id):
         actividad = reserva.clase.actividad.nombre
         fecha = reserva.fecha_clase.strftime("%d/%m/%Y")
         horario = reserva.clase.horario.strftime("%H:%M")
+        messages.success(request,"Cancelación exitosa.")
         Notificacion.objects.create(
             usuario=request.user,
             mensaje=f"Cancelaste tu clase individual de {actividad} el {fecha} a las {horario}hs.",
@@ -1101,7 +1213,45 @@ def cancelar_clase_individual(request, reserva_id):
     email_message.attach_alternative(mensaje_html, "text/html")
     email_message.send()
 
+    clase_afectada = reserva.clase
+    fecha_clase_afectada = reserva.fecha_clase
+
     reserva.delete()
+
+    # =========================================================
+    # PROMOCIÓN AUTOMÁTICA DEL PRIMERO EN LISTA DE ESPERA
+    # =========================================================
+    siguiente_en_espera = Reserva.objects.filter(
+        fecha_clase=fecha_clase_afectada,
+        clase__horario=clase_afectada.horario,
+        clase__actividad=clase_afectada.actividad,
+        en_lista_de_espera=True,
+        puede_confirmar=False,
+    ).order_by('fecha_reserva').first()
+
+    if siguiente_en_espera:
+        siguiente_en_espera.puede_confirmar = True
+        siguiente_en_espera.save()
+
+        mensaje_cupo = (
+            f"¡Se liberó un cupo! La clase {clase_afectada.actividad.nombre} del "
+            f"{fecha_clase_afectada.strftime('%d/%m/%Y')} a las "
+            f"{clase_afectada.horario.strftime('%H:%M')} hs ya tiene lugar disponible para vos. "
+            f"Ingresá a Mis Reservas > Lista de Espera para confirmar tu turno, "
+            f"o darte de baja de la lista si ya no te interesa."
+        )
+        Notificacion.objects.create(
+            usuario=siguiente_en_espera.usuario,
+            mensaje=mensaje_cupo,
+        )
+        asunto_cupo = f"¡Se liberó un cupo! - {clase_afectada.actividad.nombre}"
+        html_cupo = _armar_html_email(clase_afectada.actividad.nombre, mensaje_cupo, "¡Se liberó un cupo!")
+        email_cupo = EmailMultiAlternatives(
+            asunto_cupo, "", settings.EMAIL_HOST_USER, [siguiente_en_espera.usuario.email]
+        )
+        email_cupo.attach_alternative(html_cupo, "text/html")
+        email_cupo.send()
+
     return redirect("mis_reservas")
 
 import qrcode 
@@ -1356,7 +1506,19 @@ def pago_tarjeta(request):
                 reserva.medio_pago = 'Tarjeta'
                 reserva.save()
                 mensaje_notificacion = f"Se completó con éxito el pago de tu clase: {reserva.clase.actividad.nombre} del {reserva.fecha_clase.strftime('%d/%m/%Y')}"
-
+            elif datos.get('tipo_operacion') == 'confirmar_turno_espera':
+                reserva = get_object_or_404(Reserva, id=datos['reserva_id'], usuario=request.user)
+                reserva.en_lista_de_espera = False
+                reserva.puede_confirmar = False
+                reserva.estado_pago = 'total'
+                reserva.monto_pagado = Decimal(datos['monto'])
+                reserva.medio_pago = 'Tarjeta'
+                reserva.modalidad = 'individual'
+                reserva.save()
+                mensaje_notificacion = (
+                    f"Se confirmó con éxito tu turno de la lista de espera para la clase: "
+                    f"{reserva.clase.actividad.nombre} del {reserva.fecha_clase.strftime('%d/%m/%Y')}"
+                )
             elif datos.get('tipo_operacion') == 'renovar_mensualidad':
                 reserva_ids = datos['reserva_ids']
                 cant = len(reserva_ids)
@@ -1627,7 +1789,28 @@ def pago_exito(request):
         response = redirect('pago_confirmacion', reserva_id=reserva.id)
         response["ngrok-skip-browser-warning"] = "true"
         return response
+    elif datos.get('tipo_operacion') == 'confirmar_turno_espera':
+        reserva = get_object_or_404(Reserva, id=datos['reserva_id'], usuario=usuario_reserva)
+        reserva.en_lista_de_espera = False
+        reserva.puede_confirmar = False
+        reserva.estado_pago = 'total'
+        reserva.monto_pagado = Decimal(datos['monto'])
+        reserva.medio_pago = 'Mercado Pago'
+        reserva.modalidad = 'individual'
+        reserva.save()
 
+        mensaje_notificacion = (
+            f"Se confirmó con éxito tu turno de la lista de espera para la clase: "
+            f"{reserva.clase.actividad.nombre} del {reserva.fecha_clase.strftime('%d/%m/%Y')}"
+        )
+        Notificacion.objects.create(usuario=usuario_reserva, mensaje=mensaje_notificacion)
+        threading.Thread(target=enviar_confirmacion, args=(usuario_reserva, clase, reserva)).start()
+
+        if 'inscripcion_pendiente' in request.session:
+            del request.session['inscripcion_pendiente']
+        response = redirect('pago_confirmacion', reserva_id=reserva.id)
+        response["ngrok-skip-browser-warning"] = "true"
+        return response
     elif datos.get('tipo_operacion') == 'renovar_mensualidad':
         reserva_ids = datos['reserva_ids']
         cant = len(reserva_ids)

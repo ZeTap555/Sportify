@@ -14,6 +14,7 @@ urlpatterns = [
     path('mis-reservas/', views.mis_reservas, name='mis_reservas'),
     path('mis-clases/', views.mis_clases, name='mis_clases'),
     path("mis-vouchers/",views.mis_vouchers,name="mis_vouchers"),
+    path('reserva/<int:reserva_id>/confirmar-turno/', views.confirmar_turno_espera, name='confirmar_turno_espera'),
     
     # Lógica de Clases
     path('clase/<int:clase_id>/datos/', views.detalle_clase_api, name='detalle_clase_api'),
