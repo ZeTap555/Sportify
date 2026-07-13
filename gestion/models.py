@@ -122,6 +122,7 @@ class Reserva(models.Model):
     # 📋 LISTA DE ESPERA INTERNA
     # Si al crearse la reserva los cupos de la clase eran 0, pasa automáticamente a True
     en_lista_de_espera = models.BooleanField(default=False)
+    puede_confirmar=models.BooleanField(default=False)
     
     monto_pagado = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     estado_pago = models.CharField(max_length=20, default='pendiente') # 'seña', 'total', 'pendiente'

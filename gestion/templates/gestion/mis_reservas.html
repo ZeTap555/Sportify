@@ -295,6 +295,34 @@
             background:#2b2628;
             color:#fff;
         }
+        .modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7); z-index: 1000;
+    display: none; align-items: center; justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal-card {
+    background: #1c1c1e; border: 1px solid #2c2c2e; border-radius: 16px;
+    padding: 35px; max-width: 420px; width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.modal-card h2 { margin: 0 0 5px 0; font-size: 1.5rem; font-weight: 700; }
+.modal-subtitle { color: #8e8e93; font-size: 0.85rem; margin-bottom: 25px; }
+.modal-divider { border: none; border-top: 1px solid #2c2c2e; margin: 20px 0; }
+.modal-btn {
+    display: block; width: 100%; padding: 14px; border: none; border-radius: 10px;
+    font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.15s;
+    margin-bottom: 10px; text-align: center; text-decoration: none;
+}
+.modal-btn.primary { background: #00ff88; color: #000; }
+.modal-btn.primary:hover { background: #12ff93; }
+.modal-btn.secondary { background: #2c2c2e; color: #fff; }
+.modal-btn.secondary:hover { background: #3a3a3c; }
+.modal-cerrar {
+    float: right; background: none; border: none; color: #636366;
+    font-size: 1.5rem; cursor: pointer; padding: 0; line-height: 1;
+}
+.modal-cerrar:hover { color: #fff; }
     </style>
 </head>
 <script src="https://unpkg.com/lucide@latest"></script>
@@ -536,7 +564,10 @@
                                                         {% else %}
                                                         Si la cancelación se realiza con al menos 2 días de anticipación recibirás un voucher. En caso contrario, perderás tu lugar.
                                                         {% endif %}
+                                                        
                                                     </small>
+                                                    <br>
+                                                    <small class="text-white-50">En caso de llegar a las 3 cancelaciones en un mes, recibirás una penalización.</small>
                                                 </div>
                                                 <div class="modal-footer border-secondary">
                                                     <button class="btn btn-secondary"
@@ -728,9 +759,22 @@
                                             <td>{{ reserva.fecha_clase|date:"d/m/Y" }}</td>
                                             <td>{{ reserva.clase.horario|time:"H:i" }}</td>
                                             <td>
-                                                <span class="badge-estado badge-espera">Lista de espera</span>
+                                                {% if reserva.puede_confirmar %}
+                                                    <span class="badge-estado" style="background:rgba(52,199,89,0.2); color:#34c759; border:1px solid #34c759;">Turno disponible</span>
+                                                {% else %}
+                                                    <span class="badge-estado badge-espera">Lista de espera</span>
+                                                {% endif %}
                                             </td>
-                                            <td>
+                                            <td style="display:flex; gap:6px; flex-wrap:wrap;">
+                                                {% if reserva.puede_confirmar %}
+                                                <button
+                                                    type="button"
+                                                    class="btn-sportify"
+                                                    style="font-size:0.78rem; padding:4px 10px;"
+                                                    onclick="abrirModalConfirmarTurno({{ reserva.id }}, {{ reserva.clase.id }}, '{{ reserva.fecha_clase|date:"Y-m-d" }}')">
+                                                    Confirmar turno
+                                                </button>
+                                                {% endif %}
                                                 <button
                                                    type="button"
                                                    class="btn-cancelar"
@@ -815,7 +859,18 @@
         </div>
     </div>
 </div>
-
+<div class="modal-overlay" id="modalConfirmarTurno" onclick="cerrarModalConfirmar(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+        <button class="modal-cerrar" onclick="cerrarModalConfirmar()">&times;</button>
+        <h2 id="ct-actividad"></h2>
+        <div class="modal-subtitle">
+            <div id="ct-fecha"></div>
+            <div id="ct-horario"></div>
+        </div>
+        <hr class="modal-divider">
+        <div id="ct-acciones"></div>
+    </div>
+</div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     lucide.createIcons();
@@ -843,6 +898,100 @@
         });
         boton.classList.add("active");
     }
+    const tieneVoucherReservas = {{ tiene_voucher|yesno:"true,false" }};
+var ctData = null;
+var ctReservaId = null;
+
+function abrirModalConfirmarTurno(reservaId, claseId, fecha) {
+    ctReservaId = reservaId;
+    fetch('/clase/' + claseId + '/datos/?fecha=' + fecha)
+        .then(r => r.json())
+        .then(data => {
+            ctData = data;
+            document.getElementById('ct-actividad').textContent = data.actividad;
+            document.getElementById('ct-fecha').textContent = data.fecha;
+            document.getElementById('ct-horario').textContent = data.horario + ' hs';
+            mostrarPasoConfirmar('');
+        });
+}
+
+function mostrarPasoConfirmar(paso) {
+    const acciones = document.getElementById('ct-acciones');
+
+    if (!ctData.apto_vigente) {
+        acciones.innerHTML = `
+            <p style="color:#ff453a; font-size:0.9rem; text-align:center; font-weight:600; line-height:1.4;">
+                Tu apto médico se encuentra vencido. Debes cargar uno nuevo en
+                <a href="/perfil/" style="color:#ff9f0a; text-decoration:underline;">Mi Perfil</a>
+                para poder confirmar tu turno.
+            </p>
+        `;
+        document.getElementById('modalConfirmarTurno').classList.add('active');
+        return;
+    }
+
+    if (paso === '') {
+        let botonVoucher = '';
+        if (tieneVoucherReservas) {
+            botonVoucher = `<button class="modal-btn primary" onclick="mostrarPasoConfirmar('voucher')">Usar voucher</button>`;
+        }
+        acciones.innerHTML = `
+            <p style="color:#8e8e93; text-align:center; margin-bottom:15px;">Se liberó un cupo para vos. Confirmá cómo querés abonarlo:</p>
+            <button class="modal-btn primary" onclick="mostrarPasoConfirmar('pago')">
+                Pagar completo — $${ctData.precio_clase.toFixed(2)}
+            </button>
+            ${botonVoucher}
+            <button class="modal-btn secondary" onclick="cerrarModalConfirmar()">Volver</button>
+        `;
+    } else if (paso === 'voucher') {
+        acciones.innerHTML = `
+            <p style="color:#8e8e93; text-align:center; margin-bottom:15px;">¿Querés utilizar tu voucher para confirmar este turno?</p>
+            <form method="POST" action="/reserva/${ctReservaId}/confirmar-turno/">
+                <input type="hidden" name="csrfmiddlewaretoken" value="${getCSRFTokenReservas()}">
+                <input type="hidden" name="usar_voucher" value="true">
+                <button type="submit" class="modal-btn primary">Sí, usar voucher</button>
+            </form>
+            <button class="modal-btn secondary" onclick="mostrarPasoConfirmar('')">Volver</button>
+        `;
+    } else if (paso === 'pago') {
+        acciones.innerHTML = `
+            <p style="color:#8e8e93; text-align:center; margin-bottom:15px;">Medio de pago</p>
+            <form method="POST" action="/reserva/${ctReservaId}/confirmar-turno/" id="form-confirmar-turno">
+                <input type="hidden" name="csrfmiddlewaretoken" value="${getCSRFTokenReservas()}">
+                <input type="hidden" name="medio_pago" value="" id="ct-input-medio-pago">
+            </form>
+            <button class="modal-btn primary" onclick="enviarFormConfirmar('Tarjeta')">
+                💳 Tarjeta de crédito/débito
+            </button>
+            <button class="modal-btn primary" onclick="enviarFormConfirmar('Mercado Pago')">
+                <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#00BFFF; margin-right:6px; vertical-align:middle;"></span> Mercado Pago
+            </button>
+            <button class="modal-btn secondary" onclick="mostrarPasoConfirmar('')">Volver</button>
+        `;
+    }
+
+    document.getElementById('modalConfirmarTurno').classList.add('active');
+}
+
+function enviarFormConfirmar(medioPago) {
+    document.getElementById('ct-input-medio-pago').value = medioPago;
+    document.getElementById('form-confirmar-turno').submit();
+}
+
+function cerrarModalConfirmar(e) {
+    if (!e || e.target === e.currentTarget) {
+        document.getElementById('modalConfirmarTurno').classList.remove('active');
+    }
+}
+
+function getCSRFTokenReservas() {
+    var cookies = document.cookie.split(';');
+    for (var i = 0; i < cookies.length; i++) {
+        var c = cookies[i].trim();
+        if (c.startsWith('csrftoken=')) return c.substring(10);
+    }
+    return '';
+}
 </script>
 
 </body>
