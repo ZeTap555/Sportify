@@ -2297,9 +2297,9 @@ def panel_admin(request):
                     messages.error(request, "Error: Las clases deben comenzar estrictamente en punto (Ej: 19:00).")
                     return redirect('panel_admin')
                 
-                elif horario_obj.hour < 8 or horario_obj.hour > 20:
+                elif horario_obj.hour < 8 or horario_obj.hour > 21:
                     persistir_formulario_clase() # 👈 Copiar los datos a la sesión
-                    messages.error(request, "Error: El gimnasio se encuentra cerrado. Las clases se dictan únicamente de 08 a 20 hs.")
+                    messages.error(request, "Error: El gimnasio se encuentra cerrado. Las clases se dictan únicamente de 08 a 21 hs.")
                     return redirect('panel_admin')
                 
                 elif fecha_obj < ahora - timedelta(days=7):
