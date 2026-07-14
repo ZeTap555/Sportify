@@ -2617,6 +2617,17 @@ def panel_admin(request):
         elif action == 'dar_de_baja_profesor':
             pestania_activa = 'profesores'
             profesor = Profesor.objects.get(id=request.POST.get('profesor_id'))
+
+            Notificacion.objects.create(
+                usuario=profesor.usuario,
+                mensaje="Has sido dado de baja del sistema Sportify. Si tenés consultas, comunicate con el personal."
+            )
+
+            asunto = "Baja de cuenta - Sportify"
+            mensaje_email = "Has sido dado de baja del sistema Sportify. Si tenés consultas, comunicate con el personal."
+            html = _armar_html_email("", mensaje_email, titulo="Baja de cuenta")
+            _enviar_email(profesor.usuario.email, asunto, html)
+
             profesor.usuario.is_active = False
             profesor.usuario.save()
             messages.success(request, f"El profesor {profesor.nombre} ha sido dado de baja correctamente.")
@@ -2828,7 +2839,7 @@ def asignar_profesor_clase(request, clase_id):
         fecha_clase = request.POST.get('fecha_clase') 
 
         if profesor_id:
-            clase.profesor = get_object_or_404(Profesor, id=profesor_id)
+            clase.profesor = get_object_or_404(Profesor, id=profesor_id, usuario__is_active=True)
         else:
             clase.profesor = None
         clase.save()
@@ -2859,7 +2870,7 @@ def generar_email_html(titulo, contenido_html):
 
 def vista_modificar_clase(request, clase_id):
     clase = get_object_or_404(Clase, id=clase_id)
-    profesores = Profesor.objects.all()
+    profesores = Profesor.objects.filter(usuario__is_active=True)
     
     profesor_anterior = clase.profesor
 
@@ -3436,7 +3447,7 @@ def detalle_clase_api(request, clase_id):
                 'pase_mensual': tiene_mensualidad,
             })
             
-        for p in Profesor.objects.all():
+        for p in Profesor.objects.filter(usuario__is_active=True):
             todos_profes_data.append({
                 'id': p.id,
                 'nombre': p.nombre,
