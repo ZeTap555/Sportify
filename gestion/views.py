@@ -693,9 +693,8 @@ def inscribirse_clase(request, clase_id):
             # =========================================================
             monto = clase.actividad.precio_clase * Decimal(clases_totales_restantes)
             monto = round(monto, 2)
-            if request.user.penalizacion_pendiente_individual:
-                monto = Decimal(str(monto)) * Decimal('1.25')
-                monto = round(monto, 2)
+            if request.user.penalizacion_pendiente_mensual:
+                monto = round(clase.actividad.precio_clase * 5, 2)
         else:
             # Flujo individual suelta
             if clase.cupos_para_fecha(fecha_clase) <= 0:
@@ -738,7 +737,7 @@ def inscribirse_clase(request, clase_id):
                 ).start()
                 return redirect('pago_confirmacion', reserva_id=reserva.id)
             monto = precio / 2 if tipo_pago == 'senia' else precio
-            if request.user.penalizacion_pendiente_individual:
+            if tipo_pago != 'senia' and request.user.penalizacion_pendiente_individual:
                 monto = Decimal(str(monto)) * Decimal('1.25')
                 monto = round(monto, 2)
                 
@@ -1665,6 +1664,23 @@ def pago_tarjeta(request):
             )
 
         threading.Thread(target=enviar_confirmacion, args=(request.user, clase, reserva), kwargs={'monto_total': Decimal(datos['monto']), 'mensaje_extra': mensaje_sin_cupo}).start()
+
+        if datos.get('tipo_pago') != 'senia' and datos.get('tipo_operacion') != 'renovar_mensualidad':
+            es_mensual = datos.get('flujo_tipo') == 'mensualidad'
+
+            if es_mensual:
+                if request.user.penalizacion_pendiente_mensual:
+                    Strike.objects.filter(usuario=request.user, tipo='mensual').delete()
+                    request.user.penalizacion_pendiente_mensual = False
+                    request.user.save()
+                    print(f"✅ Strikes mensuales y penalización removidos para {request.user.dni}")
+            else:
+                if request.user.penalizacion_pendiente_individual:
+                    Strike.objects.filter(usuario=request.user, tipo='individual').delete()
+                    request.user.penalizacion_pendiente_individual = False
+                    request.user.save()
+                    print(f"✅ Strikes individuales y penalización removidos para {request.user.dni}")
+
         del request.session['inscripcion_pendiente']
         return redirect('pago_confirmacion', reserva_id=reserva.id)
 
@@ -1782,21 +1798,16 @@ def pago_exito(request):
         if 'inscripcion_pendiente' in request.session:
             del request.session['inscripcion_pendiente']
 
-        # =========================================================
-    # LIMPIEZA DE PENALIZACIÓN TRAS PAGO EXITOSO
-    # =========================================================
-    if usuario_reserva.penalizacion_pendiente_individual:
-        usuario_reserva.penalizacion_pendiente_individual = False
-        usuario_reserva.save()
-        print(f"✅ Penalización individual removida para {usuario_reserva.dni}")
+        if usuario_reserva.penalizacion_pendiente_individual:
+            Strike.objects.filter(usuario=usuario_reserva, tipo='individual').delete()
+            usuario_reserva.penalizacion_pendiente_individual = False
+            usuario_reserva.save()
+            print(f"✅ Strikes individuales y penalización removidos para {usuario_reserva.dni}")
 
-    if usuario_reserva.penalizacion_pendiente_mensual:
-        usuario_reserva.penalizacion_pendiente_mensual = False
-        usuario_reserva.save()
-        print(f"✅ Penalización mensual removida para {usuario_reserva.dni}")
         response = redirect('pago_confirmacion', reserva_id=reserva.id)
         response["ngrok-skip-browser-warning"] = "true"
         return response
+
     elif datos.get('tipo_operacion') == 'confirmar_turno_espera':
         reserva = get_object_or_404(Reserva, id=datos['reserva_id'], usuario=usuario_reserva)
         reserva.en_lista_de_espera = False
@@ -1996,6 +2007,26 @@ def pago_exito(request):
     if 'inscripcion_pendiente' in request.session:
         del request.session['inscripcion_pendiente']
 
+    # =========================================================
+    # LIMPIEZA DE STRIKES Y PENALIZACIÓN TRAS PAGO EXITOSO
+    # Solo se ejecuta cuando NO es un pago de seña
+    # =========================================================
+    if datos.get('tipo_pago') != 'senia' and datos.get('tipo_operacion') != 'renovar_mensualidad':
+        es_mensual = datos.get('flujo_tipo') == 'mensualidad'
+
+        if es_mensual:
+            if usuario_reserva.penalizacion_pendiente_mensual:
+                Strike.objects.filter(usuario=usuario_reserva, tipo='mensual').delete()
+                usuario_reserva.penalizacion_pendiente_mensual = False
+                usuario_reserva.save()
+                print(f"✅ Strikes mensuales y penalización removidos para {usuario_reserva.dni}")
+        else:
+            if usuario_reserva.penalizacion_pendiente_individual:
+                Strike.objects.filter(usuario=usuario_reserva, tipo='individual').delete()
+                usuario_reserva.penalizacion_pendiente_individual = False
+                usuario_reserva.save()
+                print(f"✅ Strikes individuales y penalización removidos para {usuario_reserva.dni}")
+
     response = redirect('pago_confirmacion', reserva_id=reserva.id)
     response["ngrok-skip-browser-warning"] = "true"
     return response
@@ -2043,7 +2074,7 @@ def pago_confirmacion(request, reserva_id):
             modalidad='mensual',
         ).order_by('fecha_clase')
         context['es_mensualidad'] = True
-        context['total_mensualidad'] = sum(r.monto_pagado for r in fechas)
+        context['total_mensualidad'] = round(sum(r.monto_pagado for r in fechas), 2)
     return render(request, 'pago_confirmacion.html', context)
 
 
@@ -2055,6 +2086,9 @@ def completar_pago_senia(request, reserva_id):
         return redirect('mis_reservas')
 
     monto_restante = reserva.clase.actividad.precio_clase / 2
+    if request.user.penalizacion_pendiente_individual:
+        monto_restante = (reserva.clase.actividad.precio_clase * Decimal('1.25')) - reserva.clase.actividad.precio_clase / 2
+        monto_restante = round(monto_restante, 2)
 
     if request.method == 'POST':
         medio_pago = request.POST.get('medio_pago')
@@ -2065,6 +2099,7 @@ def completar_pago_senia(request, reserva_id):
                 'subtitulo': 'Falta pagar el 50% restante para confirmar tu clase',
                 'monto': monto_restante,
                 'action_url': request.path,
+                'penalizacion_pendiente': request.user.penalizacion_pendiente_individual,
             })
 
         request.session['inscripcion_pendiente'] = {
@@ -2087,6 +2122,7 @@ def completar_pago_senia(request, reserva_id):
         'subtitulo': 'Falta pagar el 50% restante para confirmar tu clase',
         'monto': monto_restante,
         'action_url': request.path,
+        'penalizacion_pendiente': request.user.penalizacion_pendiente_individual,
     })
 
 

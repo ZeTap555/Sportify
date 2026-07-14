@@ -1095,7 +1095,7 @@
     
             if (flujoTipo === 'mensualidad' && modalData.tiene_penalizacion_mensual) {
                 mensajeAviso = "⚠️ <strong>Aviso:</strong> Tenés una penalización de mensualidad pendiente. El valor se aplicará con el recargo correspondiente.";
-            } else if (flujoTipo === 'clase' && modalData.tiene_penalizacion_individual) {
+            } else if (flujoTipo === 'clase' && tipoPago === 'total' && modalData.tiene_penalizacion_individual) {
                 mensajeAviso = "⚠️ <strong>Aviso:</strong> Tenés una penalización de clase individual pendiente. El valor se aplicará con el recargo correspondiente.";
             }
             
