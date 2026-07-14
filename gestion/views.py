@@ -689,21 +689,13 @@ def inscribirse_clase(request, clase_id):
                 clases_totales_restantes = 1
                 
             # =========================================================
-            # CÁLCULO PROPORCIONAL EXACTO DEL MES
+            # CÁLCULO: precio_clase × cantidad de clases restantes con cupo
             # =========================================================
-            clases_ideales = Decimal('5.0') 
-            
-            precio_unitario_mensual = clase.actividad.precio_mensualidad / clases_ideales
-            monto = precio_unitario_mensual * Decimal(clases_totales_restantes)
-            
-            if monto > clase.actividad.precio_mensualidad:
-                monto = clase.actividad.precio_mensualidad
-            
+            monto = clase.actividad.precio_clase * Decimal(clases_totales_restantes)
             monto = round(monto, 2)
             if request.user.penalizacion_pendiente_individual:
                 monto = Decimal(str(monto)) * Decimal('1.25')
                 monto = round(monto, 2)
-             
         else:
             # Flujo individual suelta
             if clase.cupos_para_fecha(fecha_clase) <= 0:
@@ -2124,7 +2116,7 @@ def renovar_mensualidad(request, clase_id):
 
     target_month = reservas_pendientes.first().fecha_clase.month
     target_year = reservas_pendientes.first().fecha_clase.year
-    monto = clase.actividad.precio_mensualidad
+    monto = clase.actividad.precio_clase * len(reservas_pendientes)
 
     if request.method == 'POST':
         medio_pago = request.POST.get('medio_pago')
@@ -2601,12 +2593,6 @@ def panel_admin(request):
                             if val_clase != '':
                                 act.precio_clase = float(val_clase)
 
-                        input_mes = f"precio_mes_{act.id}"
-                        if input_mes in request.POST:
-                            val_mes = request.POST.get(input_mes, '').strip()
-                            if val_mes != '':
-                                act.precio_mensualidad = float(val_mes)
-                        
                         act.save()
                 messages.success(request, "Tarifas actualizadas correctamente")
                 return redirect('panel_admin')
@@ -2802,12 +2788,6 @@ def guardar_precios_admin(request):
                         if val_clase != '':
                             act.precio_clase = float(val_clase)
 
-                    input_mes = f"precio_mes_{act.id}"
-                    if input_mes in request.POST:
-                        val_mes = request.POST.get(input_mes, '').strip()
-                        if val_mes != '':
-                            act.precio_mensualidad = float(val_mes)
-                    
                     # Al hacer save(), salta al models.py y verifica las reglas
                     act.save()
             
@@ -3467,7 +3447,6 @@ def detalle_clase_api(request, clase_id):
             cantidad_inscriptos if es_admin and clase_finalizada else cupos
         ),
         'precio_clase': float(clase.actividad.precio_clase),
-        'precio_mensualidad': float(clase.actividad.precio_mensualidad),
         'logueado': request.user.is_authenticated,
         'rol': request.user.rol if request.user.is_authenticated else 'anonimo',
         'ya_inscripto': ya_inscripto,

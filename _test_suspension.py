@@ -17,7 +17,7 @@ from datetime import date, time, timedelta
 # Clean previous test data
 Actividad.objects.filter(nombre__startswith='TestSuspension').delete()
 
-act = Actividad.objects.create(nombre='TestSuspensionYoga', precio_clase=3500, precio_mensualidad=15000)
+act = Actividad.objects.create(nombre='TestSuspensionYoga', precio_clase=3500)
 prof_usuario = Usuario.objects.create_user(username='test_profe', dni='99999998', password='123', rol='profesor', email='profe_test@test.com')
 prof = Profesor.objects.create(usuario=prof_usuario, nombre='Test', apellido='Prof', dni='99999998', correo='profe_test@test.com')
 clase = Clase.objects.create(actividad=act, profesor=prof, fecha=date.today() + timedelta(days=3), horario=time(10, 0), cupo_maximo=30)
