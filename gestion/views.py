@@ -700,10 +700,9 @@ def inscribirse_clase(request, clase_id):
                 monto = clase.actividad.precio_mensualidad
             
             monto = round(monto, 2)
-            if request.user.penalizacion_pendiente_individual:
-                monto = Decimal(str(monto)) * Decimal('1.25')
-                monto = round(monto, 2)
-             
+            if request.user.obtener_strikes_mes_actual('mensual') >= 3:
+                monto = round(clase.actividad.precio_mensualidad, 2)
+
         else:
             # Flujo individual suelta
             if clase.cupos_para_fecha(fecha_clase) <= 0:
@@ -746,11 +745,11 @@ def inscribirse_clase(request, clase_id):
                 ).start()
                 return redirect('pago_confirmacion', reserva_id=reserva.id)
             monto = precio / 2 if tipo_pago == 'senia' else precio
-            if request.user.penalizacion_pendiente_individual:
+            if request.user.obtener_strikes_mes_actual('individual') >= 3:
                 monto = Decimal(str(monto)) * Decimal('1.25')
                 monto = round(monto, 2)
-                
-        
+
+
         # Guardamos en sesión
         session_data = {
             'clase_id': clase.id,
@@ -978,21 +977,13 @@ def cancelar_reserva(request,reserva_id):
         id=reserva_id,
         usuario=request.user
     )
-    Strike.objects.create(
-            usuario=request.user, 
-            tipo='mensual'
-    )
-    # Dentro de cancelar_reserva o cancelar_clase_individual
-    strikes_actuales = request.user.obtener_strikes_mes_actual('mensual')
-
-    # Si llega a 3 (o el que sea tu límite), activamos la bandera
-    if strikes_actuales >= 3:
-        request.user.penalizacion_pendiente_mensual = True
-        request.user.save()
-        print(f"DEBUG: Penalización activada para {request.user.dni}") # MIRA TU TERMINAL
-
     if  reserva.modalidad.strip().lower()!="mensual":
         return redirect("mis_reservas")
+
+    Strike.objects.create(
+            usuario=request.user,
+            tipo='mensual'
+    )
     hoy=timezone.localdate()
     tiene_voucher=(reserva.fecha_clase - hoy)>=timedelta(days=2)
     ultimo_dia=calendar.monthrange(hoy.year,hoy.month)[1]
@@ -1137,7 +1128,7 @@ def confirmar_turno_espera(request, reserva_id):
         return redirect('mis_reservas')
 
     monto = clase.actividad.precio_clase
-    if request.user.penalizacion_pendiente_individual:
+    if request.user.obtener_strikes_mes_actual('individual') >= 3:
         monto = Decimal(str(monto)) * Decimal('1.25')
         monto = round(monto, 2)
 
@@ -1167,17 +1158,9 @@ def cancelar_clase_individual(request, reserva_id):
         datetime.combine(reserva.fecha_clase, reserva.clase.horario)
     )
     Strike.objects.create(
-            usuario=request.user, 
+            usuario=request.user,
             tipo='individual'
     )
-    # Dentro de cancelar_reserva o cancelar_clase_individual
-    strikes_actuales = request.user.obtener_strikes_mes_actual('individual')
-
-    # Si llega a 3 (o el que sea tu límite), activamos la bandera
-    if strikes_actuales >= 3:
-        request.user.penalizacion_pendiente_individual = True
-        request.user.save()
-        print(f"DEBUG: Penalización activada para {request.user.dni}") # MIRA TU TERMINAL
 
     con_reintegro = (fecha_clase_dt - ahora) >= timedelta(days=1) and reserva.estado_pago in ('seña', 'total')
 
@@ -1673,6 +1656,12 @@ def pago_tarjeta(request):
             )
 
         threading.Thread(target=enviar_confirmacion, args=(request.user, clase, reserva), kwargs={'monto_total': Decimal(datos['monto']), 'mensaje_extra': mensaje_sin_cupo}).start()
+
+        if datos.get('flujo_tipo') == 'mensualidad' or datos.get('tipo_operacion') == 'renovar_mensualidad':
+            Strike.objects.filter(usuario=request.user, tipo='mensual').delete()
+        else:
+            Strike.objects.filter(usuario=request.user, tipo='individual').delete()
+
         del request.session['inscripcion_pendiente']
         return redirect('pago_confirmacion', reserva_id=reserva.id)
 
@@ -1790,21 +1779,11 @@ def pago_exito(request):
         if 'inscripcion_pendiente' in request.session:
             del request.session['inscripcion_pendiente']
 
-        # =========================================================
-    # LIMPIEZA DE PENALIZACIÓN TRAS PAGO EXITOSO
-    # =========================================================
-    if usuario_reserva.penalizacion_pendiente_individual:
-        usuario_reserva.penalizacion_pendiente_individual = False
-        usuario_reserva.save()
-        print(f"✅ Penalización individual removida para {usuario_reserva.dni}")
-
-    if usuario_reserva.penalizacion_pendiente_mensual:
-        usuario_reserva.penalizacion_pendiente_mensual = False
-        usuario_reserva.save()
-        print(f"✅ Penalización mensual removida para {usuario_reserva.dni}")
+        Strike.objects.filter(usuario=usuario_reserva, tipo='individual').delete()
         response = redirect('pago_confirmacion', reserva_id=reserva.id)
         response["ngrok-skip-browser-warning"] = "true"
         return response
+
     elif datos.get('tipo_operacion') == 'confirmar_turno_espera':
         reserva = get_object_or_404(Reserva, id=datos['reserva_id'], usuario=usuario_reserva)
         reserva.en_lista_de_espera = False
@@ -1824,6 +1803,8 @@ def pago_exito(request):
 
         if 'inscripcion_pendiente' in request.session:
             del request.session['inscripcion_pendiente']
+
+        Strike.objects.filter(usuario=usuario_reserva, tipo='individual').delete()
         response = redirect('pago_confirmacion', reserva_id=reserva.id)
         response["ngrok-skip-browser-warning"] = "true"
         return response
@@ -1859,6 +1840,8 @@ def pago_exito(request):
 
         if 'inscripcion_pendiente' in request.session:
             del request.session['inscripcion_pendiente']
+
+        Strike.objects.filter(usuario=usuario_reserva, tipo='mensual').delete()
         response = redirect('pago_confirmacion', reserva_id=reserva.id)
         response["ngrok-skip-browser-warning"] = "true"
         return response
@@ -1965,6 +1948,8 @@ def pago_exito(request):
 
         threading.Thread(target=enviar_confirmacion, args=(usuario_reserva, clase, reserva), kwargs={'monto_total': Decimal(datos['monto']), 'mensaje_extra': mensaje_extra}).start()
 
+        Strike.objects.filter(usuario=usuario_reserva, tipo='mensual').delete()
+
     else:
         # Flujo individual con Mercado Pago
         with transaction.atomic():
@@ -2000,6 +1985,8 @@ def pago_exito(request):
 
         else:
             print(f"ℹ️ La reserva {reserva.id} ya existía. Se evitó el IntegrityError.")
+
+        Strike.objects.filter(usuario=usuario_reserva, tipo='individual').delete()
 
     if 'inscripcion_pendiente' in request.session:
         del request.session['inscripcion_pendiente']
@@ -2338,7 +2325,8 @@ def panel_admin(request):
                     for f in fechas_a_crear:
                         datos_cupo = Clase.objects.filter(
                             fecha=f,
-                            horario=horario_obj
+                            horario=horario_obj,
+                            activa=True
                         ).aggregate(total=Sum('cupo_maximo'))
                         
                         cupos_existentes = datos_cupo['total'] or 0
@@ -2367,11 +2355,11 @@ def panel_admin(request):
                         ya_existe_choque = False
 
                         for f in fechas_a_crear:
-                            if Clase.objects.filter(profesor_id=profesor_id, horario=horario_obj, fecha=f).exists():
+                            if Clase.objects.filter(profesor_id=profesor_id, horario=horario_obj, fecha=f, activa=True).exists():
                                 profesor_ocupado = True
                                 fecha_conflicto = f
                                 break
-                            if Clase.objects.filter(actividad_id=actividad_id, horario=horario_obj, fecha=f).exists():
+                            if Clase.objects.filter(actividad_id=actividad_id, horario=horario_obj, fecha=f, activa=True).exists():
                                 ya_existe_choque = True
                                 fecha_conflicto = f
                                 break
@@ -3484,7 +3472,7 @@ def detalle_clase_api(request, clase_id):
         'clase_finalizada':clase_finalizada if fecha_str else False,
         'mensualidad_viable': mensualidad_viable,
         'mensualidad_mensaje': mensualidad_mensaje,
-        'tiene_penalizacion_individual': request.user.penalizacion_pendiente_individual,
-        'tiene_penalizacion_mensual': request.user.penalizacion_pendiente_mensual,
+        'tiene_penalizacion_individual': request.user.obtener_strikes_mes_actual('individual') >= 3,
+        'tiene_penalizacion_mensual': request.user.obtener_strikes_mes_actual('mensual') >= 3,
     }
     return JsonResponse(data)
