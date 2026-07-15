@@ -740,8 +740,8 @@ def inscribirse_clase(request, clase_id):
             if tipo_pago != 'senia' and request.user.penalizacion_pendiente_individual:
                 monto = Decimal(str(monto)) * Decimal('1.25')
                 monto = round(monto, 2)
-                
-        
+
+
         # Guardamos en sesión
         session_data = {
             'clase_id': clase.id,
@@ -969,21 +969,13 @@ def cancelar_reserva(request,reserva_id):
         id=reserva_id,
         usuario=request.user
     )
-    Strike.objects.create(
-            usuario=request.user, 
-            tipo='mensual'
-    )
-    # Dentro de cancelar_reserva o cancelar_clase_individual
-    strikes_actuales = request.user.obtener_strikes_mes_actual('mensual')
-
-    # Si llega a 3 (o el que sea tu límite), activamos la bandera
-    if strikes_actuales >= 3:
-        request.user.penalizacion_pendiente_mensual = True
-        request.user.save()
-        print(f"DEBUG: Penalización activada para {request.user.dni}") # MIRA TU TERMINAL
-
     if  reserva.modalidad.strip().lower()!="mensual":
         return redirect("mis_reservas")
+
+    Strike.objects.create(
+            usuario=request.user,
+            tipo='mensual'
+    )
     hoy=timezone.localdate()
     tiene_voucher=(reserva.fecha_clase - hoy)>=timedelta(days=2)
     ultimo_dia=calendar.monthrange(hoy.year,hoy.month)[1]
@@ -1128,7 +1120,7 @@ def confirmar_turno_espera(request, reserva_id):
         return redirect('mis_reservas')
 
     monto = clase.actividad.precio_clase
-    if request.user.penalizacion_pendiente_individual:
+    if request.user.obtener_strikes_mes_actual('individual') >= 3:
         monto = Decimal(str(monto)) * Decimal('1.25')
         monto = round(monto, 2)
 
@@ -1158,17 +1150,9 @@ def cancelar_clase_individual(request, reserva_id):
         datetime.combine(reserva.fecha_clase, reserva.clase.horario)
     )
     Strike.objects.create(
-            usuario=request.user, 
+            usuario=request.user,
             tipo='individual'
     )
-    # Dentro de cancelar_reserva o cancelar_clase_individual
-    strikes_actuales = request.user.obtener_strikes_mes_actual('individual')
-
-    # Si llega a 3 (o el que sea tu límite), activamos la bandera
-    if strikes_actuales >= 3:
-        request.user.penalizacion_pendiente_individual = True
-        request.user.save()
-        print(f"DEBUG: Penalización activada para {request.user.dni}") # MIRA TU TERMINAL
 
     con_reintegro = (fecha_clase_dt - ahora) >= timedelta(days=1) and reserva.estado_pago in ('seña', 'total')
 
@@ -1827,6 +1811,8 @@ def pago_exito(request):
 
         if 'inscripcion_pendiente' in request.session:
             del request.session['inscripcion_pendiente']
+
+        Strike.objects.filter(usuario=usuario_reserva, tipo='individual').delete()
         response = redirect('pago_confirmacion', reserva_id=reserva.id)
         response["ngrok-skip-browser-warning"] = "true"
         return response
@@ -1862,6 +1848,8 @@ def pago_exito(request):
 
         if 'inscripcion_pendiente' in request.session:
             del request.session['inscripcion_pendiente']
+
+        Strike.objects.filter(usuario=usuario_reserva, tipo='mensual').delete()
         response = redirect('pago_confirmacion', reserva_id=reserva.id)
         response["ngrok-skip-browser-warning"] = "true"
         return response
@@ -1968,6 +1956,8 @@ def pago_exito(request):
 
         threading.Thread(target=enviar_confirmacion, args=(usuario_reserva, clase, reserva), kwargs={'monto_total': Decimal(datos['monto']), 'mensaje_extra': mensaje_extra}).start()
 
+        Strike.objects.filter(usuario=usuario_reserva, tipo='mensual').delete()
+
     else:
         # Flujo individual con Mercado Pago
         with transaction.atomic():
@@ -2003,6 +1993,8 @@ def pago_exito(request):
 
         else:
             print(f"ℹ️ La reserva {reserva.id} ya existía. Se evitó el IntegrityError.")
+
+        Strike.objects.filter(usuario=usuario_reserva, tipo='individual').delete()
 
     if 'inscripcion_pendiente' in request.session:
         del request.session['inscripcion_pendiente']
@@ -2366,7 +2358,8 @@ def panel_admin(request):
                     for f in fechas_a_crear:
                         datos_cupo = Clase.objects.filter(
                             fecha=f,
-                            horario=horario_obj
+                            horario=horario_obj,
+                            activa=True
                         ).aggregate(total=Sum('cupo_maximo'))
                         
                         cupos_existentes = datos_cupo['total'] or 0
@@ -2395,11 +2388,11 @@ def panel_admin(request):
                         ya_existe_choque = False
 
                         for f in fechas_a_crear:
-                            if Clase.objects.filter(profesor_id=profesor_id, horario=horario_obj, fecha=f).exists():
+                            if Clase.objects.filter(profesor_id=profesor_id, horario=horario_obj, fecha=f, activa=True).exists():
                                 profesor_ocupado = True
                                 fecha_conflicto = f
                                 break
-                            if Clase.objects.filter(actividad_id=actividad_id, horario=horario_obj, fecha=f).exists():
+                            if Clase.objects.filter(actividad_id=actividad_id, horario=horario_obj, fecha=f, activa=True).exists():
                                 ya_existe_choque = True
                                 fecha_conflicto = f
                                 break
@@ -2651,6 +2644,17 @@ def panel_admin(request):
         elif action == 'dar_de_baja_profesor':
             pestania_activa = 'profesores'
             profesor = Profesor.objects.get(id=request.POST.get('profesor_id'))
+
+            Notificacion.objects.create(
+                usuario=profesor.usuario,
+                mensaje="Has sido dado de baja del sistema Sportify. Si tenés consultas, comunicate con el personal."
+            )
+
+            asunto = "Baja de cuenta - Sportify"
+            mensaje_email = "Has sido dado de baja del sistema Sportify. Si tenés consultas, comunicate con el personal."
+            html = _armar_html_email("", mensaje_email, titulo="Baja de cuenta")
+            _enviar_email(profesor.usuario.email, asunto, html)
+
             profesor.usuario.is_active = False
             profesor.usuario.save()
             messages.success(request, f"El profesor {profesor.nombre} ha sido dado de baja correctamente.")
@@ -2856,7 +2860,7 @@ def asignar_profesor_clase(request, clase_id):
         fecha_clase = request.POST.get('fecha_clase') 
 
         if profesor_id:
-            clase.profesor = get_object_or_404(Profesor, id=profesor_id)
+            clase.profesor = get_object_or_404(Profesor, id=profesor_id, usuario__is_active=True)
         else:
             clase.profesor = None
         clase.save()
@@ -2887,7 +2891,7 @@ def generar_email_html(titulo, contenido_html):
 
 def vista_modificar_clase(request, clase_id):
     clase = get_object_or_404(Clase, id=clase_id)
-    profesores = Profesor.objects.all()
+    profesores = Profesor.objects.filter(usuario__is_active=True)
     
     profesor_anterior = clase.profesor
 
@@ -3464,7 +3468,7 @@ def detalle_clase_api(request, clase_id):
                 'pase_mensual': tiene_mensualidad,
             })
             
-        for p in Profesor.objects.all():
+        for p in Profesor.objects.filter(usuario__is_active=True):
             todos_profes_data.append({
                 'id': p.id,
                 'nombre': p.nombre,
@@ -3499,7 +3503,7 @@ def detalle_clase_api(request, clase_id):
         'clase_finalizada':clase_finalizada if fecha_str else False,
         'mensualidad_viable': mensualidad_viable,
         'mensualidad_mensaje': mensualidad_mensaje,
-        'tiene_penalizacion_individual': request.user.penalizacion_pendiente_individual,
-        'tiene_penalizacion_mensual': request.user.penalizacion_pendiente_mensual,
+        'tiene_penalizacion_individual': request.user.obtener_strikes_mes_actual('individual') >= 3,
+        'tiene_penalizacion_mensual': request.user.obtener_strikes_mes_actual('mensual') >= 3,
     }
     return JsonResponse(data)
