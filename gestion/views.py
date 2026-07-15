@@ -976,6 +976,11 @@ def cancelar_reserva(request,reserva_id):
             usuario=request.user,
             tipo='mensual'
     )
+    strikes_actuales = request.user.obtener_strikes_mes_actual('mensual')
+    if strikes_actuales >= 3:
+        request.user.penalizacion_pendiente_mensual = True
+        request.user.save()
+
     hoy=timezone.localdate()
     tiene_voucher=(reserva.fecha_clase - hoy)>=timedelta(days=2)
     ultimo_dia=calendar.monthrange(hoy.year,hoy.month)[1]
@@ -1153,6 +1158,10 @@ def cancelar_clase_individual(request, reserva_id):
             usuario=request.user,
             tipo='individual'
     )
+    strikes_actuales = request.user.obtener_strikes_mes_actual('individual')
+    if strikes_actuales >= 3:
+        request.user.penalizacion_pendiente_individual = True
+        request.user.save()
 
     con_reintegro = (fecha_clase_dt - ahora) >= timedelta(days=1) and reserva.estado_pago in ('seña', 'total')
 
