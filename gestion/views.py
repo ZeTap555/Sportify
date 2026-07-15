@@ -868,12 +868,14 @@ def salir_lista_espera(request,reserva_id):
 # =========================================================================
 @login_required
 def mis_clases(request):
+    if request.user.rol != 'profesor':
+        return redirect('grilla_actividades')
     profesor=Profesor.objects.get(usuario=request.user)
     clases_raw = Clase.objects.filter(profesor=profesor).select_related('actividad')
     vistas = set()
     clases = []
     for c in clases_raw:
-        key = (c.actividad_id, c.horario)
+        key = (c.actividad_id, c.horario, c.fecha.weekday())
         if key not in vistas:
             vistas.add(key)
             clases.append(c)
@@ -885,6 +887,9 @@ def mis_clases(request):
         fecha_minima=hoy-timedelta(days=90)
         fecha_maxima=hoy+timedelta(days=90)
         fecha_actual=fecha_inicio
+        if fecha_inicio < fecha_minima:
+            semanas_a_saltar = ((fecha_minima - fecha_inicio).days + 6) // 7
+            fecha_actual = fecha_inicio + timedelta(weeks=semanas_a_saltar)
         while fecha_actual<=fecha_maxima:
             cantidad_inscriptos=Reserva.objects.filter(
                 fecha_clase=fecha_actual,
@@ -919,13 +924,17 @@ def mis_clases(request):
         fecha__in=[o['fecha'] for o in todas_ocurrencias]
     ).values_list('clase_id', 'fecha')
     suspension_set = {(s[0], s[1]) for s in fechas_susp}
+    
     for o in todas_ocurrencias:
         o['suspendida'] = (o['clase'].id, o['fecha']) in suspension_set
-        o['eliminada'] = not o['clase'].activa
+        clase_real = Clase.objects.filter(
+            actividad=o['clase'].actividad,
+            horario=o['clase'].horario,
+            fecha=o['fecha']
+        ).first()
+        o['eliminada'] = clase_real is not None and not clase_real.activa
 
     notificaciones_no_leidas = Notificacion.objects.filter(usuario=request.user, leida=False).count()
-    print("pendientes",len(clases_pendientes))
-    print("finalizadas",len(clases_finalizadas))
     return render(request,'gestion/mis_clases.html',{
         'clases_pendientes':clases_pendientes,
         'clases_finalizadas':clases_finalizadas,
