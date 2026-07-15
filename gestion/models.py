@@ -7,30 +7,14 @@ from django.core.exceptions import ValidationError
 class Actividad(models.Model):
     nombre = models.CharField(max_length=100, unique=True)
     precio_clase = models.DecimalField(max_digits=10, decimal_places=2, default=3500.00)
-    precio_mensualidad = models.DecimalField(max_digits=10, decimal_places=2, default=15000.00)
 
     def clean(self):
         super().clean()
 
-        # REGLA 1: La clase suelta debe ser como mínimo 1
         if self.precio_clase is not None and self.precio_clase < 1:
             raise ValidationError({
                 'precio_clase': 'El precio de la clase debe ser de al menos $1.'
             })
-        # REGLA 2: La mensualidad debe ser de al menos $1
-        if self.precio_mensualidad is not None and self.precio_mensualidad < 1:
-            raise ValidationError({
-                'precio_mensualidad': 'El precio de la mensualidad debe ser de al menos $1.'
-            })
-
-        # REGLA 3: La mensualidad debe ser estricamente menor a 5 clases sueltas
-        if self.precio_clase is not None and self.precio_mensualidad is not None:
-            tope_mensualidad = self.precio_clase * 5  + 1  # Agregamos un pequeño margen para evitar igualdad exacta
-            
-            if self.precio_mensualidad >= tope_mensualidad:
-                raise ValidationError({
-                    'precio_mensualidad': f'La mensualidad no puede ser mayor a 5 clases sueltas. El tope actual es ${tope_mensualidad - 1}.'
-                })
 
     def save(self, *args, **kwargs):
         # Valida las reglas de negocio antes de guardar en la base de datos

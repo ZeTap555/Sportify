@@ -63,6 +63,12 @@
         <h1>{{ titulo }}</h1>
         <div class="sub">{{ subtitulo }}</div>
 
+        {% if penalizacion_pendiente %}
+        <div style="background: rgba(255,159,10,0.15); border: 1px solid #ff9f0a; color: #ff9f0a; padding: 10px; border-radius: 8px; font-size: 0.8rem; margin-bottom: 15px; text-align: center;">
+            ⚠️ <strong>Aviso:</strong> Tenés una penalización de clase individual pendiente. El valor se aplicará con el recargo correspondiente.
+        </div>
+        {% endif %}
+
         {% if messages %}
             {% for message in messages %}
                 <div class="error-msg">{{ message }}</div>

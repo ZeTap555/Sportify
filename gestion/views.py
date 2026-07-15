@@ -689,20 +689,12 @@ def inscribirse_clase(request, clase_id):
                 clases_totales_restantes = 1
                 
             # =========================================================
-            # CÁLCULO PROPORCIONAL EXACTO DEL MES
+            # CÁLCULO: precio_clase × cantidad de clases restantes con cupo
             # =========================================================
-            clases_ideales = Decimal('5.0') 
-            
-            precio_unitario_mensual = clase.actividad.precio_mensualidad / clases_ideales
-            monto = precio_unitario_mensual * Decimal(clases_totales_restantes)
-            
-            if monto > clase.actividad.precio_mensualidad:
-                monto = clase.actividad.precio_mensualidad
-            
+            monto = clase.actividad.precio_clase * Decimal(clases_totales_restantes)
             monto = round(monto, 2)
-            if request.user.obtener_strikes_mes_actual('mensual') >= 3:
-                monto = round(clase.actividad.precio_mensualidad, 2)
-
+            if request.user.penalizacion_pendiente_mensual:
+                monto = round(clase.actividad.precio_clase * 5, 2)
         else:
             # Flujo individual suelta
             if clase.cupos_para_fecha(fecha_clase) <= 0:
@@ -745,7 +737,7 @@ def inscribirse_clase(request, clase_id):
                 ).start()
                 return redirect('pago_confirmacion', reserva_id=reserva.id)
             monto = precio / 2 if tipo_pago == 'senia' else precio
-            if request.user.obtener_strikes_mes_actual('individual') >= 3:
+            if tipo_pago != 'senia' and request.user.penalizacion_pendiente_individual:
                 monto = Decimal(str(monto)) * Decimal('1.25')
                 monto = round(monto, 2)
 
@@ -1657,10 +1649,21 @@ def pago_tarjeta(request):
 
         threading.Thread(target=enviar_confirmacion, args=(request.user, clase, reserva), kwargs={'monto_total': Decimal(datos['monto']), 'mensaje_extra': mensaje_sin_cupo}).start()
 
-        if datos.get('flujo_tipo') == 'mensualidad' or datos.get('tipo_operacion') == 'renovar_mensualidad':
-            Strike.objects.filter(usuario=request.user, tipo='mensual').delete()
-        else:
-            Strike.objects.filter(usuario=request.user, tipo='individual').delete()
+        if datos.get('tipo_pago') != 'senia' and datos.get('tipo_operacion') != 'renovar_mensualidad':
+            es_mensual = datos.get('flujo_tipo') == 'mensualidad'
+
+            if es_mensual:
+                if request.user.penalizacion_pendiente_mensual:
+                    Strike.objects.filter(usuario=request.user, tipo='mensual').delete()
+                    request.user.penalizacion_pendiente_mensual = False
+                    request.user.save()
+                    print(f"✅ Strikes mensuales y penalización removidos para {request.user.dni}")
+            else:
+                if request.user.penalizacion_pendiente_individual:
+                    Strike.objects.filter(usuario=request.user, tipo='individual').delete()
+                    request.user.penalizacion_pendiente_individual = False
+                    request.user.save()
+                    print(f"✅ Strikes individuales y penalización removidos para {request.user.dni}")
 
         del request.session['inscripcion_pendiente']
         return redirect('pago_confirmacion', reserva_id=reserva.id)
@@ -1779,7 +1782,12 @@ def pago_exito(request):
         if 'inscripcion_pendiente' in request.session:
             del request.session['inscripcion_pendiente']
 
-        Strike.objects.filter(usuario=usuario_reserva, tipo='individual').delete()
+        if usuario_reserva.penalizacion_pendiente_individual:
+            Strike.objects.filter(usuario=usuario_reserva, tipo='individual').delete()
+            usuario_reserva.penalizacion_pendiente_individual = False
+            usuario_reserva.save()
+            print(f"✅ Strikes individuales y penalización removidos para {usuario_reserva.dni}")
+
         response = redirect('pago_confirmacion', reserva_id=reserva.id)
         response["ngrok-skip-browser-warning"] = "true"
         return response
@@ -1991,6 +1999,26 @@ def pago_exito(request):
     if 'inscripcion_pendiente' in request.session:
         del request.session['inscripcion_pendiente']
 
+    # =========================================================
+    # LIMPIEZA DE STRIKES Y PENALIZACIÓN TRAS PAGO EXITOSO
+    # Solo se ejecuta cuando NO es un pago de seña
+    # =========================================================
+    if datos.get('tipo_pago') != 'senia' and datos.get('tipo_operacion') != 'renovar_mensualidad':
+        es_mensual = datos.get('flujo_tipo') == 'mensualidad'
+
+        if es_mensual:
+            if usuario_reserva.penalizacion_pendiente_mensual:
+                Strike.objects.filter(usuario=usuario_reserva, tipo='mensual').delete()
+                usuario_reserva.penalizacion_pendiente_mensual = False
+                usuario_reserva.save()
+                print(f"✅ Strikes mensuales y penalización removidos para {usuario_reserva.dni}")
+        else:
+            if usuario_reserva.penalizacion_pendiente_individual:
+                Strike.objects.filter(usuario=usuario_reserva, tipo='individual').delete()
+                usuario_reserva.penalizacion_pendiente_individual = False
+                usuario_reserva.save()
+                print(f"✅ Strikes individuales y penalización removidos para {usuario_reserva.dni}")
+
     response = redirect('pago_confirmacion', reserva_id=reserva.id)
     response["ngrok-skip-browser-warning"] = "true"
     return response
@@ -2038,7 +2066,7 @@ def pago_confirmacion(request, reserva_id):
             modalidad='mensual',
         ).order_by('fecha_clase')
         context['es_mensualidad'] = True
-        context['total_mensualidad'] = sum(r.monto_pagado for r in fechas)
+        context['total_mensualidad'] = round(sum(r.monto_pagado for r in fechas), 2)
     return render(request, 'pago_confirmacion.html', context)
 
 
@@ -2050,6 +2078,9 @@ def completar_pago_senia(request, reserva_id):
         return redirect('mis_reservas')
 
     monto_restante = reserva.clase.actividad.precio_clase / 2
+    if request.user.penalizacion_pendiente_individual:
+        monto_restante = (reserva.clase.actividad.precio_clase * Decimal('1.25')) - reserva.clase.actividad.precio_clase / 2
+        monto_restante = round(monto_restante, 2)
 
     if request.method == 'POST':
         medio_pago = request.POST.get('medio_pago')
@@ -2060,6 +2091,7 @@ def completar_pago_senia(request, reserva_id):
                 'subtitulo': 'Falta pagar el 50% restante para confirmar tu clase',
                 'monto': monto_restante,
                 'action_url': request.path,
+                'penalizacion_pendiente': request.user.penalizacion_pendiente_individual,
             })
 
         request.session['inscripcion_pendiente'] = {
@@ -2082,6 +2114,7 @@ def completar_pago_senia(request, reserva_id):
         'subtitulo': 'Falta pagar el 50% restante para confirmar tu clase',
         'monto': monto_restante,
         'action_url': request.path,
+        'penalizacion_pendiente': request.user.penalizacion_pendiente_individual,
     })
 
 
@@ -2111,7 +2144,7 @@ def renovar_mensualidad(request, clase_id):
 
     target_month = reservas_pendientes.first().fecha_clase.month
     target_year = reservas_pendientes.first().fecha_clase.year
-    monto = clase.actividad.precio_mensualidad
+    monto = clase.actividad.precio_clase * len(reservas_pendientes)
 
     if request.method == 'POST':
         medio_pago = request.POST.get('medio_pago')
@@ -2284,9 +2317,9 @@ def panel_admin(request):
                     messages.error(request, "Error: Las clases deben comenzar estrictamente en punto (Ej: 19:00).")
                     return redirect('panel_admin')
                 
-                elif horario_obj.hour < 8 or horario_obj.hour > 20:
+                elif horario_obj.hour < 8 or horario_obj.hour > 21:
                     persistir_formulario_clase() # 👈 Copiar los datos a la sesión
-                    messages.error(request, "Error: El gimnasio se encuentra cerrado. Las clases se dictan únicamente de 08 a 20 hs.")
+                    messages.error(request, "Error: El gimnasio se encuentra cerrado. Las clases se dictan únicamente de 08 a 21 hs.")
                     return redirect('panel_admin')
                 
                 elif fecha_obj < ahora - timedelta(days=7):
@@ -2589,12 +2622,6 @@ def panel_admin(request):
                             if val_clase != '':
                                 act.precio_clase = float(val_clase)
 
-                        input_mes = f"precio_mes_{act.id}"
-                        if input_mes in request.POST:
-                            val_mes = request.POST.get(input_mes, '').strip()
-                            if val_mes != '':
-                                act.precio_mensualidad = float(val_mes)
-                        
                         act.save()
                 messages.success(request, "Tarifas actualizadas correctamente")
                 return redirect('panel_admin')
@@ -2801,12 +2828,6 @@ def guardar_precios_admin(request):
                         if val_clase != '':
                             act.precio_clase = float(val_clase)
 
-                    input_mes = f"precio_mes_{act.id}"
-                    if input_mes in request.POST:
-                        val_mes = request.POST.get(input_mes, '').strip()
-                        if val_mes != '':
-                            act.precio_mensualidad = float(val_mes)
-                    
                     # Al hacer save(), salta al models.py y verifica las reglas
                     act.save()
             
@@ -3466,7 +3487,6 @@ def detalle_clase_api(request, clase_id):
             cantidad_inscriptos if es_admin and clase_finalizada else cupos
         ),
         'precio_clase': float(clase.actividad.precio_clase),
-        'precio_mensualidad': float(clase.actividad.precio_mensualidad),
         'logueado': request.user.is_authenticated,
         'rol': request.user.rol if request.user.is_authenticated else 'anonimo',
         'ya_inscripto': ya_inscripto,
