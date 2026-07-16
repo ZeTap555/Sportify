@@ -970,6 +970,8 @@
                     botonMensualidad = `
                         <button class="modal-btn" disabled style="background-color: #2c2c2e; color: #8e8e93; cursor: not-allowed; opacity: 0.4; margin-top: 5px;">Contratar mensualidad</button>
                     `;
+                } else if (modalData.ya_mensualizado) {
+                    // No mostrar botón — ya tiene mensualidad activa para esta actividad
                 } else {
                     const dias = diasHastaFecha(modalFecha);
                     if (dias >= 0 && dias <= 7) {
