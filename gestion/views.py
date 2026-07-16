@@ -1974,8 +1974,6 @@ def pago_exito(request):
 
         threading.Thread(target=enviar_confirmacion, args=(usuario_reserva, clase, reserva), kwargs={'monto_total': Decimal(datos['monto']), 'mensaje_extra': mensaje_extra}).start()
 
-        Strike.objects.filter(usuario=usuario_reserva, tipo='mensual').delete()
-
     else:
         # Flujo individual con Mercado Pago
         with transaction.atomic():
@@ -2011,8 +2009,6 @@ def pago_exito(request):
 
         else:
             print(f"ℹ️ La reserva {reserva.id} ya existía. Se evitó el IntegrityError.")
-
-        Strike.objects.filter(usuario=usuario_reserva, tipo='individual').delete()
 
     if 'inscripcion_pendiente' in request.session:
         del request.session['inscripcion_pendiente']
